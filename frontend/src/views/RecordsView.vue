@@ -8,20 +8,20 @@ const store = useRuntimeStore()
 
 <template>
   <section class="records-page">
-    <section class="summary-strip">
-      <article class="summary-block">
+    <section class="overview-band">
+      <article class="overview-item">
         <small>回看总数</small>
         <strong>{{ store.state.archiveSummary?.archive_total ?? 0 }}</strong>
       </article>
-      <article class="summary-block">
+      <article class="overview-item">
         <small>包含提醒</small>
         <strong>{{ store.state.archiveSummary?.sessions_with_incidents ?? 0 }}</strong>
       </article>
-      <article class="summary-block">
+      <article class="overview-item">
         <small>平均时长</small>
         <strong>{{ formatSeconds(store.state.archiveSummary?.mean_duration_seconds ?? 0) }}</strong>
       </article>
-      <article class="summary-block emphasis">
+      <article class="overview-item emphasis">
         <small>最近一条</small>
         <strong>{{ stateLabel(store.state.archiveSummary?.latest_archive?.dominant_state ?? null) }}</strong>
         <span>{{ formatArchiveTime(store.state.archiveSummary?.latest_archive?.archived_at ?? null) }}</span>
@@ -44,10 +44,10 @@ const store = useRuntimeStore()
             >
               <a-option value="">全部状态</a-option>
               <a-option value="normal">正常活动</a-option>
-              <a-option value="near_fall">高风险失衡</a-option>
+              <a-option value="near_fall">失衡风险</a-option>
               <a-option value="fall">跌倒</a-option>
               <a-option value="recovery">恢复起身</a-option>
-              <a-option value="prolonged_lying">长时间卧倒</a-option>
+              <a-option value="prolonged_lying">长卧风险</a-option>
             </a-select>
             <label class="switch-line">
               <span>只看提醒</span>
@@ -70,14 +70,14 @@ const store = useRuntimeStore()
           >
             <div class="title-row">
               <strong>{{ item.session_name || item.session_id }}</strong>
-              <span>{{ stateLabel(item.dominant_state) }}</span>
+              <span class="state-pill">{{ stateLabel(item.dominant_state) }}</span>
             </div>
             <div class="meta-row">
               <span>{{ formatArchiveTime(item.archived_at) }}</span>
               <span>{{ formatSeconds(item.duration_seconds) }}</span>
             </div>
             <div class="meta-row muted">
-              <span>事件 {{ item.incident_total }}</span>
+              <span>提醒 {{ item.incident_total }}</span>
               <span>峰值 {{ formatRisk(item.peak_risk_score) }}</span>
             </div>
           </button>
@@ -103,13 +103,13 @@ const store = useRuntimeStore()
   gap: 20px;
 }
 
-.summary-strip {
+.overview-band {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  gap: 12px;
 }
 
-.summary-block,
+.overview-item,
 .records-list,
 .preview-panel {
   border-radius: 28px;
@@ -118,11 +118,11 @@ const store = useRuntimeStore()
   backdrop-filter: blur(18px);
 }
 
-.summary-block {
+.overview-item {
   padding: 18px 20px;
 }
 
-.summary-block small {
+.overview-item small {
   display: block;
   margin-bottom: 10px;
   color: rgba(199, 214, 231, 0.64);
@@ -131,25 +131,25 @@ const store = useRuntimeStore()
   letter-spacing: 0.12em;
 }
 
-.summary-block strong {
+.overview-item strong {
   display: block;
   margin-bottom: 6px;
   font-size: 24px;
   letter-spacing: -0.04em;
 }
 
-.summary-block span {
+.overview-item span {
   color: rgba(199, 214, 231, 0.72);
   font-size: 13px;
 }
 
-.summary-block.emphasis {
+.overview-item.emphasis {
   background: linear-gradient(180deg, rgba(67, 215, 255, 0.1), rgba(6, 14, 24, 0.82));
 }
 
 .records-layout {
   display: grid;
-  grid-template-columns: minmax(360px, 0.84fr) minmax(0, 1.16fr);
+  grid-template-columns: minmax(360px, 0.86fr) minmax(0, 1.14fr);
   gap: 18px;
 }
 
@@ -244,40 +244,56 @@ const store = useRuntimeStore()
 }
 
 .title-row strong {
-  font-size: 15px;
+  font-size: 16px;
+  letter-spacing: -0.03em;
 }
 
-.title-row span,
+.state-pill {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(226, 236, 246, 0.86);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .meta-row span {
   color: rgba(199, 214, 231, 0.72);
   font-size: 13px;
 }
 
 .meta-row.muted span {
-  color: rgba(199, 214, 231, 0.58);
+  color: rgba(199, 214, 231, 0.62);
 }
 
 .empty {
   display: grid;
   place-items: center;
-  min-height: 180px;
+  min-height: 200px;
   border-radius: 24px;
   border: 1px dashed rgba(120, 146, 176, 0.18);
   color: rgba(199, 214, 231, 0.62);
   text-align: center;
 }
 
-@media (max-width: 1200px) {
-  .records-layout,
-  .summary-strip {
+@media (max-width: 1280px) {
+  .overview-band {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .records-layout {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 720px) {
+  .overview-band {
+    grid-template-columns: 1fr;
+  }
+
   .records-head {
-    align-items: flex-start;
     flex-direction: column;
+    align-items: flex-start;
   }
 }
 </style>

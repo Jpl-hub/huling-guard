@@ -39,15 +39,35 @@ function seekTo(timestamp: number | null | undefined) {
     <template v-if="report">
       <header class="preview-head">
         <div>
-          <h2>{{ report.session_name || '历史记录' }}</h2>
+          <span class="section-kicker">Replay</span>
+          <h2>{{ report.session_name || '历史回看' }}</h2>
           <p>{{ formatArchiveTime(report.archived_at) }}</p>
         </div>
         <span class="state-pill">{{ stateLabel(report.dominant_state) }}</span>
       </header>
 
+      <div class="topline">
+        <article class="stat emphasis">
+          <small>主导状态</small>
+          <strong>{{ stateLabel(report.dominant_state) }}</strong>
+        </article>
+        <article class="stat">
+          <small>记录时长</small>
+          <strong>{{ formatSeconds(report.duration_seconds) }}</strong>
+        </article>
+        <article class="stat">
+          <small>累计提醒</small>
+          <strong>{{ report.incident_total }}</strong>
+        </article>
+        <article class="stat">
+          <small>峰值风险</small>
+          <strong>{{ formatRisk(report.peak_risk?.risk_score ?? 0) }}</strong>
+        </article>
+      </div>
+
       <div v-if="matchedVideo" class="video-block">
         <div class="video-head">
-          <h3>过程视频</h3>
+          <h3>过程回放</h3>
           <span>{{ matchedVideo.name }}</span>
         </div>
         <div class="video-shell">
@@ -67,7 +87,7 @@ function seekTo(timestamp: number | null | undefined) {
               class="jump-chip"
               @click="seekTo(report.peak_risk.timestamp)"
             >
-              跳到最高风险时刻
+              最高风险时刻 · {{ formatTimestamp(report.peak_risk.timestamp) }}
             </button>
             <button
               v-for="incident in (report.recent_incidents ?? []).slice(0, 3)"
@@ -80,21 +100,6 @@ function seekTo(timestamp: number | null | undefined) {
             </button>
           </div>
         </div>
-      </div>
-
-      <div class="topline">
-        <article class="stat">
-          <small>记录时长</small>
-          <strong>{{ formatSeconds(report.duration_seconds) }}</strong>
-        </article>
-        <article class="stat">
-          <small>累计事件</small>
-          <strong>{{ report.incident_total }}</strong>
-        </article>
-        <article class="stat">
-          <small>峰值风险</small>
-          <strong>{{ formatRisk(report.peak_risk?.risk_score ?? 0) }}</strong>
-        </article>
       </div>
 
       <div class="section">
@@ -118,51 +123,53 @@ function seekTo(timestamp: number | null | undefined) {
         </div>
       </div>
 
-      <div class="section">
-        <h3>风险高点</h3>
-        <div class="list">
-          <article
-            v-for="moment in (report.top_risk_moments ?? []).slice(0, 5)"
-            :key="`${moment.predicted_state}-${moment.timestamp}`"
-            class="item"
-          >
-            <div class="title-row">
-              <strong>{{ stateLabel(moment.predicted_state) }}</strong>
-              <span>{{ formatTimestamp(moment.timestamp) }}</span>
-            </div>
-            <div class="meta-row">
-              <span>风险 {{ formatRisk(moment.risk_score) }}</span>
-              <span>置信度 {{ formatRisk(moment.confidence) }}</span>
-            </div>
-          </article>
+      <div class="section two-col">
+        <div>
+          <h3>风险高点</h3>
+          <div class="list compact">
+            <article
+              v-for="moment in (report.top_risk_moments ?? []).slice(0, 5)"
+              :key="`${moment.predicted_state}-${moment.timestamp}`"
+              class="item"
+            >
+              <div class="title-row">
+                <strong>{{ stateLabel(moment.predicted_state) }}</strong>
+                <span>{{ formatTimestamp(moment.timestamp) }}</span>
+              </div>
+              <div class="meta-row">
+                <span>风险 {{ formatRisk(moment.risk_score) }}</span>
+                <span>置信度 {{ formatRisk(moment.confidence) }}</span>
+              </div>
+            </article>
+          </div>
         </div>
-      </div>
 
-      <div class="section">
-        <h3>最近事件</h3>
-        <div class="list">
-          <article
-            v-for="incident in (report.recent_incidents ?? []).slice(0, 4)"
-            :key="`${incident.kind}-${incident.timestamp}`"
-            class="item"
-          >
-            <div class="title-row">
-              <strong>{{ incidentLabel(incident.kind) }}</strong>
-              <span>{{ formatTimestamp(incident.timestamp) }}</span>
+        <div>
+          <h3>最近提醒</h3>
+          <div class="list compact">
+            <article
+              v-for="incident in (report.recent_incidents ?? []).slice(0, 4)"
+              :key="`${incident.kind}-${incident.timestamp}`"
+              class="item"
+            >
+              <div class="title-row">
+                <strong>{{ incidentLabel(incident.kind) }}</strong>
+                <span>{{ formatTimestamp(incident.timestamp) }}</span>
+              </div>
+              <div class="meta-row">
+                <span>置信度 {{ formatRisk(incident.confidence) }}</span>
+              </div>
+            </article>
+            <div v-if="!report.recent_incidents?.length" class="empty-inline">
+              这条记录没有正式提醒。
             </div>
-            <div class="meta-row">
-              <span>置信度 {{ formatRisk(incident.confidence) }}</span>
-            </div>
-          </article>
-          <div v-if="!report.recent_incidents?.length" class="empty-inline">
-            这条记录没有正式事件。
           </div>
         </div>
       </div>
     </template>
 
     <div v-else class="empty">
-      选择一条历史会话后，这里会显示完整预览。
+      选择一条回看记录后，这里会显示完整过程和关键时刻。
     </div>
   </section>
 </template>
@@ -171,6 +178,15 @@ function seekTo(timestamp: number | null | undefined) {
 .preview-card {
   display: grid;
   gap: 22px;
+}
+
+.section-kicker {
+  display: inline-block;
+  margin-bottom: 8px;
+  color: rgba(143, 181, 221, 0.76);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
 }
 
 .video-block {
@@ -185,7 +201,8 @@ function seekTo(timestamp: number | null | undefined) {
   align-items: center;
 }
 
-.video-head h3 {
+.video-head h3,
+.section h3 {
   margin: 0;
   font-size: 16px;
   letter-spacing: -0.02em;
@@ -243,7 +260,7 @@ function seekTo(timestamp: number | null | undefined) {
 
 .preview-head h2 {
   margin: 0 0 6px;
-  font-size: 22px;
+  font-size: 24px;
   letter-spacing: -0.04em;
 }
 
@@ -258,35 +275,38 @@ function seekTo(timestamp: number | null | undefined) {
   border-radius: 999px;
   background: rgba(67, 215, 255, 0.14);
   color: #d9f7ff;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
 }
 
 .topline {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
-.stat,
-.item {
-  padding: 16px 18px;
+.stat {
+  padding: 18px;
   border-radius: 22px;
   border: 1px solid rgba(120, 146, 176, 0.14);
   background: rgba(255, 255, 255, 0.02);
 }
 
+.stat.emphasis {
+  background: linear-gradient(180deg, rgba(67, 215, 255, 0.1), rgba(255, 255, 255, 0.02));
+}
+
 .stat small {
   display: block;
-  margin-bottom: 10px;
-  color: rgba(199, 214, 231, 0.64);
-  font-size: 12px;
+  margin-bottom: 8px;
+  color: rgba(199, 214, 231, 0.62);
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
 }
 
 .stat strong {
-  font-size: 24px;
+  font-size: 22px;
   letter-spacing: -0.04em;
 }
 
@@ -295,15 +315,25 @@ function seekTo(timestamp: number | null | undefined) {
   gap: 12px;
 }
 
-.section h3 {
-  margin: 0;
-  font-size: 16px;
-  letter-spacing: -0.02em;
+.two-col {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
 }
 
 .list {
   display: grid;
-  gap: 10px;
+  gap: 12px;
+}
+
+.list.compact .item {
+  padding: 14px 16px;
+}
+
+.item {
+  padding: 16px 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(120, 146, 176, 0.14);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .title-row,
@@ -320,6 +350,7 @@ function seekTo(timestamp: number | null | undefined) {
 
 .title-row strong {
   font-size: 15px;
+  letter-spacing: -0.02em;
 }
 
 .title-row span,
@@ -332,7 +363,7 @@ function seekTo(timestamp: number | null | undefined) {
 .empty-inline {
   display: grid;
   place-items: center;
-  min-height: 180px;
+  min-height: 140px;
   border-radius: 22px;
   border: 1px dashed rgba(120, 146, 176, 0.18);
   color: rgba(199, 214, 231, 0.62);
@@ -343,9 +374,23 @@ function seekTo(timestamp: number | null | undefined) {
   min-height: 120px;
 }
 
+@media (max-width: 1100px) {
+  .topline,
+  .two-col {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 720px) {
-  .topline {
+  .topline,
+  .two-col {
     grid-template-columns: 1fr;
+  }
+
+  .preview-head,
+  .video-head {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 </style>

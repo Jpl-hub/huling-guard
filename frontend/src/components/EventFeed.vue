@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Incident } from '../types/runtime'
-import { formatRisk, formatTimestamp, incidentLabel, stateLabel } from '../utils/presenters'
+import { formatRisk, formatTimestamp, incidentAction, incidentLabel, stateLabel } from '../utils/presenters'
 
 import type { ViewMode } from '../types/runtime'
 
@@ -13,8 +13,11 @@ defineProps<{
 <template>
   <section class="event-feed">
     <header class="head">
-      <h2>最近提醒</h2>
-      <span>{{ incidents.length ? `${incidents.length} 条` : '无事件' }}</span>
+      <div>
+        <span class="section-kicker">Recent events</span>
+        <h2>最近提醒</h2>
+      </div>
+      <span>{{ incidents.length ? `${incidents.length} 条` : '无提醒' }}</span>
     </header>
 
     <div v-if="incidents.length" class="list">
@@ -25,12 +28,12 @@ defineProps<{
       >
         <div class="title-row">
           <strong>{{ incidentLabel(incident.kind) }}</strong>
-          <span>{{ formatTimestamp(incident.timestamp) }}</span>
+          <span class="action-pill">{{ incidentAction(incident.kind) }}</span>
         </div>
         <div class="meta-row">
           <span>{{ formatTimestamp(incident.timestamp) }}</span>
           <span v-if="incident.payload?.predicted_state">
-            对应状态 {{ stateLabel(String(incident.payload.predicted_state) as any) }}
+            状态 {{ stateLabel(String(incident.payload.predicted_state) as any) }}
           </span>
           <span v-if="viewMode === 'xray'">置信度 {{ formatRisk(incident.confidence) }}</span>
         </div>
@@ -55,13 +58,22 @@ defineProps<{
   align-items: baseline;
 }
 
+.section-kicker {
+  display: inline-block;
+  margin-bottom: 8px;
+  color: rgba(143, 181, 221, 0.76);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
 .head h2 {
   margin: 0;
   font-size: 20px;
   letter-spacing: -0.03em;
 }
 
-.head span {
+.head span:last-child {
   color: rgba(199, 214, 231, 0.64);
   font-size: 12px;
 }
@@ -87,7 +99,8 @@ defineProps<{
 }
 
 .title-row {
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  align-items: center;
 }
 
 .title-row strong {
@@ -95,7 +108,15 @@ defineProps<{
   letter-spacing: -0.02em;
 }
 
-.title-row span,
+.action-pill {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(67, 215, 255, 0.12);
+  color: #d9f7ff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .meta-row span {
   color: rgba(199, 214, 231, 0.72);
   font-size: 13px;

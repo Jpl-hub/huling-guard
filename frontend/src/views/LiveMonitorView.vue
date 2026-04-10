@@ -24,16 +24,22 @@ const quality = computed(() => store.currentDataQuality.value)
 
 <template>
   <section class="live-page">
-    <section class="answer-strip">
+    <section class="decision-board">
       <article
         v-for="answer in answerCards"
         :key="answer.label"
-        class="answer-card"
+        class="decision-item"
         :data-tone="answer.tone"
       >
         <span>{{ answer.label }}</span>
         <strong>{{ answer.value }}</strong>
-        <small>{{ answer.detail }}</small>
+        <p>{{ answer.detail }}</p>
+      </article>
+
+      <article class="decision-item source-item">
+        <span>当前监看源</span>
+        <strong>{{ store.displaySource.value.label }}</strong>
+        <p>{{ store.displaySource.value.detail }} · {{ store.state.lastUpdatedAt || '尚未同步' }}</p>
       </article>
     </section>
 
@@ -55,8 +61,8 @@ const quality = computed(() => store.currentDataQuality.value)
         <section class="flow-panel">
           <header class="flow-head">
             <div>
-              <span class="section-kicker">过程时间线</span>
-              <h2>{{ store.state.mode === 'care' ? '状态变化' : '风险变化' }}</h2>
+              <span class="section-kicker">Timeline</span>
+              <h2>{{ store.state.mode === 'care' ? '连续状态' : '概率变化' }}</h2>
             </div>
             <span class="flow-chip">
               {{ store.displaySource.value.mode === 'demo' ? '模拟监看' : '实时接入' }}
@@ -83,7 +89,7 @@ const quality = computed(() => store.currentDataQuality.value)
           </div>
 
           <div class="command-copy">
-            <small>{{ hasIncidents ? '请先确认画面并判断是否到场' : '当前系统判断' }}</small>
+            <small>{{ hasIncidents ? '先判断要不要过去' : '当前系统结论' }}</small>
             <h2>{{ store.verdict.value.title }}</h2>
             <p>{{ store.verdict.value.detail }}</p>
           </div>
@@ -98,7 +104,7 @@ const quality = computed(() => store.currentDataQuality.value)
               <strong>{{ formatRisk(store.displayState.value.riskScore) }}</strong>
             </article>
             <article>
-              <span>最近事件</span>
+              <span>最近提醒</span>
               <strong>{{ store.displayIncidents.value.length ? `${store.displayIncidents.value.length} 条` : '无' }}</strong>
             </article>
           </div>
@@ -108,8 +114,8 @@ const quality = computed(() => store.currentDataQuality.value)
           </div>
 
           <div class="command-actions">
-            <a-button type="primary" size="large" @click="store.archiveSession">归档当前会话</a-button>
-            <a-button size="large" @click="store.resetRuntime">开始新会话</a-button>
+            <a-button type="primary" size="large" @click="store.archiveSession">归档本段过程</a-button>
+            <a-button size="large" @click="store.resetRuntime">开始下一段监看</a-button>
           </div>
         </section>
 
@@ -129,8 +135,8 @@ const quality = computed(() => store.currentDataQuality.value)
         <section v-if="store.state.mode === 'xray'" class="side-panel xray-panel">
           <header class="xray-head">
             <div>
-              <span class="section-kicker">算法透视</span>
-              <h2>当前状态分布</h2>
+              <span class="section-kicker">X-Ray</span>
+              <h2>算法透视</h2>
             </div>
           </header>
 
@@ -175,13 +181,13 @@ const quality = computed(() => store.currentDataQuality.value)
   gap: 20px;
 }
 
-.answer-strip {
+.decision-board {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
 }
 
-.answer-card,
+.decision-item,
 .flow-panel,
 .command-deck,
 .side-panel {
@@ -189,43 +195,50 @@ const quality = computed(() => store.currentDataQuality.value)
   backdrop-filter: blur(18px);
 }
 
-.answer-card {
-  display: grid;
-  gap: 8px;
-  padding: 20px 0;
-  border-top: 1px solid rgba(120, 146, 176, 0.16);
-  border-bottom: 1px solid rgba(120, 146, 176, 0.16);
+.decision-item {
+  padding: 18px 20px;
+  border-radius: 24px;
+  border: 1px solid rgba(120, 146, 176, 0.14);
 }
 
-.answer-card span {
+.decision-item span {
+  display: block;
+  margin-bottom: 10px;
   color: rgba(199, 214, 231, 0.62);
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
 }
 
-.answer-card strong {
-  font-size: clamp(24px, 3.2vw, 38px);
+.decision-item strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: clamp(22px, 2.5vw, 32px);
   line-height: 0.98;
-  letter-spacing: -0.06em;
+  letter-spacing: -0.05em;
 }
 
-.answer-card small {
+.decision-item p {
+  margin: 0;
   color: rgba(199, 214, 231, 0.74);
   font-size: 13px;
 }
 
-.answer-card[data-tone='alert'] strong {
+.decision-item[data-tone='alert'] strong {
   color: #ffd6d2;
 }
 
-.answer-card[data-tone='watch'] strong {
+.decision-item[data-tone='watch'] strong {
   color: #ffe3b5;
+}
+
+.source-item {
+  background: linear-gradient(180deg, rgba(67, 215, 255, 0.08), rgba(6, 14, 24, 0.82));
 }
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1.85fr) minmax(360px, 0.82fr);
+  grid-template-columns: minmax(0, 1.95fr) minmax(360px, 0.88fr);
   gap: 20px;
 }
 
@@ -238,17 +251,17 @@ const quality = computed(() => store.currentDataQuality.value)
 .flow-panel,
 .side-panel {
   border-radius: 28px;
-  border: 1px solid rgba(120, 146, 176, 0.12);
+  border: 1px solid rgba(120, 146, 176, 0.14);
   padding: 22px;
 }
 
 .flow-head,
+.command-head,
 .xray-head {
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  align-items: center;
-  margin-bottom: 16px;
+  align-items: flex-start;
 }
 
 .section-kicker {
@@ -263,73 +276,57 @@ const quality = computed(() => store.currentDataQuality.value)
 .flow-head h2,
 .xray-head h2 {
   margin: 0;
-  font-size: 20px;
-  letter-spacing: -0.03em;
+  font-size: 24px;
+  letter-spacing: -0.04em;
 }
 
 .flow-chip,
-.source-chip,
-.command-badge {
-  padding: 9px 12px;
+.command-badge,
+.source-chip {
+  padding: 10px 14px;
   border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(226, 236, 246, 0.86);
   font-size: 12px;
   font-weight: 700;
-}
-
-.flow-chip,
-.source-chip {
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(229, 237, 246, 0.8);
 }
 
 .command-deck {
   display: grid;
   gap: 18px;
-  padding: 26px;
-  border-radius: 30px;
-  border: 1px solid rgba(120, 146, 176, 0.12);
+  border-radius: 28px;
+  border: 1px solid rgba(120, 146, 176, 0.14);
+  padding: 24px;
 }
 
 .command-deck[data-tone='alert'] {
-  background: linear-gradient(180deg, rgba(255, 94, 98, 0.16), rgba(6, 14, 24, 0.92));
+  box-shadow: inset 0 0 0 1px rgba(255, 94, 98, 0.28), 0 0 38px rgba(255, 94, 98, 0.08);
 }
 
 .command-deck[data-tone='watch'] {
-  background: linear-gradient(180deg, rgba(255, 179, 71, 0.16), rgba(6, 14, 24, 0.92));
-}
-
-.command-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-}
-
-.command-badge {
-  width: fit-content;
-  background: rgba(255, 255, 255, 0.08);
-  color: #f4f8fb;
+  box-shadow: inset 0 0 0 1px rgba(255, 179, 71, 0.22), 0 0 34px rgba(255, 179, 71, 0.08);
 }
 
 .command-copy small {
   display: block;
   margin-bottom: 10px;
-  color: rgba(206, 220, 236, 0.62);
+  color: rgba(199, 214, 231, 0.62);
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
 }
 
 .command-copy h2 {
-  margin: 0 0 8px;
-  font-size: clamp(34px, 4vw, 50px);
-  line-height: 0.98;
+  margin: 0 0 10px;
+  font-size: clamp(28px, 3.4vw, 42px);
+  line-height: 0.96;
   letter-spacing: -0.06em;
 }
 
 .command-copy p {
   margin: 0;
-  color: rgba(205, 219, 235, 0.76);
+  color: rgba(213, 224, 237, 0.84);
+  font-size: 14px;
   line-height: 1.6;
 }
 
@@ -340,23 +337,21 @@ const quality = computed(() => store.currentDataQuality.value)
 }
 
 .command-metrics article {
-  padding: 18px;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.04);
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(120, 146, 176, 0.14);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .command-metrics span {
   display: block;
   margin-bottom: 8px;
   color: rgba(199, 214, 231, 0.62);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  font-size: 12px;
 }
 
 .command-metrics strong {
-  font-size: 18px;
-  line-height: 1.15;
+  font-size: 20px;
   letter-spacing: -0.03em;
 }
 
@@ -369,48 +364,40 @@ const quality = computed(() => store.currentDataQuality.value)
 .command-steps span {
   padding: 10px 14px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(224, 234, 244, 0.86);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(228, 236, 245, 0.82);
   font-size: 13px;
 }
 
 .command-actions {
   display: flex;
-  flex-wrap: wrap;
   gap: 12px;
-}
-
-.xray-panel {
-  display: grid;
-  gap: 14px;
+  flex-wrap: wrap;
 }
 
 .quality-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+  margin-bottom: 16px;
 }
 
 .quality-box {
-  display: grid;
-  gap: 8px;
   padding: 16px;
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(120, 146, 176, 0.14);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .quality-box span {
-  color: rgba(199, 214, 231, 0.68);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  display: block;
+  margin-bottom: 8px;
+  color: rgba(199, 214, 231, 0.62);
+  font-size: 12px;
 }
 
 .quality-box strong {
-  font-size: 24px;
-  line-height: 1;
-  letter-spacing: -0.04em;
+  font-size: 20px;
 }
 
 .probabilities {
@@ -420,7 +407,7 @@ const quality = computed(() => store.currentDataQuality.value)
 
 .probability-row {
   display: grid;
-  grid-template-columns: 88px 1fr 64px;
+  grid-template-columns: 88px minmax(0, 1fr) 64px;
   gap: 12px;
   align-items: center;
 }
@@ -440,29 +427,40 @@ const quality = computed(() => store.currentDataQuality.value)
 .fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #43d7ff, #2f72ff);
+  background: linear-gradient(90deg, #3dd7ff, #2f72ff);
 }
 
 .empty-inline {
-  display: grid;
-  place-items: center;
-  min-height: 120px;
-  border-radius: 22px;
-  border: 1px dashed rgba(120, 146, 176, 0.18);
   color: rgba(199, 214, 231, 0.62);
+  font-size: 13px;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1280px) {
+  .decision-board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .workspace {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 900px) {
-  .answer-strip,
   .command-metrics,
   .quality-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .decision-board {
+    grid-template-columns: 1fr;
+  }
+
+  .flow-panel,
+  .side-panel,
+  .command-deck {
+    padding: 18px;
   }
 }
 </style>

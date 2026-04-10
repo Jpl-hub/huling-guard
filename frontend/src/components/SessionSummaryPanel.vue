@@ -13,7 +13,10 @@ defineProps<{
 <template>
   <section class="session-panel">
     <header class="head">
-      <h2>本段过程</h2>
+      <div>
+        <span class="section-kicker">Session</span>
+        <h2>本段过程</h2>
+      </div>
     </header>
 
     <div class="summary-grid">
@@ -26,7 +29,7 @@ defineProps<{
         <strong>{{ formatTimestamp(report?.peak_risk?.timestamp ?? null) }}</strong>
       </article>
       <article class="summary-box">
-        <small>记录时长</small>
+        <small>本段时长</small>
         <strong>{{ formatSeconds(report?.duration_seconds ?? 0) }}</strong>
       </article>
     </div>
@@ -48,7 +51,7 @@ defineProps<{
         </div>
       </article>
       <div v-if="!(report?.longest_segments?.length)" class="empty">
-        当前还没有足够的稳定片段可以展示。
+        当前还没有足够稳定的过程片段可以展示。
       </div>
     </div>
 
@@ -62,6 +65,15 @@ defineProps<{
 .session-panel {
   display: grid;
   gap: 18px;
+}
+
+.section-kicker {
+  display: inline-block;
+  margin-bottom: 8px;
+  color: rgba(143, 181, 221, 0.76);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
 }
 
 .head h2 {

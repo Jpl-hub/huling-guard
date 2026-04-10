@@ -65,16 +65,38 @@ onBeforeUnmount(() => {
   <section class="stage-panel">
     <header class="stage-head">
       <div>
-        <span class="eyebrow">Monitor</span>
+        <span class="eyebrow">Watch floor</span>
         <h2>监看画面</h2>
       </div>
       <div class="stage-controls">
         <span class="mode-pill">{{ sourceModeLabel }}</span>
-        <a-button size="large" @click="emit('reload')">刷新</a-button>
+        <a-button size="large" @click="emit('reload')">刷新状态</a-button>
       </div>
     </header>
 
+    <div class="stage-rail">
+      <article class="rail-card">
+        <span>当前值守源</span>
+        <strong>{{ sourceLabel }}</strong>
+      </article>
+      <article class="rail-card">
+        <span>输入模式</span>
+        <strong>{{ sourceModeLabel }}</strong>
+      </article>
+      <article class="rail-card">
+        <span>当前结论</span>
+        <strong>{{ stateLabel(displayState.predictedState) }}</strong>
+      </article>
+    </div>
+
     <div class="video-shell" :data-tone="stateTone(displayState.predictedState, displayState.riskScore)">
+      <div class="frame-corners">
+        <span class="corner corner-tl" />
+        <span class="corner corner-tr" />
+        <span class="corner corner-bl" />
+        <span class="corner corner-br" />
+      </div>
+
       <img
         v-if="hasLiveSource"
         class="video live-frame"
@@ -93,50 +115,64 @@ onBeforeUnmount(() => {
       />
       <div v-else class="video-empty">当前没有可播放的监看源。</div>
 
+      <div class="scan-line" />
+
       <div class="overlay overlay-top">
         <span class="overlay-chip record-chip">REC</span>
         <span class="overlay-chip">{{ cameraCode }}</span>
         <span class="overlay-chip">{{ sourceLabel }}</span>
-        <span class="overlay-chip">{{ sourceDetail }}</span>
-        <span class="overlay-chip status-chip">{{ stateLabel(displayState.predictedState) }}</span>
+        <span class="overlay-chip">{{ stateLabel(displayState.predictedState) }}</span>
         <span class="overlay-chip">{{ clock }}</span>
       </div>
 
       <div class="overlay overlay-bottom">
         <div class="focus-copy">
           <strong>{{ stateLabel(displayState.predictedState) }}</strong>
-          <span>{{ props.viewMode === 'xray' ? `风险 ${formatRisk(displayState.riskScore)}` : '固定机位监看输入正在持续分析' }}</span>
+          <span>
+            {{ props.viewMode === 'xray' ? `风险 ${formatRisk(displayState.riskScore)}` : '固定机位画面正在持续判断人物状态' }}
+          </span>
         </div>
         <div class="hud-metrics">
-          <span>会话 {{ formatSeconds(report?.duration_seconds ?? 0) }}</span>
+          <span>本段 {{ formatSeconds(report?.duration_seconds ?? 0) }}</span>
           <span>峰值 {{ formatRisk(report?.peak_risk?.risk_score ?? displayState.riskScore) }}</span>
+          <span>{{ sourceDetail }}</span>
         </div>
       </div>
     </div>
 
-    <div v-if="!hasLiveSource && monitorFeeds.length" class="feed-strip">
-      <button
-        v-for="(item, index) in monitorFeeds"
-        :key="item.filename"
-        type="button"
-        class="feed-card"
-        :class="{ active: item.filename === selectedDemoFilename }"
-        @click="emit('selectDemo', item.filename)"
-      >
-        <video
-          class="feed-video"
-          :src="item.url"
-          muted
-          autoplay
-          loop
-          playsinline
-        />
-        <div class="feed-meta">
-          <strong>{{ `CAM-${String(index + 1).padStart(2, '0')}` }}</strong>
-          <span>{{ item.name }}</span>
+    <section v-if="!hasLiveSource && monitorFeeds.length" class="feed-section">
+      <header class="feed-head">
+        <div>
+          <span class="eyebrow">Inputs</span>
+          <h3>模拟值守源</h3>
         </div>
-      </button>
-    </div>
+        <span>{{ monitorFeeds.length }} 路画面</span>
+      </header>
+
+      <div class="feed-strip">
+        <button
+          v-for="(item, index) in monitorFeeds"
+          :key="item.filename"
+          type="button"
+          class="feed-card"
+          :class="{ active: item.filename === selectedDemoFilename }"
+          @click="emit('selectDemo', item.filename)"
+        >
+          <video
+            class="feed-video"
+            :src="item.url"
+            muted
+            autoplay
+            loop
+            playsinline
+          />
+          <div class="feed-meta">
+            <strong>{{ `CAM-${String(index + 1).padStart(2, '0')}` }}</strong>
+            <span>{{ item.name }}</span>
+          </div>
+        </button>
+      </div>
+    </section>
   </section>
 </template>
 
@@ -163,10 +199,15 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
 }
 
-.stage-head h2 {
+.stage-head h2,
+.feed-head h3 {
   margin: 0;
   font-size: 28px;
   letter-spacing: -0.04em;
+}
+
+.feed-head h3 {
+  font-size: 20px;
 }
 
 .stage-controls {
@@ -185,6 +226,33 @@ onBeforeUnmount(() => {
   font-weight: 700;
 }
 
+.stage-rail {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.rail-card {
+  padding: 14px 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(120, 146, 176, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.rail-card span {
+  display: block;
+  margin-bottom: 8px;
+  color: rgba(199, 214, 231, 0.64);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.rail-card strong {
+  font-size: 18px;
+  letter-spacing: -0.03em;
+}
+
 .video-shell {
   position: relative;
   min-height: 640px;
@@ -197,11 +265,11 @@ onBeforeUnmount(() => {
 }
 
 .video-shell[data-tone='alert'] {
-  box-shadow: inset 0 0 0 1px rgba(255, 94, 98, 0.4), 0 0 0 1px rgba(255, 94, 98, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 94, 98, 0.4), 0 0 0 1px rgba(255, 94, 98, 0.08), 0 0 48px rgba(255, 94, 98, 0.12);
 }
 
 .video-shell[data-tone='watch'] {
-  box-shadow: inset 0 0 0 1px rgba(255, 179, 71, 0.35), 0 0 0 1px rgba(255, 179, 71, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 179, 71, 0.35), 0 0 0 1px rgba(255, 179, 71, 0.08), 0 0 42px rgba(255, 179, 71, 0.1);
 }
 
 .video {
@@ -224,6 +292,59 @@ onBeforeUnmount(() => {
   font-size: 14px;
 }
 
+.frame-corners {
+  position: absolute;
+  inset: 18px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.corner {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border-color: rgba(67, 215, 255, 0.55);
+  border-style: solid;
+}
+
+.corner-tl {
+  top: 0;
+  left: 0;
+  border-width: 2px 0 0 2px;
+}
+
+.corner-tr {
+  top: 0;
+  right: 0;
+  border-width: 2px 2px 0 0;
+}
+
+.corner-bl {
+  bottom: 0;
+  left: 0;
+  border-width: 0 0 2px 2px;
+}
+
+.corner-br {
+  right: 0;
+  bottom: 0;
+  border-width: 0 2px 2px 0;
+}
+
+.scan-line {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 0%, rgba(67, 215, 255, 0.04) 48%, transparent 100%);
+  animation: scan 6s linear infinite;
+  pointer-events: none;
+  z-index: 2;
+}
+
+@keyframes scan {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(100%); }
+}
+
 .overlay {
   position: absolute;
   left: 24px;
@@ -231,6 +352,7 @@ onBeforeUnmount(() => {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  z-index: 4;
 }
 
 .overlay-top {
@@ -239,49 +361,42 @@ onBeforeUnmount(() => {
 
 .overlay-bottom {
   bottom: 24px;
-  justify-content: space-between;
   align-items: end;
+  justify-content: space-between;
 }
 
 .overlay-chip {
-  width: fit-content;
-  padding: 9px 12px;
+  padding: 8px 12px;
   border-radius: 999px;
-  background: rgba(5, 10, 18, 0.74);
-  border: 1px solid rgba(140, 166, 194, 0.18);
-  color: rgba(236, 243, 250, 0.88);
+  background: rgba(5, 11, 19, 0.66);
+  border: 1px solid rgba(120, 146, 176, 0.18);
+  color: rgba(240, 246, 252, 0.92);
   font-size: 12px;
   font-weight: 700;
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(14px);
 }
 
 .record-chip {
-  background: rgba(255, 76, 90, 0.88);
-  border-color: rgba(255, 135, 145, 0.42);
-  color: white;
-}
-
-.status-chip {
-  background: rgba(67, 215, 255, 0.12);
-  border-color: rgba(67, 215, 255, 0.2);
+  background: rgba(255, 94, 98, 0.18);
+  border-color: rgba(255, 94, 98, 0.3);
+  color: #ffd9d4;
 }
 
 .focus-copy {
   display: grid;
   gap: 8px;
+  max-width: 420px;
 }
 
 .focus-copy strong {
-  font-size: clamp(34px, 4vw, 52px);
-  line-height: 0.96;
+  font-size: clamp(28px, 4vw, 48px);
+  line-height: 0.92;
   letter-spacing: -0.06em;
-  text-shadow: 0 18px 40px rgba(0, 0, 0, 0.34);
 }
 
-.focus-copy span,
-.hud-metrics span {
-  color: rgba(227, 237, 247, 0.8);
-  font-size: 13px;
+.focus-copy span {
+  color: rgba(222, 232, 243, 0.86);
+  font-size: 14px;
 }
 
 .hud-metrics {
@@ -292,11 +407,30 @@ onBeforeUnmount(() => {
 }
 
 .hud-metrics span {
-  padding: 9px 12px;
+  padding: 10px 14px;
   border-radius: 999px;
-  background: rgba(5, 10, 18, 0.74);
-  border: 1px solid rgba(140, 166, 194, 0.18);
-  backdrop-filter: blur(12px);
+  background: rgba(5, 11, 19, 0.66);
+  border: 1px solid rgba(120, 146, 176, 0.18);
+  color: rgba(232, 240, 249, 0.88);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.feed-section {
+  display: grid;
+  gap: 14px;
+}
+
+.feed-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: end;
+}
+
+.feed-head span:last-child {
+  color: rgba(199, 214, 231, 0.64);
+  font-size: 12px;
 }
 
 .feed-strip {
@@ -308,13 +442,12 @@ onBeforeUnmount(() => {
 .feed-card {
   display: grid;
   gap: 10px;
-  padding: 10px;
-  border-radius: 24px;
+  padding: 12px;
+  border-radius: 22px;
   border: 1px solid rgba(120, 146, 176, 0.14);
-  background: rgba(8, 17, 30, 0.72);
+  background: rgba(255, 255, 255, 0.03);
   color: inherit;
   cursor: pointer;
-  text-align: left;
   transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease;
 }
 
@@ -328,7 +461,7 @@ onBeforeUnmount(() => {
 .feed-video {
   width: 100%;
   aspect-ratio: 16 / 10;
-  border-radius: 16px;
+  border-radius: 14px;
   object-fit: cover;
   background: #07111d;
 }
@@ -336,6 +469,7 @@ onBeforeUnmount(() => {
 .feed-meta {
   display: grid;
   gap: 4px;
+  text-align: left;
 }
 
 .feed-meta strong {
@@ -348,14 +482,16 @@ onBeforeUnmount(() => {
   font-size: 12px;
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1100px) {
+  .stage-rail,
   .feed-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .overlay-bottom {
-    flex-direction: column;
+    gap: 16px;
     align-items: flex-start;
+    flex-direction: column;
   }
 
   .hud-metrics {
@@ -364,22 +500,24 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 720px) {
-  .stage-head {
+  .stage-head,
+  .feed-head {
     flex-direction: column;
     align-items: flex-start;
   }
 
+  .stage-rail,
   .feed-strip {
     grid-template-columns: 1fr;
-  }
-
-  .video-shell {
-    min-height: 520px;
   }
 
   .overlay {
     left: 16px;
     right: 16px;
+  }
+
+  .video {
+    height: 54vh;
   }
 }
 </style>

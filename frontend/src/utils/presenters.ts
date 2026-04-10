@@ -11,21 +11,30 @@ import type {
 
 const stateLabels: Record<string, string> = {
   normal: '正常活动',
-  near_fall: '高风险失衡',
+  near_fall: '失衡风险',
   fall: '跌倒',
   recovery: '恢复起身',
-  prolonged_lying: '长时间卧倒',
+  prolonged_lying: '长卧风险',
   unknown: '未知状态',
   null: '等待判断',
 }
 
 const incidentLabels: Record<string, string> = {
-  near_fall_warning: '高风险失衡',
-  confirmed_fall: '跌倒事件',
-  prolonged_lying: '长时间卧倒',
-  recovery_detected: '恢复起身',
-  recovery: '恢复起身',
-  peak_risk_moment: '风险峰值',
+  near_fall_warning: '出现失衡风险',
+  confirmed_fall: '检测到跌倒',
+  prolonged_lying: '检测到长卧',
+  recovery_detected: '检测到起身恢复',
+  recovery: '检测到起身恢复',
+  peak_risk_moment: '出现风险峰值',
+}
+
+const incidentActions: Record<string, string> = {
+  near_fall_warning: '先看画面',
+  confirmed_fall: '立即到场',
+  prolonged_lying: '立即到场',
+  recovery_detected: '继续观察',
+  recovery: '继续观察',
+  peak_risk_moment: '回看确认',
 }
 
 export function stateLabel(state: GuardState): string {
@@ -37,6 +46,13 @@ export function incidentLabel(kind: string | null | undefined): string {
     return '暂无事件'
   }
   return incidentLabels[kind] ?? kind
+}
+
+export function incidentAction(kind: string | null | undefined): string {
+  if (!kind) {
+    return '继续值守'
+  }
+  return incidentActions[kind] ?? '继续值守'
 }
 
 export function stateTone(
@@ -177,9 +193,9 @@ export function buildQuickAnswers(
 ): QuickAnswer[] {
   if (!display.ready) {
     return [
-      { label: '现在是否安全', value: '正在判断', detail: '等待连续画面稳定', tone: 'neutral' },
-      { label: '是否需要马上去看', value: '继续观察', detail: '尚未形成提醒', tone: 'neutral' },
-      { label: '最近发生了什么', value: '暂无关键变化', detail: '系统热启动中', tone: 'neutral' },
+      { label: '当前是否安全', value: '正在判断', detail: '等待连续画面稳定', tone: 'neutral' },
+      { label: '是否需要过去', value: '先持续观察', detail: '还没有形成正式提醒', tone: 'neutral' },
+      { label: '最近发生了什么', value: '暂无关键变化', detail: '系统仍在建立首段状态流', tone: 'neutral' },
     ]
   }
 
@@ -190,38 +206,38 @@ export function buildQuickAnswers(
       : tone === 'alert'
         ? '存在高风险'
         : tone === 'watch'
-          ? '需要警惕'
+          ? '需要留意'
           : '当前稳定'
   const needGoNow =
     display.predictedState === 'recovery'
-      ? '继续值守观察'
+      ? '继续看画面'
       : tone === 'alert'
-        ? '立即到场查看'
+        ? '现在就去看'
         : tone === 'watch'
-          ? '尽快确认画面'
-          : '继续值守观察'
+          ? '尽快确认'
+          : '暂不到场'
   const recent =
     display.lastIncident != null
       ? `${incidentLabel(display.lastIncident.kind)} · ${formatTimestamp(display.lastIncident.timestamp)}`
-      : '暂无正式事件'
+      : '没有正式提醒'
 
   return [
     {
-      label: '现在是否安全',
+      label: '当前是否安全',
       value: currentSafety,
       detail: stateLabel(display.predictedState),
       tone,
     },
     {
-      label: '是否需要马上去看',
+      label: '是否需要过去',
       value: needGoNow,
-      detail: tone === 'alert' ? '现在去看' : tone === 'watch' ? '尽快确认' : '暂不到场',
+      detail: tone === 'alert' ? '先处理现场' : tone === 'watch' ? '先确认画面' : '继续值守即可',
       tone,
     },
     {
       label: '最近发生了什么',
       value: recent,
-      detail: display.incidentTotal > 0 ? `累计 ${display.incidentTotal} 条事件` : '当前无正式事件' ,
+      detail: display.incidentTotal > 0 ? `累计 ${display.incidentTotal} 次提醒` : '当前无提醒',
       tone: display.incidentTotal > 0 ? 'watch' : 'safe',
     },
   ]
@@ -236,50 +252,50 @@ export function buildVerdict(display: DisplayState): {
 } {
   if (!display.ready) {
     return {
-      badge: '正在启动',
-      title: '正在建立稳定判断',
+      badge: '正在建立判断',
+      title: '等待首段稳定状态',
       action: '保持当前画面',
       detail: '系统正在收集足够的连续画面。',
-      steps: ['保持画面持续输入', '等待首个稳定结论'],
+      steps: ['保持画面连续输入', '等待首个稳定结论'],
     }
   }
 
   if (display.predictedState === 'fall' || display.predictedState === 'prolonged_lying') {
     return {
       badge: '立即处理',
-      title: display.predictedState === 'fall' ? '检测到跌倒' : '检测到长时间卧倒',
+      title: display.predictedState === 'fall' ? '已检测到跌倒' : '已检测到长卧风险',
       action: '立即到场查看',
-      detail: '当前已达到高风险级别。',
-      steps: ['立即查看现场', '确认人员情况', '随后归档当前会话'],
+      detail: '这一段画面已经达到高风险级别。',
+      steps: ['先到场确认人员状态', '完成处理后再归档本段过程'],
     }
   }
 
   if (display.predictedState === 'near_fall') {
     return {
       badge: '尽快确认',
-      title: '检测到明显失衡',
-      action: '尽快查看画面或到场确认',
-      detail: '当前尚未形成跌倒，但动作存在明显风险。',
-      steps: ['先确认是否已恢复稳定', '继续观察后续变化'],
+      title: '画面中出现明显失衡',
+      action: '先看画面，再决定是否过去',
+      detail: '当前还不是跌倒结论，但风险已经抬高。',
+      steps: ['先确认是否已经恢复稳定', '若继续恶化则立即处理'],
     }
   }
 
   if (display.predictedState === 'recovery') {
     return {
       badge: '正在恢复',
-      title: '人员正在恢复起身',
-      action: '持续观察',
-      detail: '当前不是高风险告警。',
-      steps: ['观察是否回到正常活动', '若反复波动再人工确认'],
+      title: '人物正在恢复起身',
+      action: '继续观察',
+      detail: '当前不属于高风险告警，但仍要继续值守。',
+      steps: ['确认是否回到正常活动', '若再次波动则重新判断'],
     }
   }
 
   return {
     badge: '当前稳定',
-    title: '当前处于正常活动',
-    action: '继续监看',
-    detail: '当前没有需要立即处理的高风险状态。',
-    steps: ['继续观察风险变化', '需要时再归档当前会话'],
+    title: '当前为正常活动',
+    action: '继续值守',
+    detail: '这段画面没有出现需要立刻处理的风险。',
+    steps: ['保持当前监看', '需要时再归档本段过程'],
   }
 }
 
@@ -299,7 +315,7 @@ export function runtimeChips(
 ): string[] {
   if (mode === 'care') {
     return [
-      runtime.archiveEnabled ? '历史记录已启用' : '历史记录未启用',
+      runtime.archiveEnabled ? '历史归档已开启' : '历史归档未开启',
       runtime.scenePriorLoaded ? '房间先验已加载' : '房间先验未加载',
     ]
   }
@@ -312,6 +328,6 @@ export function runtimeChips(
     `关键点均值 ${formatPercent(runtime.meanKeypointConfidence)}`,
     `可见关节 ${formatPercent(runtime.visibleJointRatio)}`,
     runtime.scenePriorLoaded ? '房间先验已加载' : '房间先验未加载',
-    runtime.archiveEnabled ? '归档已启用' : '归档未启用',
+    runtime.archiveEnabled ? '历史归档已开启' : '历史归档未开启',
   ]
 }
