@@ -9,6 +9,9 @@ __pycache__/
 .env
 .env.*
 .python-version
+runtime-release/
+runtime-demo/
+runtime-data/
 *.pyc
 *.pyo
 *.pyd

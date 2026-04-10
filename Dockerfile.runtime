@@ -1,4 +1,6 @@
-FROM node:20-alpine AS frontend-build
+ARG FRONTEND_BUILD_IMAGE=node:20-alpine
+ARG RUNTIME_BASE_IMAGE=mcr.microsoft.com/devcontainers/python:1-3.10-bullseye
+FROM ${FRONTEND_BUILD_IMAGE} AS frontend-build
 
 WORKDIR /frontend
 
@@ -8,7 +10,12 @@ RUN npm ci
 COPY frontend /frontend
 RUN npm run build
 
-FROM python:3.10-slim
+FROM ${RUNTIME_BASE_IMAGE}
+
+ARG PIP_INDEX_URL=
+ARG PIP_EXTRA_INDEX_URL=
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
+ARG TORCH_VERSION=2.5.1+cpu
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -17,16 +24,22 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN apt-get update \
+RUN rm -f /etc/apt/sources.list.d/yarn.list /etc/apt/sources.list.d/yarn.list.save \
+    && apt-get update \
     && apt-get install -y --no-install-recommends libglib2.0-0 libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml README.md /app/
+COPY requirements /app/requirements
 COPY src /app/src
 COPY --from=frontend-build /frontend/dist /app/frontend-dist
 
 RUN pip install --upgrade pip \
-    && pip install .
+    && if [ -n "$PIP_INDEX_URL" ]; then pip config set global.index-url "$PIP_INDEX_URL"; fi \
+    && if [ -n "$PIP_EXTRA_INDEX_URL" ]; then pip config set global.extra-index-url "$PIP_EXTRA_INDEX_URL"; fi \
+    && pip install --index-url "$TORCH_INDEX_URL" "torch==$TORCH_VERSION" \
+    && pip install -r /app/requirements/runtime-docker.txt \
+    && pip install --no-deps .
 
 EXPOSE 8000
 

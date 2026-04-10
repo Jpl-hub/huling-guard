@@ -24,11 +24,11 @@ const quality = computed(() => store.currentDataQuality.value)
 
 <template>
   <section class="live-page">
-    <section class="status-rail">
+    <section class="answer-strip">
       <article
         v-for="answer in answerCards"
         :key="answer.label"
-        class="status-item"
+        class="answer-card"
         :data-tone="answer.tone"
       >
         <span>{{ answer.label }}</span>
@@ -38,7 +38,7 @@ const quality = computed(() => store.currentDataQuality.value)
     </section>
 
     <section class="workspace">
-      <div class="primary-column">
+      <div class="stage-column">
         <MonitorStage
           :demo-videos="store.state.demoVideos"
           :selected-demo-filename="store.state.selectedDemoFilename"
@@ -52,90 +52,103 @@ const quality = computed(() => store.currentDataQuality.value)
           @select-demo="store.selectDemo"
         />
 
-        <div class="panel process-panel">
+        <section class="flow-panel">
+          <header class="flow-head">
+            <div>
+              <span class="section-kicker">过程时间线</span>
+              <h2>{{ store.state.mode === 'care' ? '状态变化' : '风险变化' }}</h2>
+            </div>
+            <span class="flow-chip">
+              {{ store.displaySource.value.mode === 'demo' ? '模拟监看' : '实时接入' }}
+            </span>
+          </header>
+
           <StateRibbon
             v-if="store.state.mode === 'care'"
             :report="store.displayReport.value"
             :incidents="store.displayIncidents.value"
           />
           <RiskTimelineChart v-else :items="store.displayTimeline.value?.items ?? []" />
-        </div>
+        </section>
       </div>
 
-      <div class="response-column">
+      <aside class="command-column">
         <section
-          class="verdict-panel"
+          class="command-deck"
           :data-tone="stateTone(store.displayState.value.predictedState, store.displayState.value.riskScore)"
         >
-          <div class="verdict-head">
-            <span class="verdict-badge">{{ store.verdict.value.badge }}</span>
-            <div class="verdict-state">
-              <small>{{ hasIncidents ? '需要确认' : '当前判断' }}</small>
-              <h2>{{ store.verdict.value.title }}</h2>
-              <p>{{ store.verdict.value.detail }}</p>
-            </div>
+          <div class="command-head">
+            <span class="command-badge">{{ store.verdict.value.badge }}</span>
+            <span class="source-chip">{{ store.displaySource.value.detail }}</span>
           </div>
 
-          <div class="decision-line">
-            <article class="decision-main">
-              <span>下一步</span>
+          <div class="command-copy">
+            <small>{{ hasIncidents ? '请先确认画面并判断是否到场' : '当前系统判断' }}</small>
+            <h2>{{ store.verdict.value.title }}</h2>
+            <p>{{ store.verdict.value.detail }}</p>
+          </div>
+
+          <div class="command-metrics">
+            <article>
+              <span>建议动作</span>
               <strong>{{ store.verdict.value.action }}</strong>
             </article>
-            <article class="decision-side">
+            <article>
               <span>当前风险</span>
               <strong>{{ formatRisk(store.displayState.value.riskScore) }}</strong>
             </article>
-            <article class="decision-side">
+            <article>
               <span>最近事件</span>
               <strong>{{ store.displayIncidents.value.length ? `${store.displayIncidents.value.length} 条` : '无' }}</strong>
             </article>
           </div>
 
-          <div class="steps">
+          <div class="command-steps">
             <span v-for="step in store.verdict.value.steps" :key="step">{{ step }}</span>
           </div>
 
-          <div class="actions">
-            <a-button type="primary" size="large" @click="store.archiveSession">保存值守记录</a-button>
-            <a-button size="large" @click="store.resetRuntime">重新开始监看</a-button>
+          <div class="command-actions">
+            <a-button type="primary" size="large" @click="store.archiveSession">归档当前会话</a-button>
+            <a-button size="large" @click="store.resetRuntime">开始新会话</a-button>
           </div>
         </section>
 
-        <div class="panel">
+        <section class="side-panel">
           <EventFeed :incidents="store.displayIncidents.value" :view-mode="store.state.mode" />
-        </div>
+        </section>
 
-        <div class="panel">
+        <section class="side-panel">
           <SessionSummaryPanel
             :report="store.displayReport.value"
             :display-state="store.displayState.value"
             :runtime-chips="store.activeRuntimeChips.value"
             :view-mode="store.state.mode"
           />
-        </div>
+        </section>
 
-        <div v-if="store.state.mode === 'xray'" class="panel xray-panel">
-          <header>
-            <h2>引擎透视</h2>
-            <p>这里展示状态分布、骨架质量和运行参数，默认值守视图不会显示这些工程细节。</p>
+        <section v-if="store.state.mode === 'xray'" class="side-panel xray-panel">
+          <header class="xray-head">
+            <div>
+              <span class="section-kicker">算法透视</span>
+              <h2>当前状态分布</h2>
+            </div>
           </header>
+
           <div v-if="quality" class="quality-grid">
             <article class="quality-box">
               <span>骨架质量</span>
               <strong>{{ formatRisk(quality.pose_quality_score) }}</strong>
-              <small>用于判断当前骨架输入是否足够稳定。</small>
             </article>
             <article class="quality-box">
               <span>关键点均值</span>
               <strong>{{ formatPercent(quality.mean_keypoint_confidence) }}</strong>
-              <small>反映当前窗口内关键点置信度整体水平。</small>
             </article>
             <article class="quality-box">
               <span>可见关节</span>
               <strong>{{ formatPercent(quality.visible_joint_ratio) }}</strong>
-              <small>反映当前窗口中可稳定观测到的关节占比。</small>
             </article>
           </div>
+
           <div v-if="probabilityEntries.length" class="probabilities">
             <article
               v-for="[state, probability] in probabilityEntries"
@@ -149,9 +162,9 @@ const quality = computed(() => store.currentDataQuality.value)
               <strong>{{ formatRisk(Number(probability)) }}</strong>
             </article>
           </div>
-          <div v-else class="empty-inline">当前还没有可展示的状态分布。</div>
-        </div>
-      </div>
+          <div v-else class="empty-inline">当前没有可展示的状态分布。</div>
+        </section>
+      </aside>
     </section>
   </section>
 </template>
@@ -159,219 +172,223 @@ const quality = computed(() => store.currentDataQuality.value)
 <style scoped>
 .live-page {
   display: grid;
-  gap: 24px;
+  gap: 20px;
 }
 
-.status-rail {
+.answer-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
-  padding: 8px 0 0;
-  border-top: 1px solid rgba(120, 146, 176, 0.14);
-  border-bottom: 1px solid rgba(120, 146, 176, 0.14);
+  gap: 16px;
 }
 
-.status-item,
-.panel,
-.verdict-panel {
-  background: rgba(8, 17, 30, 0.76);
-  backdrop-filter: blur(16px);
+.answer-card,
+.flow-panel,
+.command-deck,
+.side-panel {
+  background: rgba(6, 14, 24, 0.74);
+  backdrop-filter: blur(18px);
 }
 
-.status-item {
+.answer-card {
   display: grid;
-  gap: 6px;
-  padding: 18px 10px 18px 0;
+  gap: 8px;
+  padding: 20px 0;
+  border-top: 1px solid rgba(120, 146, 176, 0.16);
+  border-bottom: 1px solid rgba(120, 146, 176, 0.16);
 }
 
-.status-item + .status-item {
-  padding-left: 18px;
-  border-left: 1px solid rgba(120, 146, 176, 0.14);
-}
-
-.status-item span {
-  color: rgba(199, 214, 231, 0.6);
+.answer-card span {
+  color: rgba(199, 214, 231, 0.62);
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
 }
 
-.status-item strong {
-  font-size: clamp(22px, 3vw, 34px);
-  line-height: 1.04;
-  letter-spacing: -0.05em;
+.answer-card strong {
+  font-size: clamp(24px, 3.2vw, 38px);
+  line-height: 0.98;
+  letter-spacing: -0.06em;
 }
 
-.status-item small {
-  color: rgba(199, 214, 231, 0.72);
+.answer-card small {
+  color: rgba(199, 214, 231, 0.74);
   font-size: 13px;
-  line-height: 1.4;
 }
 
-.status-item[data-tone='alert'] strong {
-  color: #ffd3d0;
+.answer-card[data-tone='alert'] strong {
+  color: #ffd6d2;
 }
 
-.status-item[data-tone='watch'] strong {
+.answer-card[data-tone='watch'] strong {
   color: #ffe3b5;
 }
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1.78fr) minmax(360px, 0.82fr);
+  grid-template-columns: minmax(0, 1.85fr) minmax(360px, 0.82fr);
   gap: 20px;
 }
 
-.primary-column,
-.response-column {
+.stage-column,
+.command-column {
   display: grid;
   gap: 20px;
 }
 
-.panel {
-  padding: 24px;
-  border-radius: 30px;
+.flow-panel,
+.side-panel {
+  border-radius: 28px;
   border: 1px solid rgba(120, 146, 176, 0.12);
+  padding: 22px;
 }
 
-.verdict-panel {
-  display: grid;
-  gap: 18px;
-  padding: 28px;
-  border-radius: 30px;
-  border: 1px solid rgba(120, 146, 176, 0.12);
+.flow-head,
+.xray-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 16px;
 }
 
-.verdict-panel[data-tone='alert'] {
-  background: linear-gradient(180deg, rgba(255, 94, 98, 0.14), rgba(8, 17, 30, 0.88));
+.section-kicker {
+  display: inline-block;
+  margin-bottom: 8px;
+  color: rgba(143, 181, 221, 0.76);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
 }
 
-.verdict-panel[data-tone='watch'] {
-  background: linear-gradient(180deg, rgba(255, 179, 71, 0.14), rgba(8, 17, 30, 0.88));
+.flow-head h2,
+.xray-head h2 {
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: -0.03em;
 }
 
-.verdict-head {
-  display: grid;
-  gap: 14px;
-}
-
-.verdict-badge {
-  width: fit-content;
-  padding: 8px 12px;
+.flow-chip,
+.source-chip,
+.command-badge {
+  padding: 9px 12px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  color: #dce8f5;
   font-size: 12px;
   font-weight: 700;
 }
 
-.verdict-state small {
+.flow-chip,
+.source-chip {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(229, 237, 246, 0.8);
+}
+
+.command-deck {
+  display: grid;
+  gap: 18px;
+  padding: 26px;
+  border-radius: 30px;
+  border: 1px solid rgba(120, 146, 176, 0.12);
+}
+
+.command-deck[data-tone='alert'] {
+  background: linear-gradient(180deg, rgba(255, 94, 98, 0.16), rgba(6, 14, 24, 0.92));
+}
+
+.command-deck[data-tone='watch'] {
+  background: linear-gradient(180deg, rgba(255, 179, 71, 0.16), rgba(6, 14, 24, 0.92));
+}
+
+.command-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.command-badge {
+  width: fit-content;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f4f8fb;
+}
+
+.command-copy small {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   color: rgba(206, 220, 236, 0.62);
-  font-size: 12px;
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
 }
 
-.verdict-panel h2 {
+.command-copy h2 {
   margin: 0 0 8px;
-  font-size: clamp(32px, 4vw, 48px);
+  font-size: clamp(34px, 4vw, 50px);
   line-height: 0.98;
-  letter-spacing: -0.05em;
+  letter-spacing: -0.06em;
 }
 
-.verdict-panel p {
+.command-copy p {
   margin: 0;
   color: rgba(205, 219, 235, 0.76);
-  line-height: 1.65;
+  line-height: 1.6;
 }
 
-.decision-line {
+.command-metrics {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
-.decision-main,
-.decision-side {
+.command-metrics article {
   padding: 18px;
-  border-radius: 24px;
+  border-radius: 22px;
   background: rgba(255, 255, 255, 0.04);
 }
 
-.decision-main span,
-.decision-side span {
+.command-metrics span {
   display: block;
   margin-bottom: 8px;
-  color: rgba(199, 214, 231, 0.64);
-  font-size: 12px;
+  color: rgba(199, 214, 231, 0.62);
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
 }
 
-.decision-main strong {
-  font-size: 28px;
-  line-height: 1.02;
-  letter-spacing: -0.05em;
-}
-
-.decision-side strong {
+.command-metrics strong {
   font-size: 18px;
   line-height: 1.15;
   letter-spacing: -0.03em;
 }
 
-.steps {
+.command-steps {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
 }
 
-.steps span {
+.command-steps span {
   padding: 10px 14px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.05);
   color: rgba(224, 234, 244, 0.86);
   font-size: 13px;
 }
 
-.actions {
+.command-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
 }
 
-.process-panel {
-  min-height: 250px;
-}
-
-.xray-panel header {
-  margin-bottom: 16px;
-}
-
-.xray-panel h2 {
-  margin: 0 0 6px;
-  font-size: 20px;
-  letter-spacing: -0.03em;
-}
-
-.xray-panel p {
-  margin: 0;
-  color: rgba(199, 214, 231, 0.72);
-  font-size: 13px;
-}
-
-.probabilities {
+.xray-panel {
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 .quality-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-  margin-bottom: 18px;
 }
 
 .quality-box {
@@ -379,19 +396,15 @@ const quality = computed(() => store.currentDataQuality.value)
   gap: 8px;
   padding: 16px;
   border-radius: 20px;
-  border: 1px solid rgba(120, 146, 176, 0.14);
   background: rgba(255, 255, 255, 0.03);
-}
-
-.quality-box span,
-.quality-box small {
-  color: rgba(199, 214, 231, 0.7);
+  border: 1px solid rgba(120, 146, 176, 0.14);
 }
 
 .quality-box span {
-  font-size: 12px;
+  color: rgba(199, 214, 231, 0.68);
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
 }
 
 .quality-box strong {
@@ -400,9 +413,9 @@ const quality = computed(() => store.currentDataQuality.value)
   letter-spacing: -0.04em;
 }
 
-.quality-box small {
-  font-size: 12px;
-  line-height: 1.5;
+.probabilities {
+  display: grid;
+  gap: 12px;
 }
 
 .probability-row {
@@ -433,7 +446,7 @@ const quality = computed(() => store.currentDataQuality.value)
 .empty-inline {
   display: grid;
   place-items: center;
-  min-height: 140px;
+  min-height: 120px;
   border-radius: 22px;
   border: 1px dashed rgba(120, 146, 176, 0.18);
   color: rgba(199, 214, 231, 0.62);
@@ -445,24 +458,11 @@ const quality = computed(() => store.currentDataQuality.value)
   }
 }
 
-@media (max-width: 780px) {
-  .status-rail,
-  .decision-line {
-    grid-template-columns: 1fr;
-  }
-
+@media (max-width: 900px) {
+  .answer-strip,
+  .command-metrics,
   .quality-grid {
     grid-template-columns: 1fr;
-  }
-
-  .status-item {
-    padding-right: 0;
-  }
-
-  .status-item + .status-item {
-    padding-left: 0;
-    border-left: 0;
-    border-top: 1px solid rgba(120, 146, 176, 0.14);
   }
 }
 </style>

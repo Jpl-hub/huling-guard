@@ -8,34 +8,32 @@ const store = useRuntimeStore()
 
 <template>
   <section class="records-page">
-    <div class="summary-strip">
-      <article class="summary-card">
-        <small>记录总数</small>
+    <section class="summary-strip">
+      <article class="summary-block">
+        <small>回看总数</small>
         <strong>{{ store.state.archiveSummary?.archive_total ?? 0 }}</strong>
-        <span>已保存过程</span>
       </article>
-      <article class="summary-card">
-        <small>重点记录</small>
+      <article class="summary-block">
+        <small>包含提醒</small>
         <strong>{{ store.state.archiveSummary?.sessions_with_incidents ?? 0 }}</strong>
-        <span>包含关键事件</span>
       </article>
-      <article class="summary-card">
+      <article class="summary-block">
         <small>平均时长</small>
         <strong>{{ formatSeconds(store.state.archiveSummary?.mean_duration_seconds ?? 0) }}</strong>
-        <span>单条过程平均时长</span>
       </article>
-      <article class="summary-card emphasis">
-        <small>最近归档</small>
+      <article class="summary-block emphasis">
+        <small>最近一条</small>
         <strong>{{ stateLabel(store.state.archiveSummary?.latest_archive?.dominant_state ?? null) }}</strong>
         <span>{{ formatArchiveTime(store.state.archiveSummary?.latest_archive?.archived_at ?? null) }}</span>
       </article>
-    </div>
+    </section>
 
     <section class="records-layout">
-      <div class="records-list panel">
-        <header class="head">
+      <section class="records-list">
+        <header class="records-head">
           <div>
-            <h2>历史回看</h2>
+            <span class="section-kicker">Archive</span>
+            <h2>回看记录</h2>
           </div>
           <div class="filters">
             <a-select
@@ -52,7 +50,7 @@ const store = useRuntimeStore()
               <a-option value="prolonged_lying">长时间卧倒</a-option>
             </a-select>
             <label class="switch-line">
-              <span>只看有事件</span>
+              <span>只看提醒</span>
               <a-switch
                 :model-value="store.state.archiveIncidentsOnly"
                 @change="store.setArchiveIncidentsOnly(Boolean($event))"
@@ -77,22 +75,24 @@ const store = useRuntimeStore()
             <div class="meta-row">
               <span>{{ formatArchiveTime(item.archived_at) }}</span>
               <span>{{ formatSeconds(item.duration_seconds) }}</span>
+            </div>
+            <div class="meta-row muted">
               <span>事件 {{ item.incident_total }}</span>
               <span>峰值 {{ formatRisk(item.peak_risk_score) }}</span>
             </div>
           </button>
           <div v-if="!(store.state.archives?.items?.length)" class="empty">
-            当前筛选条件下没有可展示的历史会话。
+            当前筛选条件下没有可展示的回看记录。
           </div>
         </div>
-      </div>
+      </section>
 
-      <div class="panel preview-panel">
+      <section class="preview-panel">
         <ArchivePreviewCard
           :report="store.state.selectedArchiveReport"
           :demo-videos="store.state.demoVideos"
         />
-      </div>
+      </section>
     </section>
   </section>
 </template>
@@ -100,74 +100,85 @@ const store = useRuntimeStore()
 <style scoped>
 .records-page {
   display: grid;
-  gap: 18px;
+  gap: 20px;
 }
 
 .summary-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+  gap: 16px;
 }
 
-.summary-card,
-.panel {
+.summary-block,
+.records-list,
+.preview-panel {
   border-radius: 28px;
   border: 1px solid rgba(120, 146, 176, 0.14);
-  background: rgba(8, 17, 30, 0.76);
-  backdrop-filter: blur(16px);
+  background: rgba(6, 14, 24, 0.74);
+  backdrop-filter: blur(18px);
 }
 
-.summary-card {
+.summary-block {
   padding: 18px 20px;
 }
 
-.summary-card small {
+.summary-block small {
   display: block;
   margin-bottom: 10px;
   color: rgba(199, 214, 231, 0.64);
-  font-size: 12px;
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
 }
 
-.summary-card strong {
+.summary-block strong {
   display: block;
   margin-bottom: 6px;
   font-size: 24px;
   letter-spacing: -0.04em;
 }
 
-.summary-card span {
+.summary-block span {
   color: rgba(199, 214, 231, 0.72);
   font-size: 13px;
 }
 
-.summary-card.emphasis {
-  background: linear-gradient(180deg, rgba(67, 215, 255, 0.1), rgba(8, 17, 30, 0.76));
+.summary-block.emphasis {
+  background: linear-gradient(180deg, rgba(67, 215, 255, 0.1), rgba(6, 14, 24, 0.82));
 }
 
 .records-layout {
   display: grid;
-  grid-template-columns: minmax(360px, 0.9fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(360px, 0.84fr) minmax(0, 1.16fr);
   gap: 18px;
 }
 
-.panel {
+.records-list,
+.preview-panel {
   padding: 22px;
 }
 
-.head {
+.records-head {
   display: flex;
   justify-content: space-between;
   gap: 18px;
-  align-items: flex-start;
+  align-items: center;
   margin-bottom: 18px;
 }
 
-.head h2 {
-  margin: 0 0 6px;
-  font-size: 20px;
-  letter-spacing: -0.03em;
+.section-kicker {
+  display: inline-block;
+  margin-bottom: 8px;
+  color: rgba(143, 181, 221, 0.76);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.records-head h2 {
+  margin: 0;
+  font-size: 24px;
+  letter-spacing: -0.04em;
 }
 
 .filters {
@@ -192,9 +203,11 @@ const store = useRuntimeStore()
 
 .archive-item {
   position: relative;
+  display: grid;
+  gap: 8px;
   text-align: left;
-  padding: 16px 18px;
-  border-radius: 22px;
+  padding: 16px 18px 16px 22px;
+  border-radius: 24px;
   border: 1px solid rgba(120, 146, 176, 0.14);
   background: rgba(255, 255, 255, 0.02);
   color: inherit;
@@ -205,10 +218,10 @@ const store = useRuntimeStore()
 .archive-item::before {
   content: '';
   position: absolute;
-  inset: 12px auto 12px 10px;
+  inset: 16px auto 16px 10px;
   width: 3px;
   border-radius: 999px;
-  background: rgba(67, 215, 255, 0.12);
+  background: rgba(67, 215, 255, 0.16);
 }
 
 .archive-item:hover,
@@ -230,10 +243,6 @@ const store = useRuntimeStore()
   flex-wrap: wrap;
 }
 
-.title-row {
-  margin-bottom: 8px;
-}
-
 .title-row strong {
   font-size: 15px;
 }
@@ -244,28 +253,30 @@ const store = useRuntimeStore()
   font-size: 13px;
 }
 
+.meta-row.muted span {
+  color: rgba(199, 214, 231, 0.58);
+}
+
 .empty {
   display: grid;
   place-items: center;
   min-height: 180px;
-  border-radius: 22px;
+  border-radius: 24px;
   border: 1px dashed rgba(120, 146, 176, 0.18);
   color: rgba(199, 214, 231, 0.62);
   text-align: center;
 }
 
 @media (max-width: 1200px) {
-  .records-layout {
+  .records-layout,
+  .summary-strip {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 780px) {
-  .summary-strip {
-    grid-template-columns: 1fr;
-  }
-
-  .head {
+@media (max-width: 900px) {
+  .records-head {
+    align-items: flex-start;
     flex-direction: column;
   }
 }

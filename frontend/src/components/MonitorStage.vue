@@ -33,8 +33,10 @@ const selectedFeedIndex = computed(() =>
 const sourceLabel = computed(() =>
   hasLiveSource.value
     ? props.liveSource?.source_label || '实时输入'
-    : selectedVideo.value?.name ?? '运行时输入',
+    : selectedVideo.value?.name ?? '模拟监看源',
 )
+
+const sourceModeLabel = computed(() => (hasLiveSource.value ? '实时接入' : '模拟监看'))
 
 const cameraCode = computed(() =>
   hasLiveSource.value ? 'CAM-LIVE' : `CAM-${String(selectedFeedIndex.value + 1).padStart(2, '0')}`,
@@ -63,14 +65,11 @@ onBeforeUnmount(() => {
   <section class="stage-panel">
     <header class="stage-head">
       <div>
-        <span class="eyebrow">Live</span>
-        <h2>当前画面</h2>
+        <span class="eyebrow">Monitor</span>
+        <h2>监看画面</h2>
       </div>
       <div class="stage-controls">
-        <div v-if="hasLiveSource" class="live-pill">
-          <strong>实时源已接入</strong>
-          <span>{{ props.liveSource?.source_label || '实时输入' }}</span>
-        </div>
+        <span class="mode-pill">{{ sourceModeLabel }}</span>
         <a-button size="large" @click="emit('reload')">刷新</a-button>
       </div>
     </header>
@@ -92,24 +91,25 @@ onBeforeUnmount(() => {
         loop
         playsinline
       />
-      <div v-else class="video-empty">当前没有可播放的监控示例。</div>
+      <div v-else class="video-empty">当前没有可播放的监看源。</div>
 
-      <div class="overlay">
-        <div class="overlay-topline">
-          <span class="overlay-chip record-chip">REC</span>
-          <span class="overlay-chip">{{ cameraCode }}</span>
-          <span class="overlay-chip">{{ sourceLabel }}</span>
-          <span class="overlay-chip">{{ sourceDetail }}</span>
-          <span class="overlay-chip status-chip">{{ stateLabel(displayState.predictedState) }}</span>
-          <span class="overlay-chip">{{ clock }}</span>
-        </div>
-        <div class="overlay-main">
+      <div class="overlay overlay-top">
+        <span class="overlay-chip record-chip">REC</span>
+        <span class="overlay-chip">{{ cameraCode }}</span>
+        <span class="overlay-chip">{{ sourceLabel }}</span>
+        <span class="overlay-chip">{{ sourceDetail }}</span>
+        <span class="overlay-chip status-chip">{{ stateLabel(displayState.predictedState) }}</span>
+        <span class="overlay-chip">{{ clock }}</span>
+      </div>
+
+      <div class="overlay overlay-bottom">
+        <div class="focus-copy">
           <strong>{{ stateLabel(displayState.predictedState) }}</strong>
-          <span>{{ viewMode === 'xray' ? `风险 ${formatRisk(displayState.riskScore)}` : '系统会持续判断当前状态并记录事件' }}</span>
+          <span>{{ props.viewMode === 'xray' ? `风险 ${formatRisk(displayState.riskScore)}` : '固定机位监看输入正在持续分析' }}</span>
         </div>
-        <div v-if="viewMode === 'xray'" class="overlay-meta">
-          <span>主导状态 {{ stateLabel(report?.dominant_state ?? displayState.predictedState) }}</span>
-          <span>会话时长 {{ formatSeconds(report?.duration_seconds ?? 0) }}</span>
+        <div class="hud-metrics">
+          <span>会话 {{ formatSeconds(report?.duration_seconds ?? 0) }}</span>
+          <span>峰值 {{ formatRisk(report?.peak_risk?.risk_score ?? displayState.riskScore) }}</span>
         </div>
       </div>
     </div>
@@ -150,30 +150,23 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: space-between;
   gap: 18px;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .eyebrow {
   display: inline-block;
   margin-bottom: 8px;
   color: rgba(142, 180, 221, 0.78);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 .stage-head h2 {
-  margin: 0 0 6px;
-  font-size: 26px;
-  letter-spacing: -0.04em;
-}
-
-.stage-head p {
   margin: 0;
-  color: rgba(199, 214, 231, 0.72);
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 28px;
+  letter-spacing: -0.04em;
 }
 
 .stage-controls {
@@ -183,30 +176,20 @@ onBeforeUnmount(() => {
   align-items: center;
 }
 
-.live-pill {
-  display: grid;
-  gap: 4px;
-  min-width: 180px;
-  padding: 12px 16px;
-  border-radius: 20px;
-  background: rgba(67, 215, 255, 0.08);
-  border: 1px solid rgba(67, 215, 255, 0.18);
-}
-
-.live-pill strong {
-  font-size: 13px;
-}
-
-.live-pill span {
-  color: rgba(214, 229, 244, 0.74);
+.mode-pill {
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(230, 238, 247, 0.82);
   font-size: 12px;
+  font-weight: 700;
 }
 
 .video-shell {
   position: relative;
-  min-height: 620px;
+  min-height: 640px;
   overflow: hidden;
-  border-radius: 32px;
+  border-radius: 34px;
   border: 1px solid rgba(120, 146, 176, 0.14);
   background:
     radial-gradient(circle at top, rgba(67, 215, 255, 0.12), transparent 34%),
@@ -224,7 +207,7 @@ onBeforeUnmount(() => {
 .video {
   display: block;
   width: 100%;
-  height: min(76vh, 820px);
+  height: min(78vh, 860px);
   object-fit: cover;
   background: #07111d;
 }
@@ -244,61 +227,76 @@ onBeforeUnmount(() => {
 .overlay {
   position: absolute;
   left: 24px;
-  bottom: 22px;
-  display: grid;
-  gap: 10px;
-  max-width: 56ch;
-}
-
-.overlay-topline {
+  right: 24px;
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.overlay-top {
+  top: 24px;
+}
+
+.overlay-bottom {
+  bottom: 24px;
+  justify-content: space-between;
+  align-items: end;
 }
 
 .overlay-chip {
   width: fit-content;
-  padding: 8px 12px;
+  padding: 9px 12px;
   border-radius: 999px;
-  background: rgba(6, 17, 29, 0.64);
-  border: 1px solid rgba(120, 146, 176, 0.18);
-  color: #dce8f5;
+  background: rgba(5, 10, 18, 0.74);
+  border: 1px solid rgba(140, 166, 194, 0.18);
+  color: rgba(236, 243, 250, 0.88);
   font-size: 12px;
   font-weight: 700;
+  backdrop-filter: blur(12px);
 }
 
 .record-chip {
-  color: #ffd7d3;
-  background: rgba(255, 94, 98, 0.22);
+  background: rgba(255, 76, 90, 0.88);
+  border-color: rgba(255, 135, 145, 0.42);
+  color: white;
 }
 
 .status-chip {
-  background: rgba(6, 17, 29, 0.78);
+  background: rgba(67, 215, 255, 0.12);
+  border-color: rgba(67, 215, 255, 0.2);
 }
 
-.overlay-main {
+.focus-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.focus-copy strong {
+  font-size: clamp(34px, 4vw, 52px);
+  line-height: 0.96;
+  letter-spacing: -0.06em;
+  text-shadow: 0 18px 40px rgba(0, 0, 0, 0.34);
+}
+
+.focus-copy span,
+.hud-metrics span {
+  color: rgba(227, 237, 247, 0.8);
+  font-size: 13px;
+}
+
+.hud-metrics {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  color: #f8fbff;
-}
-
-.overlay-main strong {
-  font-size: clamp(26px, 4vw, 42px);
-  line-height: 1.02;
-  letter-spacing: -0.04em;
-}
-
-.overlay-main span,
-.overlay-meta span {
-  color: rgba(231, 239, 249, 0.88);
-  font-size: 14px;
-}
-
-.overlay-meta {
-  display: flex;
+  gap: 10px;
   flex-wrap: wrap;
-  gap: 12px;
+  justify-content: flex-end;
+}
+
+.hud-metrics span {
+  padding: 9px 12px;
+  border-radius: 999px;
+  background: rgba(5, 10, 18, 0.74);
+  border: 1px solid rgba(140, 166, 194, 0.18);
+  backdrop-filter: blur(12px);
 }
 
 .feed-strip {
@@ -311,17 +309,19 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 10px;
   padding: 10px;
+  border-radius: 24px;
   border: 1px solid rgba(120, 146, 176, 0.14);
-  border-radius: 22px;
   background: rgba(8, 17, 30, 0.72);
+  color: inherit;
   cursor: pointer;
+  text-align: left;
   transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease;
 }
 
 .feed-card:hover,
 .feed-card.active {
   transform: translateY(-2px);
-  border-color: rgba(67, 215, 255, 0.2);
+  border-color: rgba(67, 215, 255, 0.24);
   background: rgba(67, 215, 255, 0.08);
 }
 
@@ -336,7 +336,6 @@ onBeforeUnmount(() => {
 .feed-meta {
   display: grid;
   gap: 4px;
-  text-align: left;
 }
 
 .feed-meta strong {
@@ -345,26 +344,42 @@ onBeforeUnmount(() => {
 }
 
 .feed-meta span {
-  color: rgba(199, 214, 231, 0.72);
+  color: rgba(199, 214, 231, 0.68);
   font-size: 12px;
 }
 
-@media (max-width: 780px) {
+@media (max-width: 1080px) {
+  .feed-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .overlay-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hud-metrics {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
   .stage-head {
     flex-direction: column;
-  }
-
-  .video-shell,
-  .video-empty {
-    min-height: 360px;
-  }
-
-  .video {
-    height: 360px;
+    align-items: flex-start;
   }
 
   .feed-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
+  }
+
+  .video-shell {
+    min-height: 520px;
+  }
+
+  .overlay {
+    left: 16px;
+    right: 16px;
   }
 }
 </style>

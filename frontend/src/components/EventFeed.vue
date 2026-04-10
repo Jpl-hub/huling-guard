@@ -13,7 +13,7 @@ defineProps<{
 <template>
   <section class="event-feed">
     <header class="head">
-      <h2>最近事件</h2>
+      <h2>最近提醒</h2>
       <span>{{ incidents.length ? `${incidents.length} 条` : '无事件' }}</span>
     </header>
 
@@ -37,7 +37,7 @@ defineProps<{
       </article>
     </div>
     <div v-else class="empty">
-      当前没有需要处理的正式事件。
+      当前没有需要处理的提醒。
     </div>
   </section>
 </template>

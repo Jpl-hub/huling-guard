@@ -177,9 +177,9 @@ export function buildQuickAnswers(
 ): QuickAnswer[] {
   if (!display.ready) {
     return [
-      { label: '当前状态', value: '正在判断', detail: '等待稳定结论', tone: 'neutral' },
-      { label: '是否到场', value: '继续观察', detail: '尚未形成提醒', tone: 'neutral' },
-      { label: '最近变化', value: '暂无关键变化', detail: '热启动中', tone: 'neutral' },
+      { label: '现在是否安全', value: '正在判断', detail: '等待连续画面稳定', tone: 'neutral' },
+      { label: '是否需要马上去看', value: '继续观察', detail: '尚未形成提醒', tone: 'neutral' },
+      { label: '最近发生了什么', value: '暂无关键变化', detail: '系统热启动中', tone: 'neutral' },
     ]
   }
 
@@ -207,19 +207,19 @@ export function buildQuickAnswers(
 
   return [
     {
-      label: '当前状态',
+      label: '现在是否安全',
       value: currentSafety,
       detail: stateLabel(display.predictedState),
       tone,
     },
     {
-      label: '是否到场',
+      label: '是否需要马上去看',
       value: needGoNow,
       detail: tone === 'alert' ? '现在去看' : tone === 'watch' ? '尽快确认' : '暂不到场',
       tone,
     },
     {
-      label: '最近变化',
+      label: '最近发生了什么',
       value: recent,
       detail: display.incidentTotal > 0 ? `累计 ${display.incidentTotal} 条事件` : '当前无正式事件' ,
       tone: display.incidentTotal > 0 ? 'watch' : 'safe',
@@ -238,9 +238,9 @@ export function buildVerdict(display: DisplayState): {
     return {
       badge: '正在启动',
       title: '正在建立稳定判断',
-      action: '保持画面持续输入',
-      detail: '等待连续画面稳定后再给出结论。',
-      steps: ['保持画面连续', '等待首个稳定状态'],
+      action: '保持当前画面',
+      detail: '系统正在收集足够的连续画面。',
+      steps: ['保持画面持续输入', '等待首个稳定结论'],
     }
   }
 
@@ -250,7 +250,7 @@ export function buildVerdict(display: DisplayState): {
       title: display.predictedState === 'fall' ? '检测到跌倒' : '检测到长时间卧倒',
       action: '立即到场查看',
       detail: '当前已达到高风险级别。',
-      steps: ['立即查看现场', '确认人员情况', '保留本次记录'],
+      steps: ['立即查看现场', '确认人员情况', '随后归档当前会话'],
     }
   }
 
@@ -260,7 +260,7 @@ export function buildVerdict(display: DisplayState): {
       title: '检测到明显失衡',
       action: '尽快查看画面或到场确认',
       detail: '当前尚未形成跌倒，但动作存在明显风险。',
-      steps: ['确认是否已恢复稳定', '继续观察后续变化'],
+      steps: ['先确认是否已恢复稳定', '继续观察后续变化'],
     }
   }
 
@@ -277,9 +277,9 @@ export function buildVerdict(display: DisplayState): {
   return {
     badge: '当前稳定',
     title: '当前处于正常活动',
-    action: '继续值守',
+    action: '继续监看',
     detail: '当前没有需要立即处理的高风险状态。',
-    steps: ['继续观察风险变化', '需要时再归档本次记录'],
+    steps: ['继续观察风险变化', '需要时再归档当前会话'],
   }
 }
 

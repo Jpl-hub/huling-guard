@@ -122,7 +122,27 @@ Docker 方式可使用：
 docker compose -f docker-compose.runtime.yml up --build
 ```
 
-Docker 镜像将自动完成前端构建，并在运行时服务中直接提供 `/dashboard` 页面。默认归档路径为容器内 `/runtime-data/archive`。
+默认会在本机 `http://127.0.0.1:18014/dashboard#/live` 提供页面。Docker 镜像会自动完成前端构建，并在运行时服务中直接提供 `/dashboard` 页面。默认归档路径为容器内 `/runtime-data/archive`。
+如需在本机直接展示模拟监看页面，请同时准备：
+
+- `runtime-release/`
+  放置发布包，必须包含 `release_manifest.json`、模型权重和运行时配置。
+- `runtime-demo/`
+  放置模拟监看数据，目录结构为 `videos/`、`reports/sessions/`、`predictions/`。
+
+对应的宿主机路径可通过 [.env.runtime.example](D:/code/myproject/.env.runtime.example) 中的 `HULING_RELEASE_DIR`、`HULING_RUNTIME_DATA_DIR`、`HULING_DEMO_DIR` 调整。
+如本机无法直接访问 Docker Hub 或 PyPI，可同时配置：
+
+- `HULING_RUNTIME_BASE_IMAGE`
+  指向可访问的 Python 基础镜像。
+- `HULING_PIP_INDEX_URL`
+  指向可访问的 Python 包镜像源。
+- `HULING_PIP_EXTRA_INDEX_URL`
+  用于补充额外包源。
+
+当前 compose 已支持通过这些变量重定向构建来源，不需要再手改 Dockerfile。
+
+本地演示默认使用 CPU 推理镜像，并通过 `HULING_TORCH_INDEX_URL`、`HULING_TORCH_VERSION` 指定 CPU 版 `torch`，避免把训练机上的 CUDA 依赖带进最终交付。
 
 ## 前端开发
 
