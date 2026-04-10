@@ -8,25 +8,10 @@ import cv2
 import numpy as np
 
 from huling_guard.data.pose_io import normalize_pose_coords
-from huling_guard.runtime.pipeline import PipelineSnapshot
 from huling_guard.runtime.rtmo import RTMOPoseEstimator
 from huling_guard.runtime.session_report import build_session_report, write_session_report
 from huling_guard.runtime.service import RuntimeLaunchConfig, build_runtime_pipeline
-
-COCO_SKELETON = (
-    (5, 7),
-    (7, 9),
-    (6, 8),
-    (8, 10),
-    (5, 6),
-    (5, 11),
-    (6, 12),
-    (11, 12),
-    (11, 13),
-    (13, 15),
-    (12, 14),
-    (14, 16),
-)
+from huling_guard.runtime.visualize import annotate_snapshot_overlay, draw_pose_overlay
 
 
 @dataclass(slots=True)
@@ -39,49 +24,6 @@ class VideoInferenceConfig:
     output_report_markdown: Path | None = None
     rtmo_device: str = "cuda:0"
     score_threshold: float = 0.2
-
-
-def _draw_pose(frame: np.ndarray, keypoints: np.ndarray, score_threshold: float) -> None:
-    for start, end in COCO_SKELETON:
-        p1 = keypoints[start]
-        p2 = keypoints[end]
-        if float(p1[2]) < score_threshold or float(p2[2]) < score_threshold:
-            continue
-        cv2.line(
-            frame,
-            (int(p1[0]), int(p1[1])),
-            (int(p2[0]), int(p2[1])),
-            (0, 220, 255),
-            2,
-        )
-    for point in keypoints:
-        if float(point[2]) < score_threshold:
-            continue
-        cv2.circle(frame, (int(point[0]), int(point[1])), 3, (40, 220, 40), -1)
-
-
-def _annotate_snapshot(frame: np.ndarray, snapshot: PipelineSnapshot) -> None:
-    lines = [
-        f"ready: {snapshot.ready}",
-        f"state: {snapshot.predicted_state or 'warming_up'}",
-        f"confidence: {snapshot.confidence:.3f}",
-        f"risk: {snapshot.risk_score:.3f}",
-        f"window_span: {snapshot.window_span_seconds:.2f}s",
-    ]
-    if snapshot.incidents:
-        lines.append("incidents: " + ", ".join(incident.kind for incident in snapshot.incidents))
-    for index, line in enumerate(lines):
-        cv2.putText(
-            frame,
-            line,
-            (16, 28 + index * 24),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.65,
-            (255, 255, 255),
-            2,
-            cv2.LINE_AA,
-        )
-
 
 def run_video_inference_with_runtime(
     *,
@@ -146,8 +88,8 @@ def run_video_inference_with_runtime(
             if writer is not None:
                 annotated = frame.copy()
                 if primary is not None:
-                    _draw_pose(annotated, pose, score_threshold)
-                _annotate_snapshot(annotated, snapshot)
+                    draw_pose_overlay(annotated, pose, score_threshold)
+                annotate_snapshot_overlay(annotated, snapshot)
                 writer.write(annotated)
 
             processed += 1

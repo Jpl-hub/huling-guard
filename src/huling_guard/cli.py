@@ -150,6 +150,18 @@ def build_parser() -> argparse.ArgumentParser:
     run_release_video_batch.add_argument("--write-video", action="store_true")
     run_release_video_batch.add_argument("--tolerance-seconds", type=float, default=2.0)
 
+    run_live_ingest = subparsers.add_parser("run-live-ingest")
+    run_live_ingest.add_argument("--runtime-url", required=True)
+    run_live_ingest.add_argument("--source", required=True)
+    run_live_ingest.add_argument("--source-label")
+    run_live_ingest.add_argument("--rtmo-device", default="cuda:0")
+    run_live_ingest.add_argument("--frame-stride", type=int, default=1)
+    run_live_ingest.add_argument("--preview-stride", type=int, default=4)
+    run_live_ingest.add_argument("--score-threshold", type=float, default=0.2)
+    run_live_ingest.add_argument("--request-timeout", type=float, default=10.0)
+    run_live_ingest.add_argument("--max-frames", type=int)
+    run_live_ingest.add_argument("--loop", action="store_true")
+
     calibrate_runtime = subparsers.add_parser("calibrate-runtime")
     calibrate_runtime.add_argument("--train-config", required=True)
     calibrate_runtime.add_argument("--runtime-config", required=True)
@@ -485,6 +497,26 @@ def main() -> None:
             tolerance_seconds=args.tolerance_seconds,
         )
         print(json.dumps(result, ensure_ascii=False, indent=2), end="")
+        return
+
+    if args.command == "run-live-ingest":
+        from huling_guard.runtime import LiveIngestConfig, run_live_ingest
+
+        processed = run_live_ingest(
+            LiveIngestConfig(
+                runtime_url=args.runtime_url,
+                source=args.source,
+                source_label=args.source_label,
+                rtmo_device=args.rtmo_device,
+                frame_stride=args.frame_stride,
+                preview_stride=args.preview_stride,
+                score_threshold=args.score_threshold,
+                request_timeout=args.request_timeout,
+                max_frames=args.max_frames,
+                loop=args.loop,
+            )
+        )
+        print(f"[live-ingest] processed={processed}", flush=True)
         return
 
     if args.command == "calibrate-runtime":

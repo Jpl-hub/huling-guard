@@ -11,6 +11,7 @@ import type {
   SummaryResponse,
   SystemProfileResponse,
   TimelineResponse,
+  LiveSourceResponse,
 } from '../types/runtime'
 
 const baseUrl = (import.meta.env.VITE_RUNTIME_BASE_URL ?? '').replace(/\/$/, '')
@@ -51,6 +52,7 @@ export const runtimeApi = {
   incidents: (limit = 10) => request<{ count: number; items: Incident[] }>(`/incidents?limit=${limit}`),
   systemProfile: () => request<SystemProfileResponse>('/system-profile'),
   sessionReport: () => request<SessionReport>('/session-report'),
+  liveSource: () => request<LiveSourceResponse>('/live-source'),
   demoVideos: () => request<DemoVideosResponse>('/demo-videos'),
   demoSession: (filename: string) =>
     request<DemoSessionResponse>(`/demo-sessions/${encodeURIComponent(filename)}`),

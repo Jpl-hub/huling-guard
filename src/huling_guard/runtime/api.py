@@ -5,8 +5,8 @@ import json
 from pathlib import Path
 
 import numpy as np
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -211,6 +211,17 @@ def create_runtime_app(
     )
     archive_store = RuntimeArchiveStore(archive_root) if archive_root is not None else None
     resolved_demo_video_root = Path(demo_video_root).resolve() if demo_video_root is not None else None
+    live_preview: dict[str, object] = {
+        "bytes": None,
+        "content_type": "image/jpeg",
+        "source": None,
+        "source_label": None,
+        "timestamp": None,
+        "frame_width": None,
+        "frame_height": None,
+        "annotated": False,
+        "updated_at": None,
+    }
     profile_payload = system_profile or _default_system_profile(
         pipeline=pipeline,
         archive_enabled=archive_store is not None,
@@ -310,6 +321,61 @@ def create_runtime_app(
             return _load_demo_session_payload(resolved_demo_video_root, stem=stem, limit=limit)
         except FileNotFoundError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
+
+    @app.get("/live-source")
+    def live_source() -> dict[str, object]:
+        return {
+            "available": live_preview["bytes"] is not None,
+            "source": live_preview["source"],
+            "source_label": live_preview["source_label"],
+            "timestamp": live_preview["timestamp"],
+            "frame_width": live_preview["frame_width"],
+            "frame_height": live_preview["frame_height"],
+            "annotated": live_preview["annotated"],
+            "updated_at": live_preview["updated_at"],
+        }
+
+    @app.get("/live-frame")
+    def live_frame() -> Response:
+        frame_bytes = live_preview["bytes"]
+        if frame_bytes is None:
+            raise HTTPException(status_code=404, detail="live frame is not available")
+        return Response(
+            content=frame_bytes,
+            media_type=str(live_preview["content_type"] or "image/jpeg"),
+            headers={"Cache-Control": "no-store, max-age=0"},
+        )
+
+    @app.post("/live-frame")
+    async def push_live_frame(
+        request: Request,
+        source: str | None = Query(default=None),
+        source_label: str | None = Query(default=None),
+        timestamp: float | None = Query(default=None),
+        frame_width: int | None = Query(default=None),
+        frame_height: int | None = Query(default=None),
+        annotated: bool = Query(default=False),
+    ) -> dict[str, object]:
+        payload = await request.body()
+        if not payload:
+            raise HTTPException(status_code=400, detail="live frame payload is empty")
+        live_preview["bytes"] = payload
+        live_preview["content_type"] = request.headers.get("content-type", "image/jpeg")
+        live_preview["source"] = source
+        live_preview["source_label"] = source_label or source
+        live_preview["timestamp"] = timestamp
+        live_preview["frame_width"] = frame_width
+        live_preview["frame_height"] = frame_height
+        live_preview["annotated"] = annotated
+        live_preview["updated_at"] = float(timestamp) if timestamp is not None else None
+        return {
+            "status": "ok",
+            "source": live_preview["source"],
+            "source_label": live_preview["source_label"],
+            "timestamp": live_preview["timestamp"],
+            "annotated": live_preview["annotated"],
+            "size_bytes": len(payload),
+        }
 
     @app.get("/session-report")
     def session_report(limit: int = Query(default=512, ge=1, le=snapshot_history_size)) -> dict[str, object]:

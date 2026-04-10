@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
-import type { DemoVideoItem, DisplayState, SessionReport, ViewMode } from '../types/runtime'
+import type { DemoVideoItem, DisplayState, LiveSourceResponse, SessionReport, ViewMode } from '../types/runtime'
 import { formatRisk, formatSeconds, stateLabel, stateTone } from '../utils/presenters'
 
 const props = defineProps<{
   demoVideos: ReadonlyArray<DemoVideoItem>
   selectedDemoFilename: string
+  liveSource: Readonly<LiveSourceResponse> | null
+  liveFrameUrl: string
   displayState: Readonly<DisplayState>
   report: Readonly<SessionReport> | null
   sourceDetail: string
@@ -17,12 +19,44 @@ const emit = defineEmits<{
   reload: []
   selectDemo: [value: string]
 }>()
+const clock = ref('')
 
 const selectedVideo = computed(() =>
   props.demoVideos.find((item) => item.filename === props.selectedDemoFilename) ?? null,
 )
+const hasLiveSource = computed(() => Boolean(props.liveSource?.available && props.liveFrameUrl))
+const monitorFeeds = computed(() => props.demoVideos.slice(0, 4))
+const selectedFeedIndex = computed(() =>
+  Math.max(0, props.demoVideos.findIndex((item) => item.filename === props.selectedDemoFilename)),
+)
 
-const sourceLabel = computed(() => selectedVideo.value?.name ?? '运行时输入')
+const sourceLabel = computed(() =>
+  hasLiveSource.value
+    ? props.liveSource?.source_label || '实时输入'
+    : selectedVideo.value?.name ?? '运行时输入',
+)
+
+const cameraCode = computed(() =>
+  hasLiveSource.value ? 'CAM-LIVE' : `CAM-${String(selectedFeedIndex.value + 1).padStart(2, '0')}`,
+)
+
+function updateClock() {
+  clock.value = new Date().toLocaleString('zh-CN', { hour12: false })
+}
+
+let timer: number | null = null
+
+onMounted(() => {
+  updateClock()
+  timer = window.setInterval(updateClock, 1000)
+})
+
+onBeforeUnmount(() => {
+  if (timer !== null) {
+    window.clearInterval(timer)
+    timer = null
+  }
+})
 </script>
 
 <template>
@@ -33,27 +67,23 @@ const sourceLabel = computed(() => selectedVideo.value?.name ?? '运行时输入
         <h2>当前画面</h2>
       </div>
       <div class="stage-controls">
-        <a-select
-          :model-value="selectedDemoFilename"
-          size="large"
-          placeholder="选择演示视频"
-          @change="emit('selectDemo', String($event))"
-        >
-          <a-option
-            v-for="item in demoVideos"
-            :key="item.filename"
-            :value="item.filename"
-          >
-            {{ item.name }}
-          </a-option>
-        </a-select>
+        <div v-if="hasLiveSource" class="live-pill">
+          <strong>实时源已接入</strong>
+          <span>{{ props.liveSource?.source_label || '实时输入' }}</span>
+        </div>
         <a-button size="large" @click="emit('reload')">刷新</a-button>
       </div>
     </header>
 
     <div class="video-shell" :data-tone="stateTone(displayState.predictedState, displayState.riskScore)">
+      <img
+        v-if="hasLiveSource"
+        class="video live-frame"
+        :src="liveFrameUrl"
+        alt="实时输入画面"
+      />
       <video
-        v-if="selectedVideo"
+        v-else-if="selectedVideo"
         class="video"
         :src="selectedVideo.url"
         controls
@@ -66,9 +96,12 @@ const sourceLabel = computed(() => selectedVideo.value?.name ?? '运行时输入
 
       <div class="overlay">
         <div class="overlay-topline">
+          <span class="overlay-chip record-chip">REC</span>
+          <span class="overlay-chip">{{ cameraCode }}</span>
           <span class="overlay-chip">{{ sourceLabel }}</span>
           <span class="overlay-chip">{{ sourceDetail }}</span>
           <span class="overlay-chip status-chip">{{ stateLabel(displayState.predictedState) }}</span>
+          <span class="overlay-chip">{{ clock }}</span>
         </div>
         <div class="overlay-main">
           <strong>{{ stateLabel(displayState.predictedState) }}</strong>
@@ -79,6 +112,30 @@ const sourceLabel = computed(() => selectedVideo.value?.name ?? '运行时输入
           <span>会话时长 {{ formatSeconds(report?.duration_seconds ?? 0) }}</span>
         </div>
       </div>
+    </div>
+
+    <div v-if="!hasLiveSource && monitorFeeds.length" class="feed-strip">
+      <button
+        v-for="(item, index) in monitorFeeds"
+        :key="item.filename"
+        type="button"
+        class="feed-card"
+        :class="{ active: item.filename === selectedDemoFilename }"
+        @click="emit('selectDemo', item.filename)"
+      >
+        <video
+          class="feed-video"
+          :src="item.url"
+          muted
+          autoplay
+          loop
+          playsinline
+        />
+        <div class="feed-meta">
+          <strong>{{ `CAM-${String(index + 1).padStart(2, '0')}` }}</strong>
+          <span>{{ item.name }}</span>
+        </div>
+      </button>
     </div>
   </section>
 </template>
@@ -123,6 +180,26 @@ const sourceLabel = computed(() => selectedVideo.value?.name ?? '运行时输入
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+  align-items: center;
+}
+
+.live-pill {
+  display: grid;
+  gap: 4px;
+  min-width: 180px;
+  padding: 12px 16px;
+  border-radius: 20px;
+  background: rgba(67, 215, 255, 0.08);
+  border: 1px solid rgba(67, 215, 255, 0.18);
+}
+
+.live-pill strong {
+  font-size: 13px;
+}
+
+.live-pill span {
+  color: rgba(214, 229, 244, 0.74);
+  font-size: 12px;
 }
 
 .video-shell {
@@ -150,6 +227,10 @@ const sourceLabel = computed(() => selectedVideo.value?.name ?? '运行时输入
   height: min(76vh, 820px);
   object-fit: cover;
   background: #07111d;
+}
+
+.live-frame {
+  image-rendering: auto;
 }
 
 .video-empty {
@@ -186,6 +267,11 @@ const sourceLabel = computed(() => selectedVideo.value?.name ?? '运行时输入
   font-weight: 700;
 }
 
+.record-chip {
+  color: #ffd7d3;
+  background: rgba(255, 94, 98, 0.22);
+}
+
 .status-chip {
   background: rgba(6, 17, 29, 0.78);
 }
@@ -215,6 +301,54 @@ const sourceLabel = computed(() => selectedVideo.value?.name ?? '运行时输入
   gap: 12px;
 }
 
+.feed-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.feed-card {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(120, 146, 176, 0.14);
+  border-radius: 22px;
+  background: rgba(8, 17, 30, 0.72);
+  cursor: pointer;
+  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease;
+}
+
+.feed-card:hover,
+.feed-card.active {
+  transform: translateY(-2px);
+  border-color: rgba(67, 215, 255, 0.2);
+  background: rgba(67, 215, 255, 0.08);
+}
+
+.feed-video {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 16px;
+  object-fit: cover;
+  background: #07111d;
+}
+
+.feed-meta {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+}
+
+.feed-meta strong {
+  font-size: 13px;
+  letter-spacing: 0.08em;
+}
+
+.feed-meta span {
+  color: rgba(199, 214, 231, 0.72);
+  font-size: 12px;
+}
+
 @media (max-width: 780px) {
   .stage-head {
     flex-direction: column;
@@ -227,6 +361,10 @@ const sourceLabel = computed(() => selectedVideo.value?.name ?? '运行时输入
 
   .video {
     height: 360px;
+  }
+
+  .feed-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>

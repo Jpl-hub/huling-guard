@@ -13,6 +13,7 @@ const store = useRuntimeStore()
 
 const answerCards = computed(() => store.quickAnswers.value)
 const hasIncidents = computed(() => store.displayIncidents.value.length > 0)
+const liveFrameUrl = computed(() => store.liveFrameUrl.value)
 const probabilityEntries = computed(() =>
   Object.entries(store.displayState.value.stateProbabilities)
     .sort((a, b) => Number(b[1]) - Number(a[1]))
@@ -40,6 +41,8 @@ const probabilityEntries = computed(() =>
         <MonitorStage
           :demo-videos="store.state.demoVideos"
           :selected-demo-filename="store.state.selectedDemoFilename"
+          :live-source="store.state.liveSource"
+          :live-frame-url="liveFrameUrl"
           :display-state="store.displayState.value"
           :report="store.displayReport.value"
           :source-detail="store.displaySource.value.detail"
@@ -92,8 +95,8 @@ const probabilityEntries = computed(() =>
           </div>
 
           <div class="actions">
-            <a-button type="primary" size="large" @click="store.archiveSession">保存本段记录</a-button>
-            <a-button size="large" @click="store.resetRuntime">开始新一段</a-button>
+            <a-button type="primary" size="large" @click="store.archiveSession">保存值守记录</a-button>
+            <a-button size="large" @click="store.resetRuntime">重新开始监看</a-button>
           </div>
         </section>
 

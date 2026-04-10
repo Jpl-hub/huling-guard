@@ -145,6 +145,17 @@ export interface DemoSessionResponse {
   timeline: TimelineResponse
 }
 
+export interface LiveSourceResponse {
+  available: boolean
+  source: string | null
+  source_label: string | null
+  timestamp: number | null
+  frame_width: number | null
+  frame_height: number | null
+  annotated: boolean
+  updated_at: number | null
+}
+
 export interface DetectableState {
   code: string
   label: string

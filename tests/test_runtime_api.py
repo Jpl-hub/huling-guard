@@ -195,6 +195,36 @@ def test_runtime_api_exposes_demo_videos(tmp_path) -> None:
     assert session_payload["timeline"]["items"][-1]["predicted_state"] == "fall"
 
 
+def test_runtime_api_accepts_live_frame_preview() -> None:
+    app = create_runtime_app(_DummyPipeline())
+    client = testclient.TestClient(app)
+
+    empty = client.get("/live-source")
+    assert empty.status_code == 200
+    assert empty.json()["available"] is False
+
+    push = client.post(
+        "/live-frame?source=rtsp://example&source_label=RTSP%20视频流&timestamp=2.5&frame_width=1280&frame_height=720&annotated=true",
+        content=b"jpeg-bytes",
+        headers={"content-type": "image/jpeg"},
+    )
+    assert push.status_code == 200
+    assert push.json()["status"] == "ok"
+    assert push.json()["annotated"] is True
+
+    source = client.get("/live-source")
+    assert source.status_code == 200
+    payload = source.json()
+    assert payload["available"] is True
+    assert payload["source_label"] == "RTSP 视频流"
+    assert payload["frame_width"] == 1280
+    assert payload["frame_height"] == 720
+
+    frame = client.get("/live-frame")
+    assert frame.status_code == 200
+    assert frame.content == b"jpeg-bytes"
+
+
 def test_runtime_api_can_serve_frontend_dist(tmp_path) -> None:
     frontend_dist = tmp_path / "frontend_dist"
     assets_dir = frontend_dist / "assets"

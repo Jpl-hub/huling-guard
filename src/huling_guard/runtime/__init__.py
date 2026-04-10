@@ -13,6 +13,7 @@ __all__ = [
     "RuntimeReleaseBundle",
     "RoomPriorBuilder",
     "build_session_report",
+    "LiveIngestConfig",
     "VideoInferenceConfig",
     "build_runtime_pipeline",
     "build_runtime_pipeline_from_resources",
@@ -24,6 +25,7 @@ __all__ = [
     "load_session_snapshots",
     "load_batch_video_manifest",
     "run_release_video_batch",
+    "run_live_ingest",
     "run_video_inference",
     "run_video_inference_with_runtime",
     "serve_runtime",
@@ -44,6 +46,7 @@ _EXPORTS = {
     "RoomPriorBuilder": ("huling_guard.runtime.scene_init", "RoomPriorBuilder"),
     "build_session_report": ("huling_guard.runtime.session_report", "build_session_report"),
     "VideoInferenceConfig": ("huling_guard.runtime.video_inference", "VideoInferenceConfig"),
+    "LiveIngestConfig": ("huling_guard.runtime.live_ingest", "LiveIngestConfig"),
     "build_runtime_pipeline_from_resources": (
         "huling_guard.runtime.service",
         "build_runtime_pipeline_from_resources",
@@ -59,6 +62,7 @@ _EXPORTS = {
     ),
     "load_batch_video_manifest": ("huling_guard.runtime.batch_manifest", "load_batch_video_manifest"),
     "run_release_video_batch": ("huling_guard.runtime.batch_inference", "run_release_video_batch"),
+    "run_live_ingest": ("huling_guard.runtime.live_ingest", "run_live_ingest"),
     "run_video_inference": ("huling_guard.runtime.video_inference", "run_video_inference"),
     "run_video_inference_with_runtime": (
         "huling_guard.runtime.video_inference",

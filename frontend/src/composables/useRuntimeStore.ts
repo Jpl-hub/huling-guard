@@ -19,6 +19,7 @@ import type {
   SystemProfileResponse,
   TimelineResponse,
   ViewMode,
+  LiveSourceResponse,
 } from '../types/runtime'
 import {
   buildDisplayStateFromReport,
@@ -41,6 +42,7 @@ interface RuntimeStoreState {
   runtimeReport: SessionReport | null
   runtimeIncidents: Incident[]
   systemProfile: SystemProfileResponse | null
+  liveSource: LiveSourceResponse | null
   demoVideos: DemoVideoItem[]
   selectedDemoFilename: string
   selectedDemoSession: DemoSessionResponse | null
@@ -66,6 +68,7 @@ const state = reactive<RuntimeStoreState>({
   runtimeReport: null,
   runtimeIncidents: [],
   systemProfile: null,
+  liveSource: null,
   demoVideos: [],
   selectedDemoFilename: '',
   selectedDemoSession: null,
@@ -153,6 +156,7 @@ async function refresh(): Promise<void> {
       runtimeIncidentsPayload,
       runtimeReportPayload,
       systemProfilePayload,
+      liveSourcePayload,
     ] = await Promise.all([
       runtimeApi.health(),
       runtimeApi.meta(),
@@ -162,6 +166,7 @@ async function refresh(): Promise<void> {
       runtimeApi.incidents(12),
       runtimeApi.sessionReport(),
       runtimeApi.systemProfile(),
+      runtimeApi.liveSource(),
     ])
 
     state.health = healthPayload
@@ -172,6 +177,7 @@ async function refresh(): Promise<void> {
     state.runtimeIncidents = runtimeIncidentsPayload.items.filter(Boolean) as Incident[]
     state.runtimeReport = runtimeReportPayload
     state.systemProfile = systemProfilePayload
+    state.liveSource = liveSourcePayload
 
     await Promise.all([refreshDemos(), refreshArchives()])
 
@@ -220,15 +226,20 @@ function setArchiveIncidentsOnly(next: boolean): void {
   void refreshArchives()
 }
 
-const displayReport = computed<SessionReport | null>(() => state.selectedDemoSession?.session_report ?? state.runtimeReport)
-const displayTimeline = computed<TimelineResponse | null>(() => state.selectedDemoSession?.timeline ?? state.runtimeTimeline)
+const useLiveRuntime = computed(() => Boolean(state.liveSource?.available))
+const displayReport = computed<SessionReport | null>(() =>
+  useLiveRuntime.value ? state.runtimeReport : state.selectedDemoSession?.session_report ?? state.runtimeReport,
+)
+const displayTimeline = computed<TimelineResponse | null>(() =>
+  useLiveRuntime.value ? state.runtimeTimeline : state.selectedDemoSession?.timeline ?? state.runtimeTimeline,
+)
 const displayState = computed<DisplayState>(() =>
-  state.selectedDemoSession?.session_report
+  !useLiveRuntime.value && state.selectedDemoSession?.session_report
     ? buildDisplayStateFromReport(state.selectedDemoSession.session_report)
     : buildDisplayStateFromRuntime(state.runtimeState, state.runtimeSummary),
 )
 const displayIncidents = computed<Incident[]>(() =>
-  state.selectedDemoSession?.session_report
+  !useLiveRuntime.value && state.selectedDemoSession?.session_report
     ? buildReportIncidents(state.selectedDemoSession.session_report)
     : state.runtimeIncidents,
 )
@@ -245,11 +256,18 @@ const activeRuntimeChips = computed(() =>
   }),
 )
 const displaySource = computed(() => {
+  if (state.liveSource?.available) {
+    return {
+      mode: 'live',
+      label: state.liveSource.source_label || '实时输入',
+      detail: '实时接入',
+    }
+  }
   if (state.selectedDemoSession) {
     return {
       mode: 'demo',
       label: state.selectedDemoSession.name,
-      detail: '示例视频回放',
+      detail: '模拟监看',
     }
   }
   return {
@@ -257,6 +275,14 @@ const displaySource = computed(() => {
     label: '实时输入',
     detail: '运行时状态流',
   }
+})
+
+const liveFrameUrl = computed(() => {
+  if (!state.liveSource?.available) {
+    return ''
+  }
+  const version = state.liveSource.updated_at ?? Date.now()
+  return `/live-frame?v=${encodeURIComponent(String(version))}`
 })
 const displayDominantState = computed<GuardState>(() => displayReport.value?.dominant_state ?? displayState.value.predictedState)
 
@@ -289,6 +315,7 @@ export function useRuntimeStore() {
     activeRuntimeChips,
     displaySource,
     displayDominantState,
+    liveFrameUrl,
     refresh,
     selectDemo,
     loadArchive,
