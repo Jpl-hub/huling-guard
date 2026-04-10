@@ -195,6 +195,28 @@ def test_runtime_api_exposes_demo_videos(tmp_path) -> None:
     assert session_payload["timeline"]["items"][-1]["predicted_state"] == "fall"
 
 
+def test_runtime_api_can_serve_frontend_dist(tmp_path) -> None:
+    frontend_dist = tmp_path / "frontend_dist"
+    assets_dir = frontend_dist / "assets"
+    assets_dir.mkdir(parents=True)
+    (frontend_dist / "index.html").write_text(
+        "<!doctype html><html><body><div id='app'>runtime ui</div><script src='/assets/app.js'></script></body></html>",
+        encoding="utf-8",
+    )
+    (assets_dir / "app.js").write_text("console.log('ok')", encoding="utf-8")
+
+    app = create_runtime_app(_DummyPipeline(), frontend_dist_root=frontend_dist)
+    client = testclient.TestClient(app)
+
+    dashboard = client.get("/dashboard")
+    assert dashboard.status_code == 200
+    assert "runtime ui" in dashboard.text
+
+    asset = client.get("/assets/app.js")
+    assert asset.status_code == 200
+    assert "console.log('ok')" in asset.text
+
+
 def test_runtime_api_normalizes_pose_frame_when_frame_size_is_provided() -> None:
     pipeline = _DummyPipeline()
     app = create_runtime_app(pipeline)

@@ -98,6 +98,7 @@ def build_parser() -> argparse.ArgumentParser:
     serve_runtime.add_argument("--scene-prior")
     serve_runtime.add_argument("--archive-root")
     serve_runtime.add_argument("--demo-video-root")
+    serve_runtime.add_argument("--frontend-dist")
     serve_runtime.add_argument("--device", default="cuda")
     serve_runtime.add_argument("--host", default="0.0.0.0")
     serve_runtime.add_argument("--port", type=int, default=8000)
@@ -107,6 +108,7 @@ def build_parser() -> argparse.ArgumentParser:
     serve_release.add_argument("--scene-prior")
     serve_release.add_argument("--archive-root")
     serve_release.add_argument("--demo-video-root")
+    serve_release.add_argument("--frontend-dist")
     serve_release.add_argument("--device", default="cuda")
     serve_release.add_argument("--host", default="0.0.0.0")
     serve_release.add_argument("--port", type=int, default=8000)
@@ -356,6 +358,7 @@ def main() -> None:
                 scene_prior_path=Path(args.scene_prior) if args.scene_prior else None,
                 archive_root=Path(args.archive_root) if args.archive_root else None,
                 demo_video_root=Path(args.demo_video_root) if args.demo_video_root else None,
+                frontend_dist_root=Path(args.frontend_dist) if args.frontend_dist else None,
                 device=args.device,
                 host=args.host,
                 port=args.port,
@@ -381,6 +384,7 @@ def main() -> None:
                 scene_prior_path=Path(args.scene_prior) if args.scene_prior else None,
                 archive_root=Path(args.archive_root) if args.archive_root else None,
                 demo_video_root=Path(args.demo_video_root) if args.demo_video_root else None,
+                frontend_dist_root=Path(args.frontend_dist) if args.frontend_dist else None,
                 device=args.device,
                 host=args.host,
                 port=args.port,

@@ -23,6 +23,7 @@ class RuntimeLaunchConfig:
     scene_prior_path: Path | None = None
     archive_root: Path | None = None
     demo_video_root: Path | None = None
+    frontend_dist_root: Path | None = None
     device: str = "cuda"
     host: str = "0.0.0.0"
     port: int = 8000
@@ -137,5 +138,6 @@ def serve_runtime(config: RuntimeLaunchConfig) -> None:
         pipeline,
         archive_root=config.archive_root,
         demo_video_root=config.demo_video_root,
+        frontend_dist_root=config.frontend_dist_root,
     )
     uvicorn.run(app, host=config.host, port=config.port, log_level="info")

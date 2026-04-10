@@ -2,12 +2,23 @@
 
 护龄智守是一套面向居家照护与机构值守场景的单房间安全监测系统。系统以固定摄像头为输入，持续输出人员状态、风险变化、事件记录和历史会话归档，用于支持日常值守、异常处置和事后追溯。
 
-## 用户可见功能
+## 应用界面
 
-- 首页展示监控画面、当前判断、建议动作和最近事件
-- 历史记录页支持按状态与事件筛选，并查看记录摘要与关键阶段
-- 系统信息页展示系统用途、识别状态、模块构成和当前部署参数
-- 支持实时服务运行、历史归档留存和演示视频输入
+系统前端采用 `Vue 3 + Vite + Arco Design Vue + ECharts` 实现，运行时界面固定为三页：
+
+- `实时值守`
+  以监控画面为主屏，展示当前状态、是否需要立即到场、最近事件和过程回看。
+- `历史会话`
+  展示已归档记录、筛选条件、关键阶段和关键时刻预览。
+- `系统信息`
+  展示识别链路、状态定义、部署参数和系统适用范围。
+
+前端支持两种显示层次：
+
+- `值守视图`
+  面向值班人员，优先呈现监控画面、处置建议、最近事件和过程回看。
+- `引擎透视`
+  仅在独立模式下显示状态分布、风险时间线和部署参数，不干扰主屏判断。
 
 ## 工程能力
 
@@ -30,8 +41,8 @@
 4. `EventEngine`
 将连续状态流稳定为可直接使用的事件流，包括高风险失衡、跌倒、长时间卧倒和恢复事件。
 
-5. `FastAPI + SQLite + Docker`
-提供运行时接口、历史会话归档和标准化部署封装。
+5. `FastAPI + SQLite + Vue + Docker`
+提供运行时接口、历史会话归档、前端页面和标准化部署封装。
 
 ## 仓库结构
 
@@ -40,21 +51,28 @@ configs/                    训练配置与运行时配置
 docs/                       架构文档与系统设计文档
 scripts/                    数据准备、训练编排、评估与发布脚本
 src/huling_guard/           主代码
+frontend/                   Vue 前端
 tests/                      纯逻辑测试
 ```
 
-## 运行时界面
+## 运行时服务
 
-运行时界面分为三部分：
+运行时服务提供以下接口与页面：
 
-- `实时看护`
-展示监控画面、当前判断、建议动作、风险变化和最近事件。
+- `GET /dashboard`
+  运行时前端入口。
 
-- `事件回看`
-展示历史记录、筛选条件和记录预览，用于追溯与复核。
+- `GET /health /meta /system-profile`
+  服务健康状态、部署参数和系统资料。
 
-- `系统信息`
-展示系统用途、可识别状态、模块构成和当前部署参数，便于安装、维护和交接。
+- `GET /summary /timeline /state /incidents /session-report`
+  当前状态、风险时间线、事件流和会话摘要。
+
+- `GET /archives /archives/summary /archives/{session_id}`
+  历史归档查询与记录预览。
+
+- `GET /demo-videos /demo-sessions/{filename}`
+  演示视频源与配套推理结果。
 
 ## 数据与训练
 
@@ -78,6 +96,7 @@ tests/                      纯逻辑测试
 ```bash
 PYTHONPATH=src python -m huling_guard.cli serve-release \
   --release-dir /path/to/release \
+  --frontend-dist /path/to/frontend/dist \
   --host 0.0.0.0 \
   --port 8014 \
   --archive-root /path/to/archive
@@ -89,7 +108,18 @@ Docker 方式可使用：
 docker compose -f docker-compose.runtime.yml up --build
 ```
 
-默认归档路径为容器内 `/runtime-data/archive`。
+Docker 镜像将自动完成前端构建，并在运行时服务中直接提供 `/dashboard` 页面。默认归档路径为容器内 `/runtime-data/archive`。
+
+## 前端开发
+
+前端本地开发入口：
+
+```bash
+cd frontend
+npx vite --host 127.0.0.1 --port 4174
+```
+
+开发模式下，Vite 会代理运行时接口到本地 `127.0.0.1:18014`。页面采用 hash 路由，便于部署到 `/dashboard`。
 
 ## 常用命令
 

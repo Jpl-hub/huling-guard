@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from huling_guard.data.pose_io import normalize_pose_coords
@@ -47,6 +48,16 @@ def _empty_snapshot() -> PipelineSnapshot:
 def _load_dashboard_html() -> str:
     path = Path(__file__).with_name("dashboard.html")
     return path.read_text(encoding="utf-8")
+
+
+def _resolve_frontend_dist_root(frontend_dist_root: str | Path | None) -> Path | None:
+    if frontend_dist_root is None:
+        return None
+    root = Path(frontend_dist_root).resolve()
+    index_path = root / "index.html"
+    if not root.is_dir() or not index_path.is_file():
+        return None
+    return root
 
 
 def _default_system_profile(
@@ -184,6 +195,7 @@ def create_runtime_app(
     snapshot_history_size: int = 2048,
     archive_root: str | Path | None = None,
     demo_video_root: str | Path | None = None,
+    frontend_dist_root: str | Path | None = None,
     system_profile: dict[str, object] | None = None,
 ) -> FastAPI:
     app = FastAPI(title="HuLing Guard Runtime API", version="0.1.0")
@@ -191,13 +203,23 @@ def create_runtime_app(
     snapshot_history: deque[dict[str, object]] = deque(maxlen=snapshot_history_size)
     incident_counts: Counter[str] = Counter()
     last_snapshot: PipelineSnapshot = _empty_snapshot()
-    dashboard_html = _load_dashboard_html()
+    resolved_frontend_dist_root = _resolve_frontend_dist_root(frontend_dist_root)
+    dashboard_html = (
+        (resolved_frontend_dist_root / "index.html").read_text(encoding="utf-8")
+        if resolved_frontend_dist_root is not None
+        else _load_dashboard_html()
+    )
     archive_store = RuntimeArchiveStore(archive_root) if archive_root is not None else None
     resolved_demo_video_root = Path(demo_video_root).resolve() if demo_video_root is not None else None
     profile_payload = system_profile or _default_system_profile(
         pipeline=pipeline,
         archive_enabled=archive_store is not None,
     )
+
+    if resolved_frontend_dist_root is not None:
+        assets_root = resolved_frontend_dist_root / "assets"
+        if assets_root.is_dir():
+            app.mount("/assets", StaticFiles(directory=assets_root), name="runtime-dashboard-assets")
 
     @app.get("/health")
     def health() -> dict[str, object]:

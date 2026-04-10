@@ -21,6 +21,8 @@ services:
         "/runtime-release",
         "--archive-root",
         "/runtime-data/archive",
+        "--frontend-dist",
+        "/app/frontend-dist",
         "--device",
         "${HULING_DEVICE:-cpu}",
         "--host",
