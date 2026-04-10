@@ -6,13 +6,22 @@ data:
   num_joints: 17
 model:
   pose_dim: 3
-  kinematic_dim: 8
+  kinematic_dim: 12
+  kinematic_feature_set: v2
   scene_dim: 8
   hidden_dim: 192
   num_heads: 6
   depth: 4
   dropout: 0.1
+augmentation:
+  temporal_jitter_frames: 4
+  time_mask_prob: 0.25
+  time_mask_max_frames: 6
+  pose_noise_std: 0.012
+  kinematic_noise_std: 0.01
+  confidence_dropout_prob: 0.04
 training:
+  seed: 2026
   batch_size: 64
   epochs: 30
   learning_rate: 0.0003

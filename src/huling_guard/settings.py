@@ -49,6 +49,16 @@ class TrainingSettings:
 
 
 @dataclass(slots=True)
+class AugmentationSettings:
+    temporal_jitter_frames: int = 0
+    time_mask_prob: float = 0.0
+    time_mask_max_frames: int = 0
+    pose_noise_std: float = 0.0
+    kinematic_noise_std: float = 0.0
+    confidence_dropout_prob: float = 0.0
+
+
+@dataclass(slots=True)
 class RuntimeSettings:
     window_size: int
     inference_stride: int
@@ -71,6 +81,7 @@ class AppSettings:
     data: DataSettings | None = None
     model: ModelSettings | None = None
     training: TrainingSettings | None = None
+    augmentation: AugmentationSettings | None = None
     runtime: RuntimeSettings | None = None
     room: RoomSettings | None = None
 
@@ -86,6 +97,7 @@ def load_settings(path: str | Path) -> AppSettings:
     data = payload.get("data")
     model = payload.get("model")
     training = payload.get("training")
+    augmentation = payload.get("augmentation")
     runtime = payload.get("runtime")
     room = payload.get("room")
     return AppSettings(
@@ -130,6 +142,18 @@ def load_settings(path: str | Path) -> AppSettings:
             output_dir=Path(training["output_dir"]),
         )
         if training
+        else None,
+        augmentation=AugmentationSettings(
+            temporal_jitter_frames=int(augmentation.get("temporal_jitter_frames", 0)),
+            time_mask_prob=float(augmentation.get("time_mask_prob", 0.0)),
+            time_mask_max_frames=int(augmentation.get("time_mask_max_frames", 0)),
+            pose_noise_std=float(augmentation.get("pose_noise_std", 0.0)),
+            kinematic_noise_std=float(augmentation.get("kinematic_noise_std", 0.0)),
+            confidence_dropout_prob=float(
+                augmentation.get("confidence_dropout_prob", 0.0)
+            ),
+        )
+        if augmentation
         else None,
         runtime=RuntimeSettings(
             window_size=int(runtime["window_size"]),

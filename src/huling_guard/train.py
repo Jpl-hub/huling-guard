@@ -12,6 +12,11 @@ import torch
 from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 
 from huling_guard.contracts import ScenePrior
+from huling_guard.data.augmentation import (
+    PoseAugmentationConfig,
+    apply_pose_window_augmentation,
+    sample_window_bounds,
+)
 from huling_guard.data.pose_io import load_pose_archive, normalize_pose_archive_coords
 from huling_guard.features import (
     build_kinematic_features,
@@ -67,10 +72,12 @@ class PoseWindowDataset(Dataset):
         *,
         kinematic_feature_set: str = "v1",
         expected_kinematic_dim: int | None = None,
+        augmentation: PoseAugmentationConfig | None = None,
     ) -> None:
         self.window_size = window_size
         self.kinematic_feature_set = kinematic_feature_set
         self.expected_kinematic_dim = expected_kinematic_dim
+        self.augmentation = augmentation
         self.entries: list[WindowEntry] = []
         with Path(manifest_path).open("r", encoding="utf-8") as handle:
             for line in handle:
@@ -115,11 +122,24 @@ class PoseWindowDataset(Dataset):
 
     def __getitem__(self, index: int) -> dict[str, torch.Tensor]:
         entry = self.entries[index]
+        rng = None
+        if self.augmentation is not None and self.augmentation.enabled():
+            seed = int(torch.initial_seed()) + index
+            rng = np.random.default_rng(seed % (2**32))
         if entry.feature_path is not None:
             feature_payload = _load_feature_archive(entry.feature_path)
-            poses = feature_payload["poses"][entry.start : entry.end]
-            kinematics = feature_payload["kinematics"][entry.start : entry.end]
-            scene_features = feature_payload["scene_features"][entry.start : entry.end]
+            start, end = entry.start, entry.end
+            if rng is not None:
+                start, end = sample_window_bounds(
+                    start=entry.start,
+                    end=entry.end,
+                    total_frames=int(feature_payload["poses"].shape[0]),
+                    jitter_frames=self.augmentation.temporal_jitter_frames,
+                    rng=rng,
+                )
+            poses = feature_payload["poses"][start:end]
+            kinematics = feature_payload["kinematics"][start:end]
+            scene_features = feature_payload["scene_features"][start:end]
             if self.expected_kinematic_dim is not None and kinematics.shape[-1] != self.expected_kinematic_dim:
                 raise ValueError(
                     f"{entry.feature_path} has kinematic_dim={kinematics.shape[-1]} "
@@ -137,7 +157,16 @@ class PoseWindowDataset(Dataset):
         else:
             keypoints, payload = load_pose_archive(entry.pose_path)
             keypoints = normalize_pose_archive_coords(keypoints, payload)
-            keypoints = keypoints[entry.start : entry.end]
+            start, end = entry.start, entry.end
+            if rng is not None:
+                start, end = sample_window_bounds(
+                    start=entry.start,
+                    end=entry.end,
+                    total_frames=int(keypoints.shape[0]),
+                    jitter_frames=self.augmentation.temporal_jitter_frames,
+                    rng=rng,
+                )
+            keypoints = keypoints[start:end]
 
             scene_prior = ScenePrior.load(entry.scene_prior_path) if entry.scene_prior_path else None
             poses = normalize_pose_sequence(keypoints)
@@ -146,6 +175,15 @@ class PoseWindowDataset(Dataset):
                 feature_set=self.kinematic_feature_set,
             )
             scene_features = build_scene_relation_features(keypoints, scene_prior)
+
+        if rng is not None:
+            poses, kinematics, scene_features = apply_pose_window_augmentation(
+                poses=poses,
+                kinematics=kinematics,
+                scene_features=scene_features,
+                config=self.augmentation,
+                rng=rng,
+            )
 
         padded_pose, padding_mask = _pad_to_length(poses, self.window_size)
         padded_kinematics, _ = _pad_to_length(kinematics, self.window_size)
@@ -318,11 +356,24 @@ def run_training(config_path: str | Path) -> Path:
     pin_memory = settings.training.pin_memory and device.type == "cuda"
     loader_generator = torch.Generator()
     loader_generator.manual_seed(settings.training.seed)
+    train_augmentation = (
+        PoseAugmentationConfig(
+            temporal_jitter_frames=settings.augmentation.temporal_jitter_frames,
+            time_mask_prob=settings.augmentation.time_mask_prob,
+            time_mask_max_frames=settings.augmentation.time_mask_max_frames,
+            pose_noise_std=settings.augmentation.pose_noise_std,
+            kinematic_noise_std=settings.augmentation.kinematic_noise_std,
+            confidence_dropout_prob=settings.augmentation.confidence_dropout_prob,
+        )
+        if settings.augmentation is not None
+        else None
+    )
     train_dataset = PoseWindowDataset(
         manifest_path=settings.data.manifest_path,
         window_size=settings.data.window_size,
         kinematic_feature_set=settings.model.kinematic_feature_set,
         expected_kinematic_dim=expected_kinematic_dim,
+        augmentation=train_augmentation,
     )
     train_sampler = None
     if settings.training.balanced_sampling:
@@ -348,6 +399,7 @@ def run_training(config_path: str | Path) -> Path:
             window_size=settings.data.window_size,
             kinematic_feature_set=settings.model.kinematic_feature_set,
             expected_kinematic_dim=expected_kinematic_dim,
+            augmentation=None,
         )
         eval_loader = _build_loader(
             dataset=eval_dataset,
@@ -498,6 +550,18 @@ def run_training(config_path: str | Path) -> Path:
             "amp": amp_enabled,
             "scheduler": settings.training.scheduler,
             "balanced_sampling": settings.training.balanced_sampling,
+            "augmentation": (
+                {
+                    "temporal_jitter_frames": train_augmentation.temporal_jitter_frames,
+                    "time_mask_prob": train_augmentation.time_mask_prob,
+                    "time_mask_max_frames": train_augmentation.time_mask_max_frames,
+                    "pose_noise_std": train_augmentation.pose_noise_std,
+                    "kinematic_noise_std": train_augmentation.kinematic_noise_std,
+                    "confidence_dropout_prob": train_augmentation.confidence_dropout_prob,
+                }
+                if train_augmentation is not None
+                else None
+            ),
             "batch_size": settings.training.batch_size,
             "num_workers": settings.training.num_workers,
             "class_balance_beta": settings.training.class_balance_beta,

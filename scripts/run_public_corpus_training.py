@@ -84,6 +84,14 @@ def build_config(
             "depth": 6,
             "dropout": 0.1,
         },
+        "augmentation": {
+            "temporal_jitter_frames": 4,
+            "time_mask_prob": 0.25,
+            "time_mask_max_frames": 6,
+            "pose_noise_std": 0.012,
+            "kinematic_noise_std": 0.01,
+            "confidence_dropout_prob": 0.04,
+        },
         "training": {
             "seed": seed,
             "batch_size": 64,
