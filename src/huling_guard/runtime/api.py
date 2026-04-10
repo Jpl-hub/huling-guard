@@ -112,6 +112,11 @@ def _default_system_profile(
             "scene_prior_loaded": pipeline.scene_prior is not None,
             "archive_enabled": archive_enabled,
         },
+        "quality_controls": [
+            "运行时持续监测骨架质量分数、关键点平均置信度和可见关节比例",
+            "训练与运行统一使用归一化骨架坐标，避免离线评估与在线推理口径漂移",
+            "状态阈值必须基于独立验证视频校准，不能直接沿用训练阶段的经验值",
+        ],
         "thresholds": {
             "near_fall": thresholds.near_fall_threshold,
             "fall": thresholds.fall_threshold,
@@ -274,6 +279,11 @@ def create_runtime_app(
             "incident_counts": dict(incident_counts),
             "last_incident": incident_history[0] if incident_history else None,
             "timeline_points": len(snapshot_history),
+            "data_quality": {
+                "pose_quality_score": last_snapshot.pose_quality_score,
+                "mean_keypoint_confidence": last_snapshot.mean_keypoint_confidence,
+                "visible_joint_ratio": last_snapshot.visible_joint_ratio,
+            },
         }
 
     @app.get("/timeline")

@@ -253,6 +253,11 @@ const activeRuntimeChips = computed(() =>
     featureSet: state.meta?.kinematic_feature_set,
     archiveEnabled: state.meta?.archive_enabled,
     scenePriorLoaded: state.meta?.scene_prior_loaded,
+    poseQualityScore: state.runtimeState?.data_quality?.pose_quality_score ?? state.runtimeSummary?.data_quality?.pose_quality_score,
+    meanKeypointConfidence:
+      state.runtimeState?.data_quality?.mean_keypoint_confidence ?? state.runtimeSummary?.data_quality?.mean_keypoint_confidence,
+    visibleJointRatio:
+      state.runtimeState?.data_quality?.visible_joint_ratio ?? state.runtimeSummary?.data_quality?.visible_joint_ratio,
   }),
 )
 const displaySource = computed(() => {
@@ -285,6 +290,7 @@ const liveFrameUrl = computed(() => {
   return `/live-frame?v=${encodeURIComponent(String(version))}`
 })
 const displayDominantState = computed<GuardState>(() => displayReport.value?.dominant_state ?? displayState.value.predictedState)
+const currentDataQuality = computed(() => state.runtimeState?.data_quality ?? state.runtimeSummary?.data_quality ?? null)
 
 function startPolling(): void {
   if (pollingTimer !== null) {
@@ -313,6 +319,7 @@ export function useRuntimeStore() {
     quickAnswers,
     verdict,
     activeRuntimeChips,
+    currentDataQuality,
     displaySource,
     displayDominantState,
     liveFrameUrl,

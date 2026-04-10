@@ -7,7 +7,7 @@ import RiskTimelineChart from '../components/RiskTimelineChart.vue'
 import SessionSummaryPanel from '../components/SessionSummaryPanel.vue'
 import StateRibbon from '../components/StateRibbon.vue'
 import { useRuntimeStore } from '../composables/useRuntimeStore'
-import { formatRisk, stateTone } from '../utils/presenters'
+import { formatPercent, formatRisk, stateTone } from '../utils/presenters'
 
 const store = useRuntimeStore()
 
@@ -19,6 +19,7 @@ const probabilityEntries = computed(() =>
     .sort((a, b) => Number(b[1]) - Number(a[1]))
     .slice(0, 5),
 )
+const quality = computed(() => store.currentDataQuality.value)
 </script>
 
 <template>
@@ -116,8 +117,25 @@ const probabilityEntries = computed(() =>
         <div v-if="store.state.mode === 'xray'" class="panel xray-panel">
           <header>
             <h2>引擎透视</h2>
-            <p>这里展示状态分布和运行参数，默认值守视图不会显示这些工程细节。</p>
+            <p>这里展示状态分布、骨架质量和运行参数，默认值守视图不会显示这些工程细节。</p>
           </header>
+          <div v-if="quality" class="quality-grid">
+            <article class="quality-box">
+              <span>骨架质量</span>
+              <strong>{{ formatRisk(quality.pose_quality_score) }}</strong>
+              <small>用于判断当前骨架输入是否足够稳定。</small>
+            </article>
+            <article class="quality-box">
+              <span>关键点均值</span>
+              <strong>{{ formatPercent(quality.mean_keypoint_confidence) }}</strong>
+              <small>反映当前窗口内关键点置信度整体水平。</small>
+            </article>
+            <article class="quality-box">
+              <span>可见关节</span>
+              <strong>{{ formatPercent(quality.visible_joint_ratio) }}</strong>
+              <small>反映当前窗口中可稳定观测到的关节占比。</small>
+            </article>
+          </div>
           <div v-if="probabilityEntries.length" class="probabilities">
             <article
               v-for="[state, probability] in probabilityEntries"
@@ -349,6 +367,44 @@ const probabilityEntries = computed(() =>
   gap: 12px;
 }
 
+.quality-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.quality-box {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(120, 146, 176, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.quality-box span,
+.quality-box small {
+  color: rgba(199, 214, 231, 0.7);
+}
+
+.quality-box span {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.quality-box strong {
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.quality-box small {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .probability-row {
   display: grid;
   grid-template-columns: 88px 1fr 64px;
@@ -392,6 +448,10 @@ const probabilityEntries = computed(() =>
 @media (max-width: 780px) {
   .status-rail,
   .decision-line {
+    grid-template-columns: 1fr;
+  }
+
+  .quality-grid {
     grid-template-columns: 1fr;
   }
 

@@ -62,6 +62,13 @@ export function formatRisk(value: number | null | undefined, digits = 3): string
   return Number.isFinite(value) ? Number(value).toFixed(digits) : '-'
 }
 
+export function formatPercent(value: number | null | undefined, digits = 0): string {
+  if (!Number.isFinite(value)) {
+    return '-'
+  }
+  return `${(Number(value) * 100).toFixed(digits)}%`
+}
+
 export function formatSeconds(value: number | null | undefined): string {
   if (!Number.isFinite(value)) {
     return '-'
@@ -285,6 +292,9 @@ export function runtimeChips(
     featureSet?: string
     archiveEnabled?: boolean
     scenePriorLoaded?: boolean
+    poseQualityScore?: number
+    meanKeypointConfidence?: number
+    visibleJointRatio?: number
   },
 ): string[] {
   if (mode === 'care') {
@@ -298,6 +308,9 @@ export function runtimeChips(
     `步长 ${runtime.stride ?? '-'}`,
     `设备 ${runtime.device ?? '-'}`,
     `特征 ${runtime.featureSet ?? '-'}`,
+    `骨架质量 ${formatRisk(runtime.poseQualityScore)}`,
+    `关键点均值 ${formatPercent(runtime.meanKeypointConfidence)}`,
+    `可见关节 ${formatPercent(runtime.visibleJointRatio)}`,
     runtime.scenePriorLoaded ? '房间先验已加载' : '房间先验未加载',
     runtime.archiveEnabled ? '归档已启用' : '归档未启用',
   ]

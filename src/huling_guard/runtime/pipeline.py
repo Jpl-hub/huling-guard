@@ -24,6 +24,9 @@ class PipelineSnapshot:
     observed_frames: int
     window_size: int
     window_span_seconds: float
+    pose_quality_score: float = 0.0
+    mean_keypoint_confidence: float = 0.0
+    visible_joint_ratio: float = 0.0
     state_probs: dict[str, float] = field(default_factory=dict)
     predicted_state: str | None = None
     confidence: float = 0.0
@@ -37,6 +40,11 @@ class PipelineSnapshot:
             "observed_frames": self.observed_frames,
             "window_size": self.window_size,
             "window_span_seconds": self.window_span_seconds,
+            "data_quality": {
+                "pose_quality_score": self.pose_quality_score,
+                "mean_keypoint_confidence": self.mean_keypoint_confidence,
+                "visible_joint_ratio": self.visible_joint_ratio,
+            },
             "state_probs": self.state_probs,
             "predicted_state": self.predicted_state,
             "confidence": self.confidence,
@@ -79,10 +87,31 @@ class RealtimePipeline:
             return 0.0
         return float(self._timestamps[-1] - self._timestamps[0])
 
+    def _summarize_pose_quality(self, pose_window: np.ndarray) -> tuple[float, float, float]:
+        confidences = np.clip(np.asarray(pose_window, dtype=np.float32)[..., 2], 0.0, 1.0)
+        if confidences.size == 0:
+            return 0.0, 0.0, 0.0
+
+        mean_confidence = float(np.mean(confidences))
+        visible_joint_ratio = float(np.mean(confidences >= 0.35))
+        low_confidence_frame_ratio = float(np.mean(np.mean(confidences, axis=1) < 0.25))
+        pose_quality_score = float(
+            np.clip(
+                (0.55 * mean_confidence)
+                + (0.30 * visible_joint_ratio)
+                + (0.15 * (1.0 - low_confidence_frame_ratio)),
+                0.0,
+                1.0,
+            )
+        )
+        return pose_quality_score, mean_confidence, visible_joint_ratio
+
     def push_pose(self, keypoints: np.ndarray, timestamp: float) -> PipelineSnapshot:
         self._poses.append(np.asarray(keypoints, dtype=np.float32))
         self._timestamps.append(float(timestamp))
         self._steps += 1
+        observed_window = np.stack(tuple(self._poses), axis=0)
+        pose_quality_score, mean_confidence, visible_joint_ratio = self._summarize_pose_quality(observed_window)
 
         if len(self._poses) < self.window_size:
             return PipelineSnapshot(
@@ -91,6 +120,9 @@ class RealtimePipeline:
                 observed_frames=len(self._poses),
                 window_size=self.window_size,
                 window_span_seconds=self._window_span_seconds(),
+                pose_quality_score=pose_quality_score,
+                mean_keypoint_confidence=mean_confidence,
+                visible_joint_ratio=visible_joint_ratio,
             )
         if self._steps % self.inference_stride != 0:
             return PipelineSnapshot(
@@ -99,9 +131,12 @@ class RealtimePipeline:
                 observed_frames=len(self._poses),
                 window_size=self.window_size,
                 window_span_seconds=self._window_span_seconds(),
+                pose_quality_score=pose_quality_score,
+                mean_keypoint_confidence=mean_confidence,
+                visible_joint_ratio=visible_joint_ratio,
             )
 
-        pose_window = np.stack(tuple(self._poses), axis=0)
+        pose_window = observed_window
         normalized_pose = normalize_pose_sequence(pose_window)
         kinematics = build_kinematic_features(
             pose_window,
@@ -132,6 +167,9 @@ class RealtimePipeline:
             observed_frames=len(self._poses),
             window_size=self.window_size,
             window_span_seconds=self._window_span_seconds(),
+            pose_quality_score=pose_quality_score,
+            mean_keypoint_confidence=mean_confidence,
+            visible_joint_ratio=visible_joint_ratio,
             state_probs=state_payload,
             predicted_state=INTERNAL_STATES[predicted_idx],
             confidence=float(state_probs[predicted_idx]),

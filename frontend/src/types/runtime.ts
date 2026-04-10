@@ -36,12 +36,19 @@ export interface MetaResponse {
   thresholds: Thresholds
 }
 
+export interface PoseQualityMetrics {
+  pose_quality_score: number
+  mean_keypoint_confidence: number
+  visible_joint_ratio: number
+}
+
 export interface RuntimeStateResponse {
   timestamp: number
   ready: boolean
   observed_frames: number
   window_size: number
   window_span_seconds: number
+  data_quality: PoseQualityMetrics
   predicted_state: GuardState
   state_probs: Record<string, number>
   risk_score: number
@@ -59,6 +66,7 @@ export interface SummaryResponse {
   incident_counts: Record<string, number>
   last_incident: Incident | null
   timeline_points: number
+  data_quality: PoseQualityMetrics
 }
 
 export interface TimelineItem {
@@ -183,6 +191,7 @@ export interface SystemProfileResponse {
   detectable_states: DetectableState[]
   system_modules: SystemModule[]
   runtime_profile: RuntimeProfile
+  quality_controls: string[]
   thresholds: Thresholds
 }
 

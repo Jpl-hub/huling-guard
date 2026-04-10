@@ -99,6 +99,7 @@ def test_runtime_api_exposes_meta_and_dashboard() -> None:
     assert system_profile.status_code == 200
     assert system_profile.json()["product_name"] == "护龄智守"
     assert system_profile.json()["runtime_profile"]["device"] == "cpu"
+    assert len(system_profile.json()["quality_controls"]) >= 3
 
     push = client.post(
         "/pose-frame",
@@ -110,6 +111,11 @@ def test_runtime_api_exposes_meta_and_dashboard() -> None:
     assert summary.status_code == 200
     assert summary.json()["incident_total"] == 1
     assert summary.json()["last_incident"]["kind"] == "confirmed_fall"
+    assert summary.json()["data_quality"]["pose_quality_score"] == 0.0
+
+    state = client.get("/state")
+    assert state.status_code == 200
+    assert state.json()["data_quality"]["mean_keypoint_confidence"] == 0.0
 
     timeline = client.get("/timeline?limit=10")
     assert timeline.status_code == 200
@@ -133,6 +139,7 @@ def test_runtime_api_exposes_meta_and_dashboard() -> None:
     summary_after_reset = client.get("/summary")
     assert summary_after_reset.status_code == 200
     assert summary_after_reset.json()["incident_total"] == 0
+    assert summary_after_reset.json()["data_quality"]["visible_joint_ratio"] == 0.0
 
 
 def test_runtime_api_exposes_demo_videos(tmp_path) -> None:

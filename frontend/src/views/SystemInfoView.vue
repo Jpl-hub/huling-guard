@@ -88,6 +88,15 @@ const runtimeChips = computed(() => {
           <span v-for="chip in runtimeChips" :key="chip" class="chip">{{ chip }}</span>
         </div>
       </article>
+
+      <article class="panel section">
+        <header>
+          <h3>质量控制</h3>
+        </header>
+        <ul class="goal-list">
+          <li v-for="item in store.state.systemProfile?.quality_controls ?? []" :key="item">{{ item }}</li>
+        </ul>
+      </article>
     </section>
   </section>
 </template>

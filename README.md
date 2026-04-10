@@ -25,7 +25,7 @@
 - `值守视图`
   面向值班人员，优先呈现监控画面、处置建议、最近事件和过程回看。
 - `引擎透视`
-  仅在独立模式下显示状态分布、风险时间线和部署参数，不干扰主屏判断。
+  仅在独立模式下显示状态分布、风险时间线、骨架质量和部署参数，不干扰主屏判断。
 
 ## 工程能力
 
@@ -205,4 +205,5 @@ PYTHONPATH=src python -m huling_guard.cli run-release-video-batch \
 
 - [系统架构](/D:/code/myproject/docs/architecture.md)
 - [系统设计说明](/D:/code/myproject/docs/项目设计说明.md)
+- [状态定义手册](/D:/code/myproject/docs/状态定义手册.md)
 - [开源对标与方向校验](/D:/code/myproject/docs/开源对标与方向校验.md)
