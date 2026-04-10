@@ -1,10 +1,37 @@
 <script setup lang="ts">
-import type { SessionReport } from '../types/runtime'
+import { computed, ref } from 'vue'
+
+import type { DemoVideoItem, SessionReport } from '../types/runtime'
 import { formatArchiveTime, formatRisk, formatSeconds, formatTimestamp, incidentLabel, stateLabel } from '../utils/presenters'
 
-defineProps<{
+const props = defineProps<{
   report: Readonly<SessionReport> | null
+  demoVideos: ReadonlyArray<DemoVideoItem>
 }>()
+
+const videoRef = ref<HTMLVideoElement | null>(null)
+
+const matchedVideo = computed(() => {
+  if (!props.report?.source_path) {
+    return null
+  }
+  const normalizedSource = props.report.source_path.replace(/\\/g, '/')
+  const sourceName = normalizedSource.split('/').pop() ?? ''
+  const sourceStem = sourceName.replace(/\.mp4$/i, '')
+  return (
+    props.demoVideos.find((item) => item.filename === sourceName)
+    ?? props.demoVideos.find((item) => item.name === sourceStem)
+    ?? null
+  )
+})
+
+function seekTo(timestamp: number | null | undefined) {
+  if (!videoRef.value || !Number.isFinite(timestamp)) {
+    return
+  }
+  videoRef.value.currentTime = Math.max(0, Number(timestamp))
+  void videoRef.value.play().catch(() => undefined)
+}
 </script>
 
 <template>
@@ -17,6 +44,43 @@ defineProps<{
         </div>
         <span class="state-pill">{{ stateLabel(report.dominant_state) }}</span>
       </header>
+
+      <div v-if="matchedVideo" class="video-block">
+        <div class="video-head">
+          <h3>过程视频</h3>
+          <span>{{ matchedVideo.name }}</span>
+        </div>
+        <div class="video-shell">
+          <video
+            ref="videoRef"
+            class="video"
+            :src="matchedVideo.url"
+            controls
+            preload="metadata"
+            muted
+            playsinline
+          />
+          <div class="jump-row">
+            <button
+              v-if="report.peak_risk"
+              type="button"
+              class="jump-chip"
+              @click="seekTo(report.peak_risk.timestamp)"
+            >
+              跳到最高风险时刻
+            </button>
+            <button
+              v-for="incident in (report.recent_incidents ?? []).slice(0, 3)"
+              :key="`${incident.kind}-${incident.timestamp}`"
+              type="button"
+              class="jump-chip"
+              @click="seekTo(incident.timestamp)"
+            >
+              {{ incidentLabel(incident.kind) }} · {{ formatTimestamp(incident.timestamp) }}
+            </button>
+          </div>
+        </div>
+      </div>
 
       <div class="topline">
         <article class="stat">
@@ -107,6 +171,67 @@ defineProps<{
 .preview-card {
   display: grid;
   gap: 22px;
+}
+
+.video-block {
+  display: grid;
+  gap: 14px;
+}
+
+.video-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.video-head h3 {
+  margin: 0;
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+
+.video-head span {
+  color: rgba(199, 214, 231, 0.68);
+  font-size: 12px;
+}
+
+.video-shell {
+  display: grid;
+  gap: 12px;
+}
+
+.video {
+  width: 100%;
+  max-height: 320px;
+  border-radius: 22px;
+  border: 1px solid rgba(120, 146, 176, 0.14);
+  background: #07111d;
+  object-fit: cover;
+}
+
+.jump-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.jump-chip {
+  border: 0;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(232, 240, 249, 0.88);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 180ms ease, transform 180ms ease;
+}
+
+.jump-chip:hover {
+  transform: translateY(-1px);
+  background: rgba(67, 215, 255, 0.12);
 }
 
 .preview-head {

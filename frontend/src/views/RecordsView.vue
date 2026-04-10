@@ -84,7 +84,10 @@ const store = useRuntimeStore()
       </div>
 
       <div class="panel preview-panel">
-        <ArchivePreviewCard :report="store.state.selectedArchiveReport" />
+        <ArchivePreviewCard
+          :report="store.state.selectedArchiveReport"
+          :demo-videos="store.state.demoVideos"
+        />
       </div>
     </section>
   </section>
