@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "huling-guard"
+version = "0.1.0"
+description = "Scene-aware fall-risk and prolonged-lying detection pipeline."
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+license = { text = "MIT" }
+authors = [
+  { name = "HuLing Guard Team" },
+]
+dependencies = [
+  "datasets>=3.0.0",
+  "fastapi>=0.115.0",
+  "huggingface-hub>=0.26.0",
+  "numpy>=1.26.0,<2.0.0",
+  "opencv-python>=4.10.0",
+  "pillow>=10.4.0",
+  "pydantic>=2.9.0",
+  "pyyaml>=6.0.2",
+  "torch>=2.4.0",
+  "uvicorn>=0.32.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.0",
+  "ruff>=0.6.0",
+]
+
+[project.scripts]
+huling-guard = "huling_guard.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/huling_guard"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

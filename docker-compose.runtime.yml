@@ -1,0 +1,30 @@
+services:
+  huling-guard-runtime:
+    build:
+      context: .
+      dockerfile: Dockerfile.runtime
+    container_name: huling-guard-runtime
+    ports:
+      - "${HULING_RUNTIME_PORT:-8000}:8000"
+    environment:
+      HULING_DEVICE: "${HULING_DEVICE:-cpu}"
+    volumes:
+      - ${HULING_RELEASE_DIR:-./runtime-release}:/runtime-release
+      - ${HULING_RUNTIME_DATA_DIR:-./runtime-data}:/runtime-data
+    command:
+      [
+        "python",
+        "-m",
+        "huling_guard.cli",
+        "serve-release",
+        "--release-dir",
+        "/runtime-release",
+        "--archive-root",
+        "/runtime-data/archive",
+        "--device",
+        "${HULING_DEVICE:-cpu}",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000"
+      ]

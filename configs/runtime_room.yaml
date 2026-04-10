@@ -1,0 +1,12 @@
+runtime:
+  window_size: 64
+  inference_stride: 4
+  near_fall_threshold: 0.55
+  fall_threshold: 0.7
+  recovery_threshold: 0.55
+  prolonged_lying_threshold: 0.6
+  prolonged_lying_seconds: 15
+  warning_cooldown_seconds: 8
+room:
+  prior_path: configs/sample_room_prior.json
+  camera_name: sample_room

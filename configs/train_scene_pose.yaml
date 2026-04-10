@@ -1,0 +1,30 @@
+data:
+  manifest_path: data/processed/windows/train.jsonl
+  eval_manifest_path: data/processed/windows/val.jsonl
+  window_size: 64
+  stride: 16
+  num_joints: 17
+model:
+  pose_dim: 3
+  kinematic_dim: 8
+  scene_dim: 8
+  hidden_dim: 192
+  num_heads: 6
+  depth: 4
+  dropout: 0.1
+training:
+  batch_size: 64
+  epochs: 30
+  learning_rate: 0.0003
+  min_learning_rate: 0.00003
+  weight_decay: 0.0001
+  risk_loss_weight: 0.3
+  class_balance_beta: 0.999
+  num_workers: 8
+  pin_memory: true
+  amp: true
+  grad_clip_norm: 1.0
+  scheduler: cosine
+  balanced_sampling: true
+  device: cuda
+  output_dir: outputs/scene_pose_temporal
