@@ -7,11 +7,12 @@ import RiskTimelineChart from '../components/RiskTimelineChart.vue'
 import SessionSummaryPanel from '../components/SessionSummaryPanel.vue'
 import StateRibbon from '../components/StateRibbon.vue'
 import { useRuntimeStore } from '../composables/useRuntimeStore'
-import { formatRisk, stateLabel, stateTone } from '../utils/presenters'
+import { formatRisk, stateTone } from '../utils/presenters'
 
 const store = useRuntimeStore()
 
 const answerCards = computed(() => store.quickAnswers.value)
+const hasIncidents = computed(() => store.displayIncidents.value.length > 0)
 const probabilityEntries = computed(() =>
   Object.entries(store.displayState.value.stateProbabilities)
     .sort((a, b) => Number(b[1]) - Number(a[1]))
@@ -21,18 +22,18 @@ const probabilityEntries = computed(() =>
 
 <template>
   <section class="live-page">
-    <div class="answer-strip">
+    <section class="status-rail">
       <article
         v-for="answer in answerCards"
         :key="answer.label"
-        class="answer-card"
+        class="status-item"
         :data-tone="answer.tone"
       >
-        <small>{{ answer.label }}</small>
+        <span>{{ answer.label }}</span>
         <strong>{{ answer.value }}</strong>
-        <span>{{ answer.detail }}</span>
+        <small>{{ answer.detail }}</small>
       </article>
-    </div>
+    </section>
 
     <section class="workspace">
       <div class="primary-column">
@@ -62,36 +63,37 @@ const probabilityEntries = computed(() =>
           class="verdict-panel"
           :data-tone="stateTone(store.displayState.value.predictedState, store.displayState.value.riskScore)"
         >
-          <span class="verdict-badge">{{ store.verdict.value.badge }}</span>
-          <h2>{{ store.verdict.value.title }}</h2>
-          <p>{{ store.verdict.value.detail }}</p>
+          <div class="verdict-head">
+            <span class="verdict-badge">{{ store.verdict.value.badge }}</span>
+            <div class="verdict-state">
+              <small>{{ hasIncidents ? '需要确认' : '当前判断' }}</small>
+              <h2>{{ store.verdict.value.title }}</h2>
+              <p>{{ store.verdict.value.detail }}</p>
+            </div>
+          </div>
 
-          <div class="verdict-kpis">
-            <article>
-              <small>建议动作</small>
+          <div class="decision-line">
+            <article class="decision-main">
+              <span>下一步</span>
               <strong>{{ store.verdict.value.action }}</strong>
             </article>
-            <article>
-              <small>当前状态</small>
-              <strong>{{ stateLabel(store.displayState.value.predictedState ?? null) }}</strong>
-            </article>
-            <article v-if="store.state.mode === 'xray'">
-              <small>当前风险</small>
+            <article class="decision-side">
+              <span>当前风险</span>
               <strong>{{ formatRisk(store.displayState.value.riskScore) }}</strong>
             </article>
-            <article v-else>
-              <small>最近事件</small>
-              <strong>{{ store.displayIncidents.value.length ? `${store.displayIncidents.value.length} 条` : '当前无事件' }}</strong>
+            <article class="decision-side">
+              <span>最近事件</span>
+              <strong>{{ store.displayIncidents.value.length ? `${store.displayIncidents.value.length} 条` : '无' }}</strong>
             </article>
           </div>
 
-          <ul class="steps">
-            <li v-for="step in store.verdict.value.steps" :key="step">{{ step }}</li>
-          </ul>
+          <div class="steps">
+            <span v-for="step in store.verdict.value.steps" :key="step">{{ step }}</span>
+          </div>
 
           <div class="actions">
-            <a-button type="primary" size="large" @click="store.archiveSession">归档本次会话</a-button>
-            <a-button size="large" @click="store.resetRuntime">重置当前会话</a-button>
+            <a-button type="primary" size="large" @click="store.archiveSession">保存本段记录</a-button>
+            <a-button size="large" @click="store.resetRuntime">开始新一段</a-button>
           </div>
         </section>
 
@@ -136,62 +138,66 @@ const probabilityEntries = computed(() =>
 <style scoped>
 .live-page {
   display: grid;
-  gap: 20px;
+  gap: 24px;
 }
 
-.answer-strip {
+.status-rail {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: 0;
+  padding: 8px 0 0;
+  border-top: 1px solid rgba(120, 146, 176, 0.14);
+  border-bottom: 1px solid rgba(120, 146, 176, 0.14);
 }
 
-.answer-card,
+.status-item,
 .panel,
 .verdict-panel {
-  border-radius: 30px;
-  border: 1px solid rgba(120, 146, 176, 0.14);
   background: rgba(8, 17, 30, 0.76);
   backdrop-filter: blur(16px);
 }
 
-.answer-card {
-  padding: 20px 22px;
+.status-item {
+  display: grid;
+  gap: 6px;
+  padding: 18px 10px 18px 0;
 }
 
-.answer-card small {
-  display: block;
-  margin-bottom: 10px;
-  color: rgba(199, 214, 231, 0.64);
-  font-size: 12px;
+.status-item + .status-item {
+  padding-left: 18px;
+  border-left: 1px solid rgba(120, 146, 176, 0.14);
+}
+
+.status-item span {
+  color: rgba(199, 214, 231, 0.6);
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
 }
 
-.answer-card strong {
-  display: block;
-  margin-bottom: 6px;
-  font-size: clamp(26px, 3vw, 34px);
-  line-height: 1.02;
-  letter-spacing: -0.04em;
+.status-item strong {
+  font-size: clamp(22px, 3vw, 34px);
+  line-height: 1.04;
+  letter-spacing: -0.05em;
 }
 
-.answer-card span {
+.status-item small {
   color: rgba(199, 214, 231, 0.72);
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.4;
 }
 
-.answer-card[data-tone='alert'] {
-  background: linear-gradient(180deg, rgba(255, 94, 98, 0.12), rgba(8, 17, 30, 0.8));
+.status-item[data-tone='alert'] strong {
+  color: #ffd3d0;
 }
 
-.answer-card[data-tone='watch'] {
-  background: linear-gradient(180deg, rgba(255, 179, 71, 0.12), rgba(8, 17, 30, 0.8));
+.status-item[data-tone='watch'] strong {
+  color: #ffe3b5;
 }
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(360px, 0.86fr);
+  grid-template-columns: minmax(0, 1.78fr) minmax(360px, 0.82fr);
   gap: 20px;
 }
 
@@ -203,12 +209,16 @@ const probabilityEntries = computed(() =>
 
 .panel {
   padding: 24px;
+  border-radius: 30px;
+  border: 1px solid rgba(120, 146, 176, 0.12);
 }
 
 .verdict-panel {
   display: grid;
   gap: 18px;
-  padding: 26px;
+  padding: 28px;
+  border-radius: 30px;
+  border: 1px solid rgba(120, 146, 176, 0.12);
 }
 
 .verdict-panel[data-tone='alert'] {
@@ -217,6 +227,11 @@ const probabilityEntries = computed(() =>
 
 .verdict-panel[data-tone='watch'] {
   background: linear-gradient(180deg, rgba(255, 179, 71, 0.14), rgba(8, 17, 30, 0.88));
+}
+
+.verdict-head {
+  display: grid;
+  gap: 14px;
 }
 
 .verdict-badge {
@@ -229,9 +244,18 @@ const probabilityEntries = computed(() =>
   font-weight: 700;
 }
 
+.verdict-state small {
+  display: block;
+  margin-bottom: 8px;
+  color: rgba(206, 220, 236, 0.62);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
 .verdict-panel h2 {
-  margin: 0;
-  font-size: clamp(30px, 4vw, 46px);
+  margin: 0 0 8px;
+  font-size: clamp(32px, 4vw, 48px);
   line-height: 0.98;
   letter-spacing: -0.05em;
 }
@@ -242,19 +266,21 @@ const probabilityEntries = computed(() =>
   line-height: 1.65;
 }
 
-.verdict-kpis {
+.decision-line {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
-.verdict-kpis article {
-  padding: 16px 18px;
-  border-radius: 22px;
+.decision-main,
+.decision-side {
+  padding: 18px;
+  border-radius: 24px;
   background: rgba(255, 255, 255, 0.04);
 }
 
-.verdict-kpis small {
+.decision-main span,
+.decision-side span {
   display: block;
   margin-bottom: 8px;
   color: rgba(199, 214, 231, 0.64);
@@ -263,19 +289,30 @@ const probabilityEntries = computed(() =>
   letter-spacing: 0.08em;
 }
 
-.verdict-kpis strong {
+.decision-main strong {
+  font-size: 28px;
+  line-height: 1.02;
+  letter-spacing: -0.05em;
+}
+
+.decision-side strong {
   font-size: 18px;
   line-height: 1.15;
   letter-spacing: -0.03em;
 }
 
 .steps {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
-  padding-left: 18px;
-  margin: 0;
+}
+
+.steps span {
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
   color: rgba(224, 234, 244, 0.86);
-  line-height: 1.65;
+  font-size: 13px;
 }
 
 .actions {
@@ -350,9 +387,19 @@ const probabilityEntries = computed(() =>
 }
 
 @media (max-width: 780px) {
-  .answer-strip,
-  .verdict-kpis {
+  .status-rail,
+  .decision-line {
     grid-template-columns: 1fr;
+  }
+
+  .status-item {
+    padding-right: 0;
+  }
+
+  .status-item + .status-item {
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid rgba(120, 146, 176, 0.14);
   }
 }
 </style>

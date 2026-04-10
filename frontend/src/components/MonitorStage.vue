@@ -29,9 +29,8 @@ const sourceLabel = computed(() => selectedVideo.value?.name ?? '运行时输入
   <section class="stage-panel">
     <header class="stage-head">
       <div>
-        <span class="eyebrow">主画面</span>
-        <h2>当前监控画面</h2>
-        <p>{{ sourceDetail }}</p>
+        <span class="eyebrow">Live</span>
+        <h2>当前画面</h2>
       </div>
       <div class="stage-controls">
         <a-select
@@ -68,11 +67,12 @@ const sourceLabel = computed(() => selectedVideo.value?.name ?? '运行时输入
       <div class="overlay">
         <div class="overlay-topline">
           <span class="overlay-chip">{{ sourceLabel }}</span>
+          <span class="overlay-chip">{{ sourceDetail }}</span>
           <span class="overlay-chip status-chip">{{ stateLabel(displayState.predictedState) }}</span>
         </div>
         <div class="overlay-main">
           <strong>{{ stateLabel(displayState.predictedState) }}</strong>
-          <span>{{ viewMode === 'xray' ? `风险 ${formatRisk(displayState.riskScore)}` : '画面中的判断会在右侧同步更新' }}</span>
+          <span>{{ viewMode === 'xray' ? `风险 ${formatRisk(displayState.riskScore)}` : '系统会持续判断当前状态并记录事件' }}</span>
         </div>
         <div v-if="viewMode === 'xray'" class="overlay-meta">
           <span>主导状态 {{ stateLabel(report?.dominant_state ?? displayState.predictedState) }}</span>
@@ -127,7 +127,7 @@ const sourceLabel = computed(() => selectedVideo.value?.name ?? '运行时输入
 
 .video-shell {
   position: relative;
-  min-height: 560px;
+  min-height: 620px;
   overflow: hidden;
   border-radius: 32px;
   border: 1px solid rgba(120, 146, 176, 0.14);
@@ -147,7 +147,7 @@ const sourceLabel = computed(() => selectedVideo.value?.name ?? '运行时输入
 .video {
   display: block;
   width: 100%;
-  height: min(72vh, 760px);
+  height: min(76vh, 820px);
   object-fit: cover;
   background: #07111d;
 }

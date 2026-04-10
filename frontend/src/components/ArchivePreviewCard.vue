@@ -40,7 +40,7 @@ function seekTo(timestamp: number | null | undefined) {
       <header class="preview-head">
         <div>
           <h2>{{ report.session_name || '历史记录' }}</h2>
-          <p>归档时间 {{ formatArchiveTime(report.archived_at) }}</p>
+          <p>{{ formatArchiveTime(report.archived_at) }}</p>
         </div>
         <span class="state-pill">{{ stateLabel(report.dominant_state) }}</span>
       </header>
@@ -119,7 +119,7 @@ function seekTo(timestamp: number | null | undefined) {
       </div>
 
       <div class="section">
-        <h3>关键时刻</h3>
+        <h3>风险高点</h3>
         <div class="list">
           <article
             v-for="moment in (report.top_risk_moments ?? []).slice(0, 5)"
@@ -155,7 +155,7 @@ function seekTo(timestamp: number | null | undefined) {
             </div>
           </article>
           <div v-if="!report.recent_incidents?.length" class="empty-inline">
-            这条记录没有正式事件，系统只保留了状态变化与风险峰值。
+            这条记录没有正式事件。
           </div>
         </div>
       </div>
@@ -203,7 +203,7 @@ function seekTo(timestamp: number | null | undefined) {
 
 .video {
   width: 100%;
-  max-height: 320px;
+  max-height: 420px;
   border-radius: 22px;
   border: 1px solid rgba(120, 146, 176, 0.14);
   background: #07111d;
@@ -256,7 +256,7 @@ function seekTo(timestamp: number | null | undefined) {
 .state-pill {
   padding: 10px 14px;
   border-radius: 999px;
-  background: rgba(67, 215, 255, 0.1);
+  background: rgba(67, 215, 255, 0.14);
   color: #d9f7ff;
   font-size: 13px;
   font-weight: 700;

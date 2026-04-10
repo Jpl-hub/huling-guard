@@ -14,7 +14,7 @@ defineProps<{
   <section class="event-feed">
     <header class="head">
       <h2>最近事件</h2>
-      <span>{{ incidents.length ? `${incidents.length} 条` : '当前无事件' }}</span>
+      <span>{{ incidents.length ? `${incidents.length} 条` : '无事件' }}</span>
     </header>
 
     <div v-if="incidents.length" class="list">
@@ -28,7 +28,7 @@ defineProps<{
           <span>{{ formatTimestamp(incident.timestamp) }}</span>
         </div>
         <div class="meta-row">
-          <span>{{ incidentLabel(incident.kind) }}发生在 {{ formatTimestamp(incident.timestamp) }}</span>
+          <span>{{ formatTimestamp(incident.timestamp) }}</span>
           <span v-if="incident.payload?.predicted_state">
             对应状态 {{ stateLabel(String(incident.payload.predicted_state) as any) }}
           </span>
@@ -37,7 +37,7 @@ defineProps<{
       </article>
     </div>
     <div v-else class="empty">
-      当前没有触发需要到场处理的正式事件。
+      当前没有需要处理的正式事件。
     </div>
   </section>
 </template>

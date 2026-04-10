@@ -10,19 +10,24 @@ const store = useRuntimeStore()
   <section class="records-page">
     <div class="summary-strip">
       <article class="summary-card">
-        <small>历史记录</small>
+        <small>记录总数</small>
         <strong>{{ store.state.archiveSummary?.archive_total ?? 0 }}</strong>
-        <span>已归档过程总数</span>
+        <span>已保存过程</span>
       </article>
       <article class="summary-card">
-        <small>需要复看</small>
+        <small>重点记录</small>
         <strong>{{ store.state.archiveSummary?.sessions_with_incidents ?? 0 }}</strong>
-        <span>至少包含一次关键事件</span>
+        <span>包含关键事件</span>
       </article>
       <article class="summary-card">
         <small>平均时长</small>
         <strong>{{ formatSeconds(store.state.archiveSummary?.mean_duration_seconds ?? 0) }}</strong>
-        <span>单条记录平均持续时间</span>
+        <span>单条过程平均时长</span>
+      </article>
+      <article class="summary-card emphasis">
+        <small>最近归档</small>
+        <strong>{{ stateLabel(store.state.archiveSummary?.latest_archive?.dominant_state ?? null) }}</strong>
+        <span>{{ formatArchiveTime(store.state.archiveSummary?.latest_archive?.archived_at ?? null) }}</span>
       </article>
     </div>
 
@@ -31,7 +36,6 @@ const store = useRuntimeStore()
         <header class="head">
           <div>
             <h2>历史回看</h2>
-            <p>按状态或是否含事件筛选，快速定位需要复看的记录。</p>
           </div>
           <div class="filters">
             <a-select
@@ -101,7 +105,7 @@ const store = useRuntimeStore()
 
 .summary-strip {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -138,6 +142,10 @@ const store = useRuntimeStore()
   font-size: 13px;
 }
 
+.summary-card.emphasis {
+  background: linear-gradient(180deg, rgba(67, 215, 255, 0.1), rgba(8, 17, 30, 0.76));
+}
+
 .records-layout {
   display: grid;
   grid-template-columns: minmax(360px, 0.9fr) minmax(0, 1.1fr);
@@ -162,12 +170,6 @@ const store = useRuntimeStore()
   letter-spacing: -0.03em;
 }
 
-.head p {
-  margin: 0;
-  color: rgba(199, 214, 231, 0.72);
-  font-size: 13px;
-}
-
 .filters {
   display: flex;
   gap: 12px;
@@ -189,6 +191,7 @@ const store = useRuntimeStore()
 }
 
 .archive-item {
+  position: relative;
   text-align: left;
   padding: 16px 18px;
   border-radius: 22px;
@@ -199,11 +202,24 @@ const store = useRuntimeStore()
   transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease;
 }
 
+.archive-item::before {
+  content: '';
+  position: absolute;
+  inset: 12px auto 12px 10px;
+  width: 3px;
+  border-radius: 999px;
+  background: rgba(67, 215, 255, 0.12);
+}
+
 .archive-item:hover,
 .archive-item.active {
   transform: translateY(-2px);
   border-color: rgba(67, 215, 255, 0.22);
   background: rgba(67, 215, 255, 0.08);
+}
+
+.archive-item.active::before {
+  background: #43d7ff;
 }
 
 .title-row,

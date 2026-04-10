@@ -170,9 +170,9 @@ export function buildQuickAnswers(
 ): QuickAnswer[] {
   if (!display.ready) {
     return [
-      { label: '当前是否安全', value: '正在判断', detail: '正在等待稳定结论。', tone: 'neutral' },
-      { label: '是否需要马上去看', value: '先继续观察', detail: '当前还没有形成可靠提醒。', tone: 'neutral' },
-      { label: '最近发生了什么', value: '还没有关键变化', detail: '热启动完成后会开始记录过程。', tone: 'neutral' },
+      { label: '当前状态', value: '正在判断', detail: '等待稳定结论', tone: 'neutral' },
+      { label: '是否到场', value: '继续观察', detail: '尚未形成提醒', tone: 'neutral' },
+      { label: '最近变化', value: '暂无关键变化', detail: '热启动中', tone: 'neutral' },
     ]
   }
 
@@ -200,21 +200,21 @@ export function buildQuickAnswers(
 
   return [
     {
-      label: '当前是否安全',
+      label: '当前状态',
       value: currentSafety,
-      detail: `${stateLabel(display.predictedState)}。`,
+      detail: stateLabel(display.predictedState),
       tone,
     },
     {
-      label: '是否需要马上去看',
+      label: '是否到场',
       value: needGoNow,
-      detail: tone === 'alert' ? '建议马上查看现场。' : tone === 'watch' ? '建议尽快人工确认。' : '当前无需到场。',
+      detail: tone === 'alert' ? '现在去看' : tone === 'watch' ? '尽快确认' : '暂不到场',
       tone,
     },
     {
-      label: '最近发生了什么',
+      label: '最近变化',
       value: recent,
-      detail: display.incidentTotal > 0 ? `本段过程累计 ${display.incidentTotal} 条关键事件。` : '本段过程还没有形成正式事件。' ,
+      detail: display.incidentTotal > 0 ? `累计 ${display.incidentTotal} 条事件` : '当前无正式事件' ,
       tone: display.incidentTotal > 0 ? 'watch' : 'safe',
     },
   ]
@@ -229,31 +229,31 @@ export function buildVerdict(display: DisplayState): {
 } {
   if (!display.ready) {
     return {
-      badge: '正在热启动',
+      badge: '正在启动',
       title: '正在建立稳定判断',
       action: '保持画面持续输入',
-      detail: '系统正在积累连续帧，稍后会给出稳定结论。',
-      steps: ['保持摄像头画面稳定。', '等待首个稳定状态生成。'],
+      detail: '等待连续画面稳定后再给出结论。',
+      steps: ['保持画面连续', '等待首个稳定状态'],
     }
   }
 
   if (display.predictedState === 'fall' || display.predictedState === 'prolonged_lying') {
     return {
-      badge: '需要立即处理',
+      badge: '立即处理',
       title: display.predictedState === 'fall' ? '检测到跌倒' : '检测到长时间卧倒',
       action: '立即到场查看',
-      detail: '当前已经达到高风险级别，应尽快人工确认现场情况。',
-      steps: ['立即查看现场。', '确认人员意识与受伤情况。', '保留本次记录用于后续追溯。'],
+      detail: '当前已达到高风险级别。',
+      steps: ['立即查看现场', '确认人员情况', '保留本次记录'],
     }
   }
 
   if (display.predictedState === 'near_fall') {
     return {
-      badge: '需要尽快确认',
+      badge: '尽快确认',
       title: '检测到明显失衡',
       action: '尽快查看画面或到场确认',
-      detail: '当前还未形成跌倒事件，但动作过程存在明显风险。',
-      steps: ['优先确认人员是否已恢复稳定。', '关注接下来 10 到 20 秒的风险变化。'],
+      detail: '当前尚未形成跌倒，但动作存在明显风险。',
+      steps: ['确认是否已恢复稳定', '继续观察后续变化'],
     }
   }
 
@@ -262,8 +262,8 @@ export function buildVerdict(display: DisplayState): {
       badge: '正在恢复',
       title: '人员正在恢复起身',
       action: '持续观察',
-      detail: '当前不是高风险告警，但建议继续观察是否稳定恢复。',
-      steps: ['观察后续是否回到正常活动。', '如反复波动，建议人工确认。'],
+      detail: '当前不是高风险告警。',
+      steps: ['观察是否回到正常活动', '若反复波动再人工确认'],
     }
   }
 
@@ -271,8 +271,8 @@ export function buildVerdict(display: DisplayState): {
     badge: '当前稳定',
     title: '当前处于正常活动',
     action: '继续值守',
-    detail: '当前没有检测到需要立即到场处理的高风险状态。',
-    steps: ['继续观察最近事件与风险变化。', '如需要留档，可保存本次记录。'],
+    detail: '当前没有需要立即处理的高风险状态。',
+    steps: ['继续观察风险变化', '需要时再归档本次记录'],
   }
 }
 

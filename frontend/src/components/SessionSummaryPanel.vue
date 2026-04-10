@@ -13,10 +13,7 @@ defineProps<{
 <template>
   <section class="session-panel">
     <header class="head">
-      <div>
-        <h2>本段过程</h2>
-        <p>快速看懂这段过程里的主导状态、关键时刻和持续时间。</p>
-      </div>
+      <h2>本段过程</h2>
     </header>
 
     <div class="summary-grid">
@@ -68,15 +65,9 @@ defineProps<{
 }
 
 .head h2 {
-  margin: 0 0 6px;
+  margin: 0;
   font-size: 20px;
   letter-spacing: -0.03em;
-}
-
-.head p {
-  margin: 0;
-  color: rgba(199, 214, 231, 0.72);
-  font-size: 13px;
 }
 
 .summary-grid {

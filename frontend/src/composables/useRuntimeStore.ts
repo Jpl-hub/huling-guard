@@ -249,13 +249,13 @@ const displaySource = computed(() => {
     return {
       mode: 'demo',
       label: state.selectedDemoSession.name,
-      detail: '当前正在使用示例视频回放模拟固定摄像头输入。',
+      detail: '示例视频回放',
     }
   }
   return {
     mode: 'runtime',
     label: '实时输入',
-    detail: '当前页面直接展示运行时状态流。',
+    detail: '运行时状态流',
   }
 })
 const displayDominantState = computed<GuardState>(() => displayReport.value?.dominant_state ?? displayState.value.predictedState)

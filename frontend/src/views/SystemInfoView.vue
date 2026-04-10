@@ -27,7 +27,7 @@ const runtimeChips = computed(() => {
   <section class="system-page">
     <section class="hero panel">
       <div class="hero-copy">
-        <small>System Overview</small>
+        <small>Runtime</small>
         <h2>{{ store.state.systemProfile?.product_name || '护龄智守' }}</h2>
         <p>{{ store.state.systemProfile?.product_tagline || '单房间固定摄像头安全值守系统' }}</p>
       </div>
