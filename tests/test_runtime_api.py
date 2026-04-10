@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+import json
 
 import pytest
 
@@ -85,12 +86,14 @@ def test_runtime_api_exposes_meta_and_dashboard() -> None:
 
     dashboard = client.get("/dashboard")
     assert dashboard.status_code == 200
-    assert "护龄智守值守台" in dashboard.text
-    assert "面向家庭照护和护理值守使用" in dashboard.text
+    assert "护龄智守" in dashboard.text
+    assert "单房间固定摄像头安全值守" in dashboard.text
+    assert "监控画面" in dashboard.text
+    assert "实时看护" in dashboard.text
     assert "状态概率" in dashboard.text
-    assert "当前会话" in dashboard.text
-    assert "重置当前会话" in dashboard.text
-    assert "面板预览" in dashboard.text
+    assert "本次记录" in dashboard.text
+    assert "开始新记录" in dashboard.text
+    assert "查看这条记录" not in dashboard.text
 
     system_profile = client.get("/system-profile")
     assert system_profile.status_code == 200
@@ -130,6 +133,66 @@ def test_runtime_api_exposes_meta_and_dashboard() -> None:
     summary_after_reset = client.get("/summary")
     assert summary_after_reset.status_code == 200
     assert summary_after_reset.json()["incident_total"] == 0
+
+
+def test_runtime_api_exposes_demo_videos(tmp_path) -> None:
+    demo_root = tmp_path / "demo_videos"
+    demo_root.mkdir()
+    sample = demo_root / "fall_01_demo.mp4"
+    sample.write_bytes(b"demo")
+    reports_root = demo_root.parent / "reports" / "sessions"
+    reports_root.mkdir(parents=True)
+    predictions_root = demo_root.parent / "predictions"
+    predictions_root.mkdir(parents=True)
+    (reports_root / "fall_01_demo.json").write_text(
+        json.dumps(
+            {
+                "session_name": "fall_01_demo",
+                "dominant_state": "fall",
+                "incident_total": 1,
+                "incident_counts": {"confirmed_fall": 1},
+                "last_incident": {"kind": "confirmed_fall", "timestamp": 18.2, "confidence": 0.91},
+                "recent_incidents": [{"kind": "confirmed_fall", "timestamp": 18.2, "confidence": 0.91}],
+                "peak_risk": {"risk_score": 0.96, "predicted_state": "fall", "confidence": 0.91, "timestamp": 18.2},
+                "mean_confidence": 0.88,
+                "predicted_state_counts": {"fall": 48, "normal": 8},
+                "longest_segments": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (predictions_root / "fall_01_demo.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps({"timestamp": 17.8, "predicted_state": "normal", "risk_score": 0.12, "confidence": 0.81}),
+                json.dumps({"timestamp": 18.2, "predicted_state": "fall", "risk_score": 0.96, "confidence": 0.91}),
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    app = create_runtime_app(_DummyPipeline(), demo_video_root=demo_root)
+    client = testclient.TestClient(app)
+
+    demo_listing = client.get("/demo-videos")
+    assert demo_listing.status_code == 200
+    payload = demo_listing.json()
+    assert payload["enabled"] is True
+    assert payload["count"] == 1
+    assert payload["items"][0]["filename"] == "fall_01_demo.mp4"
+    assert payload["items"][0]["url"] == "/demo-videos/fall_01_demo.mp4"
+    assert payload["items"][0]["has_session_report"] is True
+
+    demo_file = client.get("/demo-videos/fall_01_demo.mp4")
+    assert demo_file.status_code == 200
+    assert demo_file.content == b"demo"
+
+    demo_session = client.get("/demo-sessions/fall_01_demo.mp4")
+    assert demo_session.status_code == 200
+    session_payload = demo_session.json()
+    assert session_payload["session_report"]["dominant_state"] == "fall"
+    assert session_payload["timeline"]["count"] == 2
+    assert session_payload["timeline"]["items"][-1]["predicted_state"] == "fall"
 
 
 def test_runtime_api_normalizes_pose_frame_when_frame_size_is_provided() -> None:

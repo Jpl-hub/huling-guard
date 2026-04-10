@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from collections import Counter, deque
+import json
 from pathlib import Path
 
 import numpy as np
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
 from huling_guard.data.pose_io import normalize_pose_coords
@@ -56,12 +57,12 @@ def _default_system_profile(
     thresholds = pipeline.event_engine.thresholds
     return {
         "product_name": "护龄智守",
-        "product_tagline": "居家与机构照护值守系统",
-        "target_users": ["家庭照护者", "护理站值班人员", "机构管理人员"],
+        "product_tagline": "单房间固定摄像头安全值守系统",
+        "target_users": ["家庭看护者", "护理值班人员", "机构管理人员"],
         "operational_goals": [
             "持续判断当前人员是否处于安全状态",
             "在风险出现时给出明确处置提示",
-            "保存历史会话，支持追溯、复核和留档",
+            "保存历史记录，支持追溯、复核和留档",
         ],
         "detectable_states": [
             {"code": "normal", "label": "正常活动"},
@@ -126,11 +127,63 @@ def _build_runtime_session_report(
     )
 
 
+def _list_demo_videos(root: Path | None) -> list[dict[str, object]]:
+    if root is None or not root.is_dir():
+        return []
+    items: list[dict[str, object]] = []
+    for path in sorted(root.glob("*.mp4")):
+        report_path = root.parent / "reports" / "sessions" / f"{path.stem}.json"
+        items.append(
+            {
+                "name": path.stem,
+                "filename": path.name,
+                "size_bytes": path.stat().st_size,
+                "url": f"/demo-videos/{path.name}",
+                "has_session_report": report_path.is_file(),
+            }
+        )
+    return items
+
+
+def _load_demo_session_payload(root: Path | None, stem: str, limit: int = 180) -> dict[str, object]:
+    if root is None or not root.is_dir():
+        raise FileNotFoundError("demo video root is not enabled")
+    report_path = root.parent / "reports" / "sessions" / f"{stem}.json"
+    prediction_path = root.parent / "predictions" / f"{stem}.jsonl"
+    if not report_path.is_file():
+        raise FileNotFoundError(f"demo session report not found: {stem}")
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    timeline_items: list[dict[str, object]] = []
+    if prediction_path.is_file():
+        for line in prediction_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            payload = json.loads(line)
+            timeline_items.append(
+                {
+                    "timestamp": payload.get("timestamp", 0.0),
+                    "predicted_state": payload.get("predicted_state"),
+                    "risk_score": payload.get("risk_score", 0.0),
+                    "confidence": payload.get("confidence", 0.0),
+                }
+            )
+    if limit > 0:
+        timeline_items = timeline_items[-limit:]
+    return {
+        "name": stem,
+        "session_report": report,
+        "timeline": {"count": len(timeline_items), "items": timeline_items},
+    }
+
+
 def create_runtime_app(
     pipeline: RealtimePipeline,
     incident_history_size: int = 512,
     snapshot_history_size: int = 2048,
     archive_root: str | Path | None = None,
+    demo_video_root: str | Path | None = None,
     system_profile: dict[str, object] | None = None,
 ) -> FastAPI:
     app = FastAPI(title="HuLing Guard Runtime API", version="0.1.0")
@@ -140,6 +193,7 @@ def create_runtime_app(
     last_snapshot: PipelineSnapshot = _empty_snapshot()
     dashboard_html = _load_dashboard_html()
     archive_store = RuntimeArchiveStore(archive_root) if archive_root is not None else None
+    resolved_demo_video_root = Path(demo_video_root).resolve() if demo_video_root is not None else None
     profile_payload = system_profile or _default_system_profile(
         pipeline=pipeline,
         archive_enabled=archive_store is not None,
@@ -153,7 +207,7 @@ def create_runtime_app(
     def meta() -> dict[str, object]:
         thresholds = pipeline.event_engine.thresholds
         return {
-            "title": "护龄智守值守台",
+            "title": "护龄智守",
             "window_size": pipeline.window_size,
             "inference_stride": pipeline.inference_stride,
             "device": str(pipeline.device),
@@ -197,6 +251,43 @@ def create_runtime_app(
     @app.get("/dashboard", response_class=HTMLResponse)
     def dashboard() -> HTMLResponse:
         return HTMLResponse(dashboard_html)
+
+    @app.get("/demo-videos")
+    def demo_videos() -> dict[str, object]:
+        items = _list_demo_videos(resolved_demo_video_root)
+        return {
+            "enabled": resolved_demo_video_root is not None,
+            "root": str(resolved_demo_video_root) if resolved_demo_video_root is not None else None,
+            "count": len(items),
+            "items": items,
+        }
+
+    @app.get("/demo-videos/{filename}")
+    def demo_video_file(filename: str) -> FileResponse:
+        if resolved_demo_video_root is None:
+            raise HTTPException(status_code=404, detail="demo video root is not enabled")
+        normalized = Path(filename).name
+        if normalized != filename:
+            raise HTTPException(status_code=400, detail="invalid demo video filename")
+        path = (resolved_demo_video_root / normalized).resolve()
+        try:
+            path.relative_to(resolved_demo_video_root)
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail="invalid demo video path") from error
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail=f"demo video not found: {filename}")
+        return FileResponse(path)
+
+    @app.get("/demo-sessions/{filename}")
+    def demo_session_payload(filename: str, limit: int = Query(default=180, ge=1, le=2048)) -> dict[str, object]:
+        normalized = Path(filename).name
+        if normalized != filename:
+            raise HTTPException(status_code=400, detail="invalid demo session filename")
+        stem = Path(normalized).stem
+        try:
+            return _load_demo_session_payload(resolved_demo_video_root, stem=stem, limit=limit)
+        except FileNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
 
     @app.get("/session-report")
     def session_report(limit: int = Query(default=512, ge=1, le=snapshot_history_size)) -> dict[str, object]:

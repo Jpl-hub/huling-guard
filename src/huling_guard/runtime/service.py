@@ -22,6 +22,7 @@ class RuntimeLaunchConfig:
     checkpoint_path: Path
     scene_prior_path: Path | None = None
     archive_root: Path | None = None
+    demo_video_root: Path | None = None
     device: str = "cuda"
     host: str = "0.0.0.0"
     port: int = 8000
@@ -132,5 +133,9 @@ def build_runtime_pipeline(config: RuntimeLaunchConfig) -> RealtimePipeline:
 
 def serve_runtime(config: RuntimeLaunchConfig) -> None:
     pipeline = build_runtime_pipeline(config)
-    app = create_runtime_app(pipeline, archive_root=config.archive_root)
+    app = create_runtime_app(
+        pipeline,
+        archive_root=config.archive_root,
+        demo_video_root=config.demo_video_root,
+    )
     uvicorn.run(app, host=config.host, port=config.port, log_level="info")
