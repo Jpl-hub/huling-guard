@@ -470,17 +470,42 @@ def create_runtime_app(
         thread.start()
         return True
 
-    def _maybe_resume_upload(stem: str) -> None:
+    def _maybe_resume_upload(stem: str, *, allow_artifact_backfill: bool = False) -> None:
         if resolved_demo_video_root is None:
             return
         metadata = _load_upload_metadata(resolved_demo_video_root, stem)
         if str(metadata.get("source_kind") or "") != "upload":
             return
-        if str(metadata.get("processing_status") or "") != "processing":
+
+        input_path = resolved_demo_video_root / f"{stem}.mp4"
+        report_path = resolved_demo_video_root.parent / "reports" / "sessions" / f"{stem}.json"
+        annotated_path = _annotated_videos_root(resolved_demo_video_root) / f"{stem}.mp4"
+        status = str(metadata.get("processing_status") or "")
+
+        if status == "ready":
+            if allow_artifact_backfill and input_path.is_file() and report_path.is_file() and not annotated_path.is_file():
+                started = _start_upload_job(stem)
+                if started:
+                    _write_upload_metadata(
+                        resolved_demo_video_root,
+                        stem,
+                        {
+                            **metadata,
+                            "processing_status": "processing",
+                            "error_message": None,
+                            "started_at": time.time(),
+                        },
+                    )
             return
 
-        report_path = resolved_demo_video_root.parent / "reports" / "sessions" / f"{stem}.json"
-        if report_path.is_file():
+        if status != "processing":
+            return
+
+        if report_path.is_file() and annotated_path.is_file():
+            with active_upload_jobs_lock:
+                job_active = stem in active_upload_jobs
+            if job_active:
+                return
             _write_upload_metadata(
                 resolved_demo_video_root,
                 stem,
@@ -493,7 +518,6 @@ def create_runtime_app(
             )
             return
 
-        input_path = resolved_demo_video_root / f"{stem}.mp4"
         if not input_path.is_file():
             _write_upload_metadata(
                 resolved_demo_video_root,
@@ -791,7 +815,7 @@ def create_runtime_app(
         if normalized != filename:
             raise HTTPException(status_code=400, detail="invalid demo session filename")
         stem = Path(normalized).stem
-        _maybe_resume_upload(stem)
+        _maybe_resume_upload(stem, allow_artifact_backfill=True)
         try:
             return _load_demo_session_payload(resolved_demo_video_root, stem=stem, limit=limit)
         except FileNotFoundError as error:
