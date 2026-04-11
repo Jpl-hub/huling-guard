@@ -6,6 +6,7 @@
 
 ## 一眼看懂
 
+- 一句话模型：`RTMO` 姿态估计 + 自研时序 `Transformer` 网络 + `EventEngine` 事件引擎
 - 单一路线：`RTMO -> Scene-Pose Temporal Net -> EventEngine -> FastAPI / Vue / SQLite / Docker`
 - 三种输入：实时接入、模拟监看、上传复核
 - 三个主页面：实时值守、历史回看、系统信息

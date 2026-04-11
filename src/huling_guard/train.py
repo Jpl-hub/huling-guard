@@ -316,6 +316,7 @@ def _run_epoch(
                 frame_quality_targets=batch["frame_quality_target"],
                 padding_mask=batch["padding_mask"],
                 class_weights=class_weights,
+                sample_weights=batch['sample_weight'],
                 clip_focal_gamma=clip_focal_gamma,
                 risk_loss_weight=risk_loss_weight,
                 quality_loss_weight=quality_loss_weight,
