@@ -18,6 +18,10 @@ COPY requirements /app/requirements
 COPY src /app/src
 COPY frontend/dist /app/frontend-dist
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN if [ -n "$PIP_INDEX_URL" ]; then pip config set global.index-url "$PIP_INDEX_URL"; fi \
     && if [ -n "$PIP_EXTRA_INDEX_URL" ]; then pip config set global.extra-index-url "$PIP_EXTRA_INDEX_URL"; fi \
     && pip install "torch==$TORCH_VERSION" \

@@ -38,6 +38,7 @@ const ingestSource = ref('')
 const ingestSourceLabel = ref('')
 const mainVideoError = ref('')
 const mainVideoRef = ref<HTMLVideoElement | null>(null)
+const preferRawPlayback = ref(false)
 const uploadInputRef = ref<HTMLInputElement | null>(null)
 const isVideoPlaying = ref(false)
 const videoCurrent = ref(0)
@@ -79,7 +80,8 @@ const selectedFeedIndex = computed(() =>
 
 const hasAnnotatedPlayback = computed(() =>
   Boolean(
-    !hasLiveSource.value
+    !preferRawPlayback.value
+      && !hasLiveSource.value
       && selectedVideo.value?.processing_status === 'ready'
       && selectedVideo.value?.annotated_url
       && (props.viewMode === 'xray' || selectedVideo.value?.source_kind === 'upload'),
@@ -271,6 +273,14 @@ function markMainVideoReady() {
 }
 
 function markMainVideoFailed() {
+  if (hasAnnotatedPlayback.value && !preferRawPlayback.value && selectedVideo.value?.url) {
+    preferRawPlayback.value = true
+    mainVideoError.value = ''
+    window.setTimeout(() => {
+      syncVideoState()
+    }, 0)
+    return
+  }
   mainVideoError.value = '这段监看流暂时没有加载出来，可以先点“刷新状态”再试一次。'
 }
 
@@ -333,7 +343,8 @@ function updateClock() {
   clock.value = new Date().toLocaleString('zh-CN', { hour12: false })
 }
 
-watch(() => props.selectedDemoFilename, () => {
+watch(() => [props.selectedDemoFilename, props.viewMode] as const, () => {
+  preferRawPlayback.value = false
   mainVideoError.value = ''
   isVideoPlaying.value = false
   videoCurrent.value = 0

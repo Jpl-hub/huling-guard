@@ -4,6 +4,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 import json
 from pathlib import Path
+import shutil
+import subprocess
 
 import cv2
 import numpy as np
@@ -26,6 +28,37 @@ class VideoInferenceConfig:
     rtmo_device: str = "cuda:0"
     score_threshold: float = 0.2
 
+
+def _prepare_overlay_output(output_video: Path) -> tuple[Path, str | None]:
+    ffmpeg_executable = shutil.which("ffmpeg")
+    if ffmpeg_executable is None:
+        return output_video, None
+    temp_output = output_video.with_name(f"{output_video.stem}.overlay-raw{output_video.suffix}")
+    return temp_output, ffmpeg_executable
+
+
+def _transcode_overlay_to_h264(*, ffmpeg_executable: str, source: Path, destination: Path) -> None:
+    if destination.exists():
+        destination.unlink()
+    command = [
+        ffmpeg_executable,
+        "-y",
+        "-loglevel",
+        "error",
+        "-i",
+        str(source),
+        "-an",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-movflags",
+        "+faststart",
+        str(destination),
+    ]
+    subprocess.run(command, check=True)
+
+
 def run_video_inference_with_runtime(
     *,
     input_path: Path,
@@ -47,9 +80,19 @@ def run_video_inference_with_runtime(
     height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
     frame_index = 0
     writer = None
+    writer_output_video: Path | None = None
+    overlay_temp_video: Path | None = None
+    ffmpeg_executable: str | None = None
 
     if output_video is not None:
         output_video.parent.mkdir(parents=True, exist_ok=True)
+        writer_output_video, ffmpeg_executable = _prepare_overlay_output(output_video)
+        if writer_output_video.exists():
+            writer_output_video.unlink()
+        if output_video.exists() and output_video != writer_output_video:
+            output_video.unlink()
+        if ffmpeg_executable is not None:
+            overlay_temp_video = writer_output_video
 
     jsonl_handle = None
     if output_jsonl is not None:
@@ -67,9 +110,9 @@ def run_video_inference_with_runtime(
                 break
             if width <= 1 or height <= 1:
                 height, width = frame.shape[:2]
-            if writer is None and output_video is not None:
+            if writer is None and writer_output_video is not None:
                 fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-                writer = cv2.VideoWriter(str(output_video), fourcc, fps, (width, height))
+                writer = cv2.VideoWriter(str(writer_output_video), fourcc, fps, (width, height))
             timestamp = frame_index / max(fps, 1.0)
             detections = estimator.infer(frame)
             primary = estimator.select_primary(detections)
@@ -110,6 +153,24 @@ def run_video_inference_with_runtime(
             writer.release()
         if jsonl_handle is not None:
             jsonl_handle.close()
+
+    if output_video is not None and overlay_temp_video is not None and overlay_temp_video.is_file() and ffmpeg_executable is not None:
+        try:
+            _transcode_overlay_to_h264(
+                ffmpeg_executable=ffmpeg_executable,
+                source=overlay_temp_video,
+                destination=output_video,
+            )
+        except subprocess.CalledProcessError as exc:
+            print(
+                f"[video-inference] annotated transcode failed for {output_video.name}: {exc}",
+                flush=True,
+            )
+            if output_video.exists():
+                output_video.unlink()
+        finally:
+            if overlay_temp_video.exists():
+                overlay_temp_video.unlink()
 
     if collect_report:
         report = build_session_report(
