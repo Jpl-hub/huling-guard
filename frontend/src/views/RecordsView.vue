@@ -208,13 +208,13 @@ const emptyStateText = computed(() => {
 <style scoped>
 .records-page {
   display: grid;
-  gap: 18px;
+  gap: var(--space-5);
 }
 
 .overview-band {
   display: grid;
-  gap: 18px;
-  padding: 10px 2px 4px;
+  gap: var(--space-5);
+  padding: var(--space-3) 2px var(--space-1);
 }
 
 .overview-copy {
@@ -231,25 +231,25 @@ const emptyStateText = computed(() => {
 .overview-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: var(--space-4);
 }
 
 .records-list,
 .preview-panel {
-  border-radius: 30px;
-  background: rgba(6, 14, 24, 0.74);
-  backdrop-filter: blur(18px);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-soft);
+  box-shadow: inset 0 0 0 1px var(--color-line-soft);
 }
 
 .overview-item {
-  padding: 2px 0 2px 16px;
-  border-left: 1px solid rgba(120, 146, 176, 0.18);
+  padding: 2px 0 2px var(--space-4);
+  border-left: 1px solid var(--color-line-strong);
 }
 
 .overview-item small {
   display: block;
   margin-bottom: 10px;
-  color: rgba(199, 214, 231, 0.58);
+  color: var(--color-text-muted);
   font-size: 12px;
   letter-spacing: 0.04em;
 }
@@ -262,31 +262,45 @@ const emptyStateText = computed(() => {
 }
 
 .overview-item span {
-  color: rgba(199, 214, 231, 0.72);
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
 .records-layout {
   display: grid;
   grid-template-columns: minmax(360px, 0.84fr) minmax(0, 1.16fr);
-  gap: 18px;
+  gap: var(--space-5);
+  height: calc(100vh - 220px);
+  min-height: 560px;
+  align-items: start;
 }
 
 .records-list,
 .preview-panel {
-  padding: 22px;
+  padding: var(--space-6);
+}
+
+.records-list {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
 }
 
 .preview-panel {
+  position: sticky;
+  top: 96px;
   display: grid;
-  gap: 16px;
+  gap: var(--space-4);
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
 }
 
 .preview-guide {
   display: grid;
   gap: 6px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid rgba(120, 146, 176, 0.12);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-line-soft);
 }
 
 .preview-guide strong {
@@ -295,7 +309,7 @@ const emptyStateText = computed(() => {
 }
 
 .preview-guide span {
-  color: rgba(199, 214, 231, 0.72);
+  color: var(--color-text-secondary);
   font-size: 13px;
   line-height: 1.6;
 }
@@ -303,9 +317,9 @@ const emptyStateText = computed(() => {
 .records-head {
   display: flex;
   justify-content: space-between;
-  gap: 18px;
+  gap: var(--space-5);
   align-items: flex-start;
-  margin-bottom: 18px;
+  margin-bottom: var(--space-5);
 }
 
 .records-head h2 {
@@ -316,7 +330,7 @@ const emptyStateText = computed(() => {
 
 .filters {
   display: flex;
-  gap: 12px;
+  gap: var(--space-3);
   align-items: center;
   flex-wrap: wrap;
 }
@@ -325,13 +339,19 @@ const emptyStateText = computed(() => {
   display: inline-flex;
   gap: 10px;
   align-items: center;
-  color: rgba(225, 235, 246, 0.84);
+  color: var(--color-text-primary);
   font-size: 13px;
 }
 
 .archive-list {
   display: grid;
-  gap: 12px;
+  align-content: start;
+  gap: var(--space-3);
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 4px;
+  overscroll-behavior: contain;
 }
 
 .archive-item {
@@ -340,9 +360,9 @@ const emptyStateText = computed(() => {
   gap: 10px;
   text-align: left;
   padding: 18px 18px 18px 22px;
-  border-radius: 24px;
+  border-radius: var(--radius-md);
   border: 0;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--color-surface-soft);
   color: inherit;
   cursor: pointer;
   transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
@@ -354,31 +374,31 @@ const emptyStateText = computed(() => {
   inset: 16px auto 16px 10px;
   width: 3px;
   border-radius: 999px;
-  background: rgba(67, 215, 255, 0.16);
+  background: var(--color-accent-soft);
 }
 
 .archive-item:hover,
 .archive-item.active {
   transform: translateY(-2px);
-  background: rgba(67, 215, 255, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(67, 215, 255, 0.22);
+  background: var(--color-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
 }
 
 .archive-item.active::before {
-  background: #43d7ff;
+  background: var(--color-accent);
 }
 
 .archive-row {
   display: grid;
   grid-template-columns: 132px minmax(0, 1fr);
-  gap: 14px;
+  gap: var(--space-4);
   align-items: center;
 }
 
 .archive-thumb {
   overflow: hidden;
   border-radius: 18px;
-  background: #07111d;
+  background: var(--color-bg-strong);
   aspect-ratio: 16 / 10;
 }
 
@@ -391,14 +411,14 @@ const emptyStateText = computed(() => {
 
 .archive-body {
   display: grid;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .title-row,
 .meta-row {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
@@ -410,21 +430,21 @@ const emptyStateText = computed(() => {
 
 .title-row p {
   margin: 0;
-  color: rgba(199, 214, 231, 0.62);
+  color: var(--color-text-tertiary);
   font-size: 12px;
 }
 
 .state-pill {
   padding: 9px 12px;
   border-radius: 999px;
-  background: rgba(67, 215, 255, 0.14);
-  color: #d9f7ff;
+  background: var(--color-accent-soft);
+  color: var(--color-text-primary);
   font-size: 12px;
   font-weight: 700;
 }
 
 .meta-row span {
-  color: rgba(199, 214, 231, 0.74);
+  color: var(--color-text-secondary);
   font-size: 12px;
 }
 
@@ -432,7 +452,7 @@ const emptyStateText = computed(() => {
   display: grid;
   place-items: center;
   min-height: 200px;
-  color: rgba(199, 214, 231, 0.62);
+  color: var(--color-text-tertiary);
   text-align: center;
 }
 
@@ -441,14 +461,32 @@ const emptyStateText = computed(() => {
   .overview-stats {
     grid-template-columns: 1fr;
   }
+
+  .records-layout {
+    height: auto;
+    min-height: 0;
+  }
+
+  .records-list {
+    height: auto;
+  }
+
+  .archive-list {
+    max-height: 70vh;
+  }
+
+  .preview-panel {
+    position: static;
+    max-height: none;
+  }
 }
 
 @media (max-width: 720px) {
   .overview-band,
   .records-list,
   .preview-panel {
-    padding: 16px;
-    border-radius: 22px;
+    padding: var(--space-4);
+    border-radius: var(--radius-sm);
   }
 
   .records-head {

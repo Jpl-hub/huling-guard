@@ -286,6 +286,7 @@ def _run_epoch(
     clip_focal_gamma: float,
     risk_loss_weight: float,
     quality_loss_weight: float,
+    sample_loss_weight: float,
     amp_enabled: bool,
     grad_clip_norm: float,
     scaler: torch.amp.GradScaler | None,
@@ -316,9 +317,11 @@ def _run_epoch(
                 frame_quality_targets=batch["frame_quality_target"],
                 padding_mask=batch["padding_mask"],
                 class_weights=class_weights,
+                sample_weights=batch['sample_weight'],
                 clip_focal_gamma=clip_focal_gamma,
                 risk_loss_weight=risk_loss_weight,
                 quality_loss_weight=quality_loss_weight,
+                sample_loss_weight=sample_loss_weight,
             )
         if training:
             optimizer.zero_grad(set_to_none=True)
@@ -491,6 +494,7 @@ def run_training(config_path: str | Path) -> Path:
             clip_focal_gamma=settings.training.clip_focal_gamma,
             risk_loss_weight=settings.training.risk_loss_weight,
             quality_loss_weight=settings.training.quality_loss_weight,
+            sample_loss_weight=settings.training.sample_loss_weight,
             amp_enabled=amp_enabled,
             grad_clip_norm=settings.training.grad_clip_norm,
             scaler=scaler,
@@ -513,6 +517,7 @@ def run_training(config_path: str | Path) -> Path:
                     clip_focal_gamma=settings.training.clip_focal_gamma,
                     risk_loss_weight=settings.training.risk_loss_weight,
                     quality_loss_weight=settings.training.quality_loss_weight,
+                    sample_loss_weight=settings.training.sample_loss_weight,
                     amp_enabled=amp_enabled,
                     grad_clip_norm=settings.training.grad_clip_norm,
                     scaler=None,

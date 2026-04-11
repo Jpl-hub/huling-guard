@@ -33,6 +33,7 @@ training:
   clip_focal_gamma: 1.5
   risk_loss_weight: 0.3
   quality_loss_weight: 0.15
+  sample_loss_weight: 0.5
   class_balance_beta: 0.999
   num_workers: 8
   pin_memory: true

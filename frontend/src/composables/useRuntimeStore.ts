@@ -95,10 +95,19 @@ const state = reactive<RuntimeStoreState>({
 })
 
 let pollingTimer: number | null = null
+let pollingActive = false
 
 function preferredDemoFilename(items: DemoVideoItem[]): string {
   const preferred = items.find((item) => item.filename.includes('fall'))
   return preferred?.filename ?? items[0]?.filename ?? ''
+}
+
+function normalizeDemoItem(item: DemoVideoItem): DemoVideoItem {
+  return {
+    ...item,
+    url: runtimeApi.mediaUrl(item.url),
+    poster_url: item.poster_url ? runtimeApi.mediaUrl(item.poster_url) : item.poster_url,
+  }
 }
 
 async function refreshArchives(): Promise<void> {
@@ -137,11 +146,7 @@ async function refreshArchives(): Promise<void> {
 async function refreshDemos(): Promise<void> {
   const previousSelectedFilename = state.selectedDemoFilename
   const payload = await runtimeApi.demoVideos()
-  state.demoVideos = payload.items.map((item) => ({
-    ...item,
-    url: runtimeApi.mediaUrl(item.url),
-    poster_url: item.poster_url ? runtimeApi.mediaUrl(item.poster_url) : item.poster_url,
-  }))
+  state.demoVideos = payload.items.map(normalizeDemoItem)
   if (!state.selectedDemoFilename && state.demoVideos.length) {
     state.selectedDemoFilename = preferredDemoFilename(state.demoVideos)
   } else if (state.selectedDemoFilename && !state.demoVideos.some((item) => item.filename === state.selectedDemoFilename)) {
@@ -270,8 +275,15 @@ async function uploadVideo(file: File): Promise<void> {
   state.errorMessage = ''
   try {
     const payload = await runtimeApi.uploadVideo(file)
+    const item = normalizeDemoItem(payload.item)
+    state.selectedDemoFilename = item.filename
+    state.selectedDemoSession = null
+    state.demoPlaybackTime = 0
+    state.demoPlaybackDuration = 0
+    state.demoPlaybackStarted = false
+    state.demoVideos = [item, ...state.demoVideos.filter((entry) => entry.filename !== item.filename)]
     await refreshDemos()
-    await selectDemo(payload.item.filename)
+    await selectDemo(item.filename)
     Message.success('视频已接入，系统开始分析。')
   } catch (error) {
     const message = error instanceof Error ? error.message : '上传失败'
@@ -439,20 +451,48 @@ const currentDataQuality = computed(() =>
 )
 
 function startPolling(): void {
-  if (pollingTimer !== null) {
+  if (pollingActive) {
     return
   }
-  void refresh()
-  pollingTimer = window.setInterval(() => {
-    void refresh()
-  }, 2000)
+  pollingActive = true
+  void refresh().finally(scheduleNextPoll)
 }
 
 function stopPolling(): void {
+  pollingActive = false
   if (pollingTimer !== null) {
-    window.clearInterval(pollingTimer)
+    window.clearTimeout(pollingTimer)
     pollingTimer = null
   }
+}
+
+function currentPollingDelay(): number {
+  if (state.liveIngest?.status === 'starting' || state.liveIngest?.status === 'running' || state.liveIngest?.status === 'stopping') {
+    return 700
+  }
+
+  const selectedItem = state.demoVideos.find((item) => item.filename === state.selectedDemoFilename) ?? null
+  if (selectedItem?.source_kind === 'upload' && selectedItem.processing_status === 'processing') {
+    return 700
+  }
+
+  if (state.demoVideos.some((item) => item.source_kind === 'upload' && item.processing_status === 'processing')) {
+    return 1000
+  }
+
+  return 2000
+}
+
+function scheduleNextPoll(): void {
+  if (!pollingActive) {
+    return
+  }
+  if (pollingTimer !== null) {
+    window.clearTimeout(pollingTimer)
+  }
+  pollingTimer = window.setTimeout(() => {
+    void refresh().finally(scheduleNextPoll)
+  }, currentPollingDelay())
 }
 
 export function useRuntimeStore() {

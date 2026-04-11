@@ -66,9 +66,32 @@ def _empty_snapshot() -> PipelineSnapshot:
     )
 
 
-def _load_dashboard_html() -> str:
-    path = Path(__file__).with_name("dashboard.html")
-    return path.read_text(encoding="utf-8")
+def _missing_frontend_html() -> str:
+    return """<!doctype html>
+<html lang=\"zh-CN\">
+  <head>
+    <meta charset=\"utf-8\" />
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+    <title>护龄智守</title>
+    <style>
+      :root { color-scheme: dark; }
+      body { margin: 0; font-family: Aptos, Segoe UI, Noto Sans SC, Microsoft YaHei, sans-serif; background: #050b13; color: rgba(241,247,252,.94); }
+      main { min-height: 100vh; display: grid; place-items: center; padding: 32px; }
+      section { width: min(100%, 640px); padding: 32px; border-radius: 18px; background: rgba(10,18,30,.76); box-shadow: inset 0 0 0 1px rgba(120,146,176,.12); }
+      h1 { margin: 0 0 12px; font-size: 28px; }
+      p { margin: 0; color: rgba(214,225,237,.74); line-height: 1.7; }
+      code { color: #79d4e7; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section>
+        <h1>前端发布包缺失</h1>
+        <p>当前运行时只以 Vue 前端发布包作为唯一界面来源。请先构建并挂载 <code>frontend/dist</code>，再访问 <code>/dashboard</code>。</p>
+      </section>
+    </main>
+  </body>
+</html>"""
 
 
 def _resolve_frontend_dist_root(frontend_dist_root: str | Path | None) -> Path | None:
@@ -169,9 +192,11 @@ def _list_demo_videos(root: Path | None) -> list[dict[str, object]]:
         return []
     items: list[dict[str, object]] = []
     poster_root = root.parent / "posters"
+    annotated_root = _annotated_videos_root(root)
     for path in sorted(root.glob("*.mp4")):
         report_path = root.parent / "reports" / "sessions" / f"{path.stem}.json"
         metadata = _load_upload_metadata(root, path.stem)
+        annotated_path = annotated_root / f"{path.stem}.mp4"
         poster_path = None
         for suffix in (".jpg", ".jpeg", ".png", ".webp"):
             candidate = poster_root / f"{path.stem}{suffix}"
@@ -184,6 +209,7 @@ def _list_demo_videos(root: Path | None) -> list[dict[str, object]]:
                 "filename": path.name,
                 "size_bytes": path.stat().st_size,
                 "url": f"/demo-videos/{path.name}",
+                "annotated_url": f"/demo-annotated/{annotated_path.name}" if annotated_path.is_file() else None,
                 "poster_url": f"/demo-posters/{poster_path.name}" if poster_path is not None else None,
                 "has_session_report": report_path.is_file(),
                 "source_kind": str(metadata.get("source_kind") or "demo"),
@@ -195,6 +221,10 @@ def _list_demo_videos(root: Path | None) -> list[dict[str, object]]:
             }
         )
     return items
+
+
+def _annotated_videos_root(demo_root: Path) -> Path:
+    return demo_root.parent / "annotated"
 
 
 def _upload_jobs_root(demo_root: Path) -> Path:
@@ -289,7 +319,7 @@ def create_runtime_app(
     dashboard_html = (
         (resolved_frontend_dist_root / "index.html").read_text(encoding="utf-8")
         if resolved_frontend_dist_root is not None
-        else _load_dashboard_html()
+        else _missing_frontend_html()
     )
     archive_store = RuntimeArchiveStore(archive_root) if archive_root is not None else None
     active_upload_jobs: set[str] = set()
@@ -407,11 +437,13 @@ def create_runtime_app(
         path = resolved_demo_video_root / f"{stem}.mp4"
         metadata = _load_upload_metadata(resolved_demo_video_root, stem)
         report_path = resolved_demo_video_root.parent / "reports" / "sessions" / f"{stem}.json"
+        annotated_path = _annotated_videos_root(resolved_demo_video_root) / f"{stem}.mp4"
         return {
             "name": stem,
             "filename": path.name,
             "size_bytes": path.stat().st_size if path.is_file() else 0,
             "url": f"/demo-videos/{path.name}",
+            "annotated_url": f"/demo-annotated/{annotated_path.name}" if annotated_path.is_file() else None,
             "poster_url": None,
             "has_session_report": report_path.is_file(),
             "source_kind": "upload",
@@ -553,11 +585,13 @@ def create_runtime_app(
 
             inference_pipeline = upload_pipeline_factory()
             estimator = RTMOPoseEstimator(device=upload_rtmo_device)
+            annotated_video_path = _annotated_videos_root(resolved_demo_video_root) / f"{stem}.mp4"
             processed_frames = run_video_inference_with_runtime(
                 input_path=input_path,
                 pipeline=inference_pipeline,
                 estimator=estimator,
                 output_jsonl=prediction_path,
+                output_video=annotated_video_path,
                 output_report_json=report_json_path,
                 output_report_markdown=report_markdown_path,
                 progress_callback=_update_upload_progress,
@@ -714,6 +748,24 @@ def create_runtime_app(
             raise HTTPException(status_code=400, detail="invalid demo video path") from error
         if not path.is_file():
             raise HTTPException(status_code=404, detail=f"demo video not found: {filename}")
+        return FileResponse(path)
+
+
+    @app.get("/demo-annotated/{filename}")
+    def demo_annotated_file(filename: str) -> FileResponse:
+        if resolved_demo_video_root is None:
+            raise HTTPException(status_code=404, detail="demo video root is not enabled")
+        normalized = Path(filename).name
+        if normalized != filename:
+            raise HTTPException(status_code=400, detail="invalid annotated video filename")
+        annotated_root = _annotated_videos_root(resolved_demo_video_root)
+        path = (annotated_root / normalized).resolve()
+        try:
+            path.relative_to(annotated_root)
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail="invalid annotated video path") from error
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail=f"annotated video not found: {filename}")
         return FileResponse(path)
 
     @app.get("/demo-posters/{filename}")

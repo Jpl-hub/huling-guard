@@ -105,42 +105,43 @@ const emptyText = computed(() => {
 <style scoped>
 .session-panel {
   display: grid;
-  gap: 18px;
+  gap: var(--space-4);
 }
 
 .head h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   letter-spacing: -0.03em;
 }
 
 .head p {
-  margin: 8px 0 0;
-  color: rgba(199, 214, 231, 0.68);
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
 .summary-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: var(--space-4);
   margin: 0;
 }
 
 .summary-strip div {
-  padding-top: 14px;
-  border-top: 1px solid rgba(120, 146, 176, 0.12);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-line-soft);
 }
 
 .summary-strip dt {
-  margin-bottom: 8px;
-  color: rgba(199, 214, 231, 0.64);
+  margin-bottom: var(--space-2);
+  color: var(--color-text-tertiary);
   font-size: 12px;
 }
 
 .summary-strip dd {
   margin: 0;
-  font-size: 24px;
+  color: var(--color-text-primary);
+  font-size: 22px;
   font-weight: 700;
   line-height: 1.04;
   letter-spacing: -0.04em;
@@ -148,55 +149,54 @@ const emptyText = computed(() => {
 
 .segments {
   display: grid;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .segment-item {
   padding: 14px 0;
-  border-top: 1px solid rgba(120, 146, 176, 0.12);
+  border-top: 1px solid var(--color-line-soft);
 }
 
 .segment-title,
 .segment-meta {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
 .segment-title {
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
 }
 
 .segment-title strong {
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .segment-title span,
 .segment-meta span {
-  color: rgba(199, 214, 231, 0.72);
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .chip {
-  padding: 9px 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(225, 235, 246, 0.84);
-  font-size: 13px;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .empty {
   display: grid;
   place-items: center;
   min-height: 140px;
-  color: rgba(199, 214, 231, 0.62);
+  color: var(--color-text-tertiary);
   text-align: center;
 }
 

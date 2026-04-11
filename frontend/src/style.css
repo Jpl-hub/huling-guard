@@ -4,6 +4,48 @@
   font-weight: 400;
   color: #eef6ff;
   background: #050b13;
+  --page-max-width: 1600px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 26px;
+  --radius-xl: 36px;
+  --color-bg: #050b13;
+  --color-bg-strong: #02060d;
+  --color-surface-soft: rgba(255, 255, 255, 0.03);
+  --color-surface-raised: rgba(10, 18, 30, 0.76);
+  --color-surface-overlay: rgba(2, 8, 15, 0.74);
+  --color-line-soft: rgba(120, 146, 176, 0.12);
+  --color-line-strong: rgba(120, 146, 176, 0.2);
+  --color-text-primary: rgba(241, 247, 252, 0.94);
+  --color-text-secondary: rgba(214, 225, 237, 0.74);
+  --color-text-tertiary: rgba(199, 214, 231, 0.62);
+  --color-text-muted: rgba(199, 214, 231, 0.5);
+  --color-accent: #79d4e7;
+  --color-accent-soft: rgba(121, 212, 231, 0.14);
+  --color-ok: #7ef2bd;
+  --color-watch: #f2ca7b;
+  --color-alert: #ff8c90;
+  --color-ok-soft: rgba(126, 242, 189, 0.14);
+  --color-watch-soft: rgba(242, 202, 123, 0.16);
+  --color-alert-soft: rgba(255, 140, 144, 0.16);
+  --color-ok-line: rgba(126, 242, 189, 0.22);
+  --color-watch-line: rgba(242, 202, 123, 0.22);
+  --color-alert-line: rgba(255, 140, 144, 0.24);
+  --color-text-ok: #b8ffdf;
+  --color-text-watch: #f7d08d;
+  --color-text-alert: #ffd6d3;
+  --shadow-stage: 0 30px 80px rgba(0, 0, 0, 0.36);
+  --shadow-soft: 0 18px 40px rgba(0, 0, 0, 0.2);
+  --shadow-watch: 0 0 0 1px rgba(242, 202, 123, 0.18), 0 30px 80px rgba(242, 202, 123, 0.08);
+  --shadow-alert: 0 0 0 1px rgba(255, 140, 144, 0.22), 0 30px 80px rgba(255, 140, 144, 0.08);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -23,7 +65,8 @@ body,
 
 body {
   min-width: 320px;
-  background: #050b13;
+  color: var(--color-text-primary);
+  background: var(--color-bg);
 }
 
 button,
@@ -35,4 +78,8 @@ textarea {
 
 a {
   color: inherit;
+}
+
+#app {
+  isolation: isolate;
 }

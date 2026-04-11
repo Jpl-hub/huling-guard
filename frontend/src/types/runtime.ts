@@ -140,6 +140,7 @@ export interface DemoVideoItem {
   filename: string
   size_bytes: number
   url: string
+  annotated_url?: string | null
   poster_url?: string | null
   has_session_report: boolean
   source_kind?: 'demo' | 'upload' | string
