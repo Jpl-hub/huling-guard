@@ -4,27 +4,51 @@ import { computed } from 'vue'
 import ArchivePreviewCard from '../components/ArchivePreviewCard.vue'
 import { useRuntimeStore } from '../composables/useRuntimeStore'
 import { matchDemoVideo } from '../utils/media'
-import { archiveDisplayName, formatArchiveTime, formatRisk, formatSeconds, stateLabel } from '../utils/presenters'
+import { archiveDisplayName, formatArchiveTime, formatRisk, formatSeconds, formatTimestamp, stateLabel } from '../utils/presenters'
 
 const store = useRuntimeStore()
 
 const overviewCards = computed(() => [
   {
-    label: '已归档过程',
+    label: '已留档过程',
     value: String(store.state.archiveSummary?.archive_total ?? 0),
-    detail: '所有已保存的过程都会在这里回看。',
+    detail: '已经保存的过程都会在这里回看。',
   },
   {
-    label: '需要优先复核',
+    label: '建议先复核',
     value: String(store.state.archiveSummary?.sessions_with_incidents ?? 0),
-    detail: '先看出现提醒的过程，再回看正常过程做对照。',
+    detail: '先看有提醒的过程，再回看正常过程做对照。',
   },
   {
-    label: '最近一条结论',
-    value: stateLabel(store.state.archiveSummary?.latest_archive?.dominant_state ?? null),
-    detail: formatArchiveTime(store.state.archiveSummary?.latest_archive?.archived_at ?? null),
+    label: '当前选中',
+    value: stateLabel(store.state.selectedArchiveReport?.dominant_state ?? store.state.archiveSummary?.latest_archive?.dominant_state ?? null),
+    detail: store.state.selectedArchiveReport
+      ? `本段时长 ${formatSeconds(store.state.selectedArchiveReport.duration_seconds)}`
+      : formatArchiveTime(store.state.archiveSummary?.latest_archive?.archived_at ?? null),
   },
 ])
+
+const selectedGuide = computed(() => {
+  const report = store.state.selectedArchiveReport
+  if (!report) {
+    return {
+      title: '先选一段过程',
+      detail: '左侧选中一条记录后，右侧会展开回放、关键时刻和系统提醒。',
+    }
+  }
+  if (report.incident_total > 0) {
+    return {
+      title: report.peak_risk
+        ? `先看 ${formatTimestamp(report.peak_risk.timestamp)} 的最高风险时刻`
+        : '先看最近一次正式提醒',
+      detail: '确认这次提醒是不是真的需要干预，再决定是否把它回灌为复查样本。',
+    }
+  }
+  return {
+    title: '这段过程没有正式提醒',
+    detail: '可作为正常对照片段，用来确认系统没有把日常动作误报成异常。',
+  }
+})
 
 const archiveEntries = computed(() =>
   (store.state.archives?.items ?? []).map((item) => {
@@ -47,7 +71,7 @@ const archiveEntries = computed(() =>
     <section class="overview-band">
       <div class="overview-copy">
         <h2>历史回看</h2>
-        <p>把已经发生过的一整段过程拉出来复查，先看是否真的需要干预，再看系统是不是判断准确。</p>
+        <p>先选一段过程，再看它是不是需要干预。这里保留的是完整过程，不是零散截图。</p>
       </div>
 
       <div class="overview-stats">
@@ -63,8 +87,8 @@ const archiveEntries = computed(() =>
       <section class="records-list">
         <header class="records-head">
           <div>
-            <h2>选择一段过程</h2>
-            <p>点击左侧记录，右侧会展开完整过程、关键时刻和回放入口。</p>
+            <h2>先筛，再看</h2>
+            <p>左侧选记录，右侧直接看回放、最高风险时刻和系统提醒。</p>
           </div>
           <div class="filters">
             <a-select
@@ -126,6 +150,10 @@ const archiveEntries = computed(() =>
       </section>
 
       <section class="preview-panel">
+        <div class="preview-guide">
+          <strong>{{ selectedGuide.title }}</strong>
+          <span>{{ selectedGuide.detail }}</span>
+        </div>
         <ArchivePreviewCard
           :report="store.state.selectedArchiveReport"
           :demo-videos="store.state.demoVideos"
@@ -192,9 +220,8 @@ const archiveEntries = computed(() =>
   display: block;
   margin-bottom: 10px;
   color: rgba(199, 214, 231, 0.58);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
+  font-size: 12px;
+  letter-spacing: 0.04em;
 }
 
 .overview-item strong {
@@ -218,6 +245,29 @@ const archiveEntries = computed(() =>
 .records-list,
 .preview-panel {
   padding: 22px;
+}
+
+.preview-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.preview-guide {
+  display: grid;
+  gap: 6px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(120, 146, 176, 0.12);
+}
+
+.preview-guide strong {
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+
+.preview-guide span {
+  color: rgba(199, 214, 231, 0.72);
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .records-head {

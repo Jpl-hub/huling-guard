@@ -33,22 +33,41 @@ const topFacts = computed(() => {
   const profile = store.state.systemProfile?.runtime_profile
   return [
     {
-      label: '当前输入',
-      value: '实时视频 / 模拟监看 / 上传视频',
-      detail: '三种接入方式都是真实可用的运行入口。',
+      label: '怎么接入',
+      value: '实时接入 / 模拟监看 / 上传复核',
+      detail: '三种入口都已经接上真实运行链路。',
     },
     {
-      label: '连续判断',
-      value: `${meta?.window_size ?? profile?.window_size ?? '-'} 帧时间窗`,
-      detail: '不是只看某一帧，而是看一整段过程。',
+      label: '怎么判断',
+      value: `${meta?.window_size ?? profile?.window_size ?? '-'} 帧连续判断`,
+      detail: '不是只看一帧，而是看一整段动作过程。',
     },
     {
-      label: '历史留档',
+      label: '怎么留档',
       value: meta?.archive_enabled || profile?.archive_enabled ? '已开启' : '未开启',
-      detail: '已经保存的过程可回看、复核和再训练。',
+      detail: '已经保存的过程可回看、复核和继续训练。',
     },
   ]
 })
+
+const usageSteps = computed(() => [
+  {
+    title: '接入画面',
+    body: '可以直接接实时输入，也可以用模拟监看流或上传新视频进入同一条分析链。',
+  },
+  {
+    title: '形成结论',
+    body: '系统先建立连续时序窗口，再给出当前状态、建议动作和最近提醒。',
+  },
+  {
+    title: '回看复核',
+    body: '把已发生的过程保存下来，回看关键时刻，再决定是否作为误报或难例样本继续训练。',
+  },
+])
+
+const trustPoints = computed(() => (store.state.systemProfile?.quality_controls ?? []).slice(0, 4))
+
+const targetUsers = computed(() => (store.state.systemProfile?.target_users ?? []).slice(0, 4))
 
 const inputModes = computed(() => [
   {
@@ -71,7 +90,7 @@ const inputModes = computed(() => [
     <section class="hero panel">
       <div class="hero-copy">
         <small>{{ store.state.systemProfile?.product_name || '护龄智守' }}</small>
-        <h2>这套系统怎么接入、怎么判断、怎么留档</h2>
+        <h2>怎么看、什么时候信、出了事怎么回看</h2>
         <p>{{ store.state.systemProfile?.product_tagline || '单房间固定机位安全值守系统' }}</p>
       </div>
       <dl class="hero-facts">
@@ -86,35 +105,35 @@ const inputModes = computed(() => [
     <section class="system-layout">
       <article class="panel section">
         <header>
-          <h3>系统替人完成什么</h3>
-          <p>值守人员不需要一直盯屏，系统先把需要关注的过程挑出来。</p>
+          <h3>适合谁来用</h3>
+          <p>这页只保留用户真正关心的系统能力，不堆开发字段。</p>
         </header>
         <ul class="goal-list">
-          <li v-for="goal in store.state.systemProfile?.operational_goals ?? []" :key="goal">{{ goal }}</li>
+          <li v-for="goal in targetUsers" :key="goal">{{ goal }}</li>
         </ul>
       </article>
 
       <article class="panel section">
         <header>
-          <h3>系统怎么形成判断</h3>
-          <p>从视频输入到提醒生成，再到回看留档，是一条完整闭环。</p>
+          <h3>打开系统后怎么用</h3>
+          <p>先接画面，再看结论，最后回看留档。</p>
         </header>
         <div class="pipeline">
           <div
-            v-for="module in store.state.systemProfile?.system_modules ?? []"
-            :key="module.name"
+            v-for="step in usageSteps"
+            :key="step.title"
             class="pipeline-step"
           >
-            <strong>{{ module.name }}</strong>
-            <p>{{ module.summary }}</p>
+            <strong>{{ step.title }}</strong>
+            <p>{{ step.body }}</p>
           </div>
         </div>
       </article>
 
       <article class="panel section">
         <header>
-          <h3>当前支持哪些输入</h3>
-          <p>这三种输入形态都是真实存在的系统入口，不是示意页面。</p>
+          <h3>当前已经支持的入口</h3>
+          <p>这三种输入都是真实功能，不是示意页或假按钮。</p>
         </header>
         <div class="input-grid">
           <div v-for="item in inputModes" :key="item.title" class="state-card">
@@ -143,19 +162,29 @@ const inputModes = computed(() => [
 
       <article class="panel section">
         <header>
-          <h3>系统如何收敛误报</h3>
-          <p>重点不在模型名字，而在系统如何控制错误判断。</p>
+          <h3>什么时候可以信它</h3>
+          <p>系统不靠一句“模型很强”，而是靠这些约束控制误报。</p>
         </header>
         <ul class="goal-list">
-          <li v-for="item in store.state.systemProfile?.quality_controls ?? []" :key="item">{{ item }}</li>
+          <li v-for="item in trustPoints" :key="item">{{ item }}</li>
         </ul>
       </article>
 
       <article class="panel section full-span">
         <header>
-          <h3>当前运行口径</h3>
-          <p>这里只保留真正会影响运行结果的关键参数。</p>
+          <h3>当前主链怎么组成</h3>
+          <p>保留会影响 1.0 结果的关键参数和主链模块，不在这里堆全量技术细节。</p>
         </header>
+        <div class="pipeline compact-pipeline">
+          <div
+            v-for="module in store.state.systemProfile?.system_modules ?? []"
+            :key="module.name"
+            class="pipeline-step"
+          >
+            <strong>{{ module.name }}</strong>
+            <p>{{ module.summary }}</p>
+          </div>
+        </div>
         <div class="facts-grid">
           <article v-for="item in runtimeFacts" :key="item.label" class="fact-item">
             <small>{{ item.label }}</small>
@@ -190,9 +219,8 @@ const inputModes = computed(() => [
   display: block;
   margin-bottom: 12px;
   color: rgba(199, 214, 231, 0.58);
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.04em;
 }
 
 .hero-copy h2 {
@@ -225,9 +253,8 @@ const inputModes = computed(() => [
 .hero-facts dt,
 .fact-item small {
   color: rgba(199, 214, 231, 0.58);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
+  font-size: 12px;
+  letter-spacing: 0.04em;
 }
 
 .hero-facts dd,
@@ -294,6 +321,10 @@ const inputModes = computed(() => [
   padding: 16px 18px;
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.02);
+}
+
+.compact-pipeline {
+  margin-bottom: 12px;
 }
 
 .pipeline-step strong,
