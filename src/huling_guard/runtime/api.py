@@ -66,9 +66,32 @@ def _empty_snapshot() -> PipelineSnapshot:
     )
 
 
-def _load_dashboard_html() -> str:
-    path = Path(__file__).with_name("dashboard.html")
-    return path.read_text(encoding="utf-8")
+def _missing_frontend_html() -> str:
+    return """<!doctype html>
+<html lang=\"zh-CN\">
+  <head>
+    <meta charset=\"utf-8\" />
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+    <title>护龄智守</title>
+    <style>
+      :root { color-scheme: dark; }
+      body { margin: 0; font-family: Aptos, Segoe UI, Noto Sans SC, Microsoft YaHei, sans-serif; background: #050b13; color: rgba(241,247,252,.94); }
+      main { min-height: 100vh; display: grid; place-items: center; padding: 32px; }
+      section { width: min(100%, 640px); padding: 32px; border-radius: 18px; background: rgba(10,18,30,.76); box-shadow: inset 0 0 0 1px rgba(120,146,176,.12); }
+      h1 { margin: 0 0 12px; font-size: 28px; }
+      p { margin: 0; color: rgba(214,225,237,.74); line-height: 1.7; }
+      code { color: #79d4e7; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section>
+        <h1>前端发布包缺失</h1>
+        <p>当前运行时只以 Vue 前端发布包作为唯一界面来源。请先构建并挂载 <code>frontend/dist</code>，再访问 <code>/dashboard</code>。</p>
+      </section>
+    </main>
+  </body>
+</html>"""
 
 
 def _resolve_frontend_dist_root(frontend_dist_root: str | Path | None) -> Path | None:
@@ -289,7 +312,7 @@ def create_runtime_app(
     dashboard_html = (
         (resolved_frontend_dist_root / "index.html").read_text(encoding="utf-8")
         if resolved_frontend_dist_root is not None
-        else _load_dashboard_html()
+        else _missing_frontend_html()
     )
     archive_store = RuntimeArchiveStore(archive_root) if archive_root is not None else None
     active_upload_jobs: set[str] = set()

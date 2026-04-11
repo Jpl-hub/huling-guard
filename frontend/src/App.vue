@@ -128,8 +128,8 @@ onBeforeUnmount(() => {
 .error-banner {
   margin-bottom: var(--space-5);
   padding: 14px 0 0;
-  border-top: 1px solid rgba(255, 140, 144, 0.28);
-  color: #ffd6d3;
+  border-top: 1px solid var(--color-alert-line);
+  color: var(--color-text-alert);
   font-size: 14px;
 }
 
