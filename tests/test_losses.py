@@ -26,7 +26,7 @@ def test_compute_losses_masks_padded_quality_frames() -> None:
     assert float(losses['total'].item()) > float(losses['clip_loss'].item())
 
 
-def test_compute_losses_keeps_same_result_with_uniform_sample_weights() -> None:
+def test_compute_losses_ignores_sample_weights_without_loss_weight() -> None:
     outputs = {
         'clip_logits': torch.tensor([[1.2, -0.3], [0.4, -0.2]], dtype=torch.float32),
         'risk_logits': torch.tensor([0.1, -0.4], dtype=torch.float32),
@@ -42,7 +42,7 @@ def test_compute_losses_keeps_same_result_with_uniform_sample_weights() -> None:
     )
 
     baseline = compute_losses(**kwargs)
-    weighted = compute_losses(sample_weights=torch.tensor([1.0, 1.0], dtype=torch.float32), **kwargs)
+    weighted = compute_losses(sample_weights=torch.tensor([3.0, 1.0], dtype=torch.float32), **kwargs)
 
     for key in ('clip_loss', 'risk_loss', 'quality_loss', 'total'):
         assert float(weighted[key].item()) == pytest.approx(float(baseline[key].item()))
@@ -65,7 +65,11 @@ def test_compute_losses_applies_sample_weights_to_all_loss_terms() -> None:
     )
 
     baseline = compute_losses(**kwargs)
-    weighted = compute_losses(sample_weights=torch.tensor([3.0, 1.0], dtype=torch.float32), **kwargs)
+    weighted = compute_losses(
+        sample_weights=torch.tensor([3.0, 1.0], dtype=torch.float32),
+        sample_loss_weight=1.0,
+        **kwargs,
+    )
 
     assert float(weighted['clip_loss'].item()) > float(baseline['clip_loss'].item())
     assert float(weighted['risk_loss'].item()) > float(baseline['risk_loss'].item())

@@ -495,11 +495,11 @@ export function buildVerdict(display: DisplayState): {
 } {
   if (!display.ready) {
     return {
-      badge: '正在建立连续判断',
-      title: '先保持画面连续',
+      badge: '系统就绪中',
+      title: '系统正在就绪',
       action: '暂不处理',
-      detail: '系统已进入分析，正在形成第一段连续状态。',
-      steps: ['保持画面连续输入', '等结论稳定后再处理'],
+      detail: '系统正在形成第一段连续状态。',
+      steps: ['保持输入连续', '等待稳定结论'],
     }
   }
 

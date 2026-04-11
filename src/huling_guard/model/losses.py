@@ -32,12 +32,13 @@ def _normalized_sample_weights(
     sample_weights: torch.Tensor | None,
     *,
     reference: torch.Tensor,
+    sample_loss_weight: float,
 ) -> torch.Tensor | None:
-    if sample_weights is None:
+    if sample_weights is None or sample_loss_weight <= 0.0:
         return None
     weights = sample_weights.to(device=reference.device, dtype=reference.dtype).reshape(-1)
-    mean = weights.mean().clamp_min(1e-6)
-    return weights / mean
+    normalized = weights / weights.mean().clamp_min(1e-6)
+    return (1.0 + (sample_loss_weight * (normalized - 1.0))).clamp_min(0.0)
 
 
 def compute_losses(
@@ -51,8 +52,13 @@ def compute_losses(
     clip_focal_gamma: float = 0.0,
     risk_loss_weight: float = 0.3,
     quality_loss_weight: float = 0.15,
+    sample_loss_weight: float = 0.0,
 ) -> dict[str, torch.Tensor]:
-    normalized_weights = _normalized_sample_weights(sample_weights, reference=outputs['clip_logits'])
+    normalized_weights = _normalized_sample_weights(
+        sample_weights,
+        reference=outputs['clip_logits'],
+        sample_loss_weight=sample_loss_weight,
+    )
 
     ce = F.cross_entropy(
         outputs['clip_logits'],

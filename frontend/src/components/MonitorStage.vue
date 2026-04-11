@@ -385,7 +385,7 @@ onBeforeUnmount(() => {
     <section v-if="ingestPanelOpen || hasRunningIngest || liveIngest?.status === 'failed'" class="ingest-panel">
       <div class="ingest-copy">
         <h3>实时接入</h3>
-        <p>把摄像头、RTSP 或视频文件直接推进运行时，值守页会切换到这一路实时输入。</p>
+        <p>接入摄像头、RTSP 或视频文件后，系统将切换到该输入源进行连续分析。</p>
       </div>
 
       <div class="ingest-form">

@@ -20,7 +20,6 @@ import {
 const store = useRuntimeStore()
 
 const answerCards = computed(() => store.quickAnswers.value)
-const hasIncidents = computed(() => store.displayIncidents.value.length > 0)
 const liveFrameUrl = computed(() => store.liveFrameUrl.value)
 const probabilityEntries = computed(() =>
   Object.entries(store.displayState.value.stateProbabilities)
@@ -62,13 +61,13 @@ const evidenceItems = computed(() => {
     items.push({
       label: '最近变化',
       value: report.value?.ready_frames
-        ? `已形成 ${report.value.ready_frames} 帧连续判断，等待正式提醒。`
-        : '系统已进入分析，正在建立时序窗口。',
+        ? `系统正在就绪 · ${report.value.ready_frames} 帧`
+        : '系统正在就绪。',
     })
   } else {
     items.push({
       label: '最近变化',
-      value: '这段画面还没有形成正式提醒。',
+      value: '暂无正式提醒。',
     })
   }
 
@@ -91,8 +90,8 @@ const evidenceItems = computed(() => {
       label: '骨架质量',
       value:
         quality.value.pose_quality_score < 0.45
-          ? `当前偏低（${formatPercent(quality.value.pose_quality_score)}），系统会更保守。`
-          : `当前稳定（${formatPercent(quality.value.pose_quality_score)}），可以形成连续判断。`,
+          ? `偏低 · ${formatPercent(quality.value.pose_quality_score)}`
+          : `稳定 · ${formatPercent(quality.value.pose_quality_score)}`,
     })
   }
 
@@ -175,7 +174,7 @@ const flowDescription = computed(() =>
           </div>
 
           <div class="decision-copy">
-            <small>{{ hasIncidents ? '先判断要不要马上过去' : '当前以继续值守为主' }}</small>
+            <small>核心判定</small>
             <h2>{{ store.verdict.value.action }}</h2>
             <p>这段画面已连续判断 {{ currentDurationText }}。</p>
           </div>
@@ -197,7 +196,7 @@ const flowDescription = computed(() =>
 
           <div class="evidence-block">
             <header>
-              <h3>判断依据</h3>
+              <h3>核心判定</h3>
             </header>
             <ul>
               <li v-for="item in evidenceItems" :key="item.label">
@@ -209,7 +208,7 @@ const flowDescription = computed(() =>
 
           <div class="action-block">
             <header>
-              <h3>接下来怎么做</h3>
+              <h3>处置建议</h3>
             </header>
             <ol>
               <li v-for="step in nextSteps" :key="step">{{ step }}</li>

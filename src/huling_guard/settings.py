@@ -39,6 +39,7 @@ class TrainingSettings:
     clip_focal_gamma: float
     risk_loss_weight: float
     quality_loss_weight: float
+    sample_loss_weight: float
     class_balance_beta: float
     num_workers: int
     pin_memory: bool
@@ -135,6 +136,7 @@ def load_settings(path: str | Path) -> AppSettings:
             clip_focal_gamma=float(training.get('clip_focal_gamma', 0.0)),
             risk_loss_weight=float(training.get('risk_loss_weight', 0.3)),
             quality_loss_weight=float(training.get('quality_loss_weight', 0.15)),
+            sample_loss_weight=float(training.get('sample_loss_weight', 0.0)),
             class_balance_beta=float(training.get('class_balance_beta', 0.999)),
             num_workers=int(training.get('num_workers', 4)),
             pin_memory=bool(training.get('pin_memory', True)),

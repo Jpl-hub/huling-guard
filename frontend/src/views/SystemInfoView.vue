@@ -25,7 +25,7 @@ const strideLabel = computed(() => String(runtimeMeta.value?.inference_stride ??
 const featureSetLabel = computed(() => runtimeMeta.value?.kinematic_feature_set ?? runtimeProfile.value?.kinematic_feature_set ?? '-')
 const windowSpanLabel = computed(() => {
   const span = runtimeState.value?.window_span_seconds ?? 0
-  return span > 0 ? `${span.toFixed(1)} 秒` : '等待时序窗口'
+  return span > 0 ? `${span.toFixed(1)} 秒` : '待汇入'
 })
 const deviceTone = computed(() => {
   const device = (deviceLabel.value || '').toLowerCase()
@@ -38,19 +38,29 @@ const runtimeReady = computed(() => Boolean(runtimeSummary.value?.ready))
 const telemetryItems = computed(() => [
   { label: '推理设备', value: deviceLabel.value, detail: deviceTone.value === 'ok' ? '已检测到加速设备' : '当前以运行时配置为准', tone: deviceTone.value },
   { label: '时序记忆', value: `${windowSizeLabel.value} 帧`, detail: windowSpanLabel.value, tone: 'neutral' },
-  { label: '更新步长', value: `${strideLabel.value} 帧`, detail: '不是单帧判断，而是持续更新', tone: 'neutral' },
+  { label: '更新步长', value: `${strideLabel.value} 帧`, detail: '按连续时间窗更新', tone: 'neutral' },
   { label: '特征口径', value: featureSetLabel.value, detail: '骨架、运动学、场景关系联合输入', tone: 'neutral' },
   { label: '房间先验', value: runtimeMeta.value?.scene_prior_loaded || runtimeProfile.value?.scene_prior_loaded ? '已加载' : '未加载', detail: '用于区分床上躺卧与地面卧倒', tone: runtimeMeta.value?.scene_prior_loaded || runtimeProfile.value?.scene_prior_loaded ? 'ok' : 'watch' },
   { label: '历史归档', value: runtimeMeta.value?.archive_enabled || runtimeProfile.value?.archive_enabled ? '已开启' : '未开启', detail: '过程可保存、可复看、可复核', tone: runtimeMeta.value?.archive_enabled || runtimeProfile.value?.archive_enabled ? 'ok' : 'watch' },
 ])
 
+const qualityAvailable = computed(() =>
+  runtimeReady.value && Number(runtimeSummary.value?.observed_frames ?? runtimeState.value?.observed_frames ?? 0) > 0,
+)
+
 const qualityMeters = computed(() => {
   const quality = runtimeSummary.value?.data_quality ?? runtimeState.value?.data_quality
-  return [
-    { label: '骨架质量', value: quality?.pose_quality_score ?? 0, detail: '决定这段输入值不值得信' },
-    { label: '关键点均值', value: quality?.mean_keypoint_confidence ?? 0, detail: '反映当前关节检测稳定度' },
-    { label: '可见关节比例', value: quality?.visible_joint_ratio ?? 0, detail: '遮挡、低光和出框会直接拉低这里' },
+  const rows = [
+    { label: '骨架质量', value: quality?.pose_quality_score ?? 0, detail: '评估当前骨架输入的整体可信度' },
+    { label: '关键点均值', value: quality?.mean_keypoint_confidence ?? 0, detail: '反映关节检测的平均置信水平' },
+    { label: '可见关节比例', value: quality?.visible_joint_ratio ?? 0, detail: '反映遮挡、低光和出框对输入的影响' },
   ]
+  return rows.map((item) => ({
+    ...item,
+    value: qualityAvailable.value ? item.value : null,
+    displayValue: qualityAvailable.value ? formatRisk(item.value) : '--',
+    detail: qualityAvailable.value ? item.detail : '等待输入汇入',
+  }))
 })
 
 const thresholdRadarOption = computed(() => ({
@@ -109,7 +119,7 @@ const thresholdFacts = computed(() => [
 
 const pipelineNodes = computed(() => [
   { title: '视频源', body: '本机设备 / RTSP / 文件', metric: store.state.liveSource?.available ? '实时输入中' : '等待输入', tone: store.state.liveSource?.available ? 'ok' : 'neutral' },
-  { title: 'RTMO 姿态', body: '17 点骨架与置信度', metric: qualityMeters.value[1] ? `均值 ${formatRisk(qualityMeters.value[1].value)}` : '等待骨架', tone: runtimeReady.value ? 'ok' : 'watch' },
+  { title: 'RTMO 姿态', body: '17 点骨架与置信度', metric: qualityMeters.value[1]?.value !== null ? `均值 ${qualityMeters.value[1].displayValue}` : '等待骨架', tone: runtimeReady.value ? 'ok' : 'watch' },
   { title: '时序网络', body: `窗口 ${windowSizeLabel.value} / 步长 ${strideLabel.value}`, metric: runtimeSummary.value?.predicted_state ? `当前 ${runtimeSummary.value.predicted_state}` : '等待正式结论', tone: runtimeReady.value ? 'ok' : 'watch' },
   { title: '事件引擎', body: '提醒、跌倒、长卧、恢复', metric: runtimeSummary.value?.incident_total ? `${runtimeSummary.value.incident_total} 条事件` : '尚无事件', tone: (runtimeSummary.value?.incident_total ?? 0) > 0 ? 'watch' : 'neutral' },
 ])
@@ -118,14 +128,14 @@ const stateCards = computed(() => (store.state.systemProfile?.detectable_states 
   ...item,
   note:
     item.code === 'normal'
-      ? '保持正常时安静，不乱报。'
+      ? '建立正常活动基线，降低日常动作误报。'
       : item.code === 'near_fall'
-        ? '捕捉失衡前兆，而不是只等人倒地。'
+        ? '识别明显失衡趋势，用于提前提示。'
         : item.code === 'fall'
-          ? '把跌倒瞬间抬到最高优先级。'
+          ? '识别跌倒过程并触发高优先级提醒。'
           : item.code === 'recovery'
-            ? '识别起身过程，避免把恢复误当异常持续。'
-            : '对持续卧倒单独升级，避免漏掉长卧。',
+            ? '识别异常后的起身恢复过程。'
+            : '识别持续低位停留并升级长卧风险。',
 })))
 
 const qualityControls = computed(() => store.state.systemProfile?.quality_controls ?? [])
@@ -152,7 +162,7 @@ const boundaryGroups = computed(() => [
         <small class="eyebrow">{{ store.state.systemProfile?.product_name || '护龄智守' }}</small>
         <h2>技术遥测与运行链路</h2>
       </div>
-      <p>只展示真实运行参数、真实状态流和真实阈值口径，不造假设备、不堆说明书。</p>
+      <p>展示当前运行参数、状态流、阈值口径与处理链路。</p>
     </header>
 
     <section class="telemetry-strip">
@@ -169,7 +179,7 @@ const boundaryGroups = computed(() => [
     <section class="section-block">
       <header class="section-head">
         <h3>运行链路</h3>
-        <p>这页不讲空话，直接把后台真正跑着的主链放出来。</p>
+        <p>实时展示系统当前的处理管线与节点流转状态。</p>
       </header>
       <div class="pipeline-track" :data-ready="runtimeReady">
         <div v-for="(node, index) in pipelineNodes" :key="node.title" class="pipeline-node" :data-tone="node.tone">
@@ -184,7 +194,7 @@ const boundaryGroups = computed(() => [
     <section class="section-block state-block">
       <header class="section-head">
         <h3>识别状态</h3>
-        <p>先看系统到底能识别什么，再看它是怎样做出判断的。</p>
+        <p>展示系统支持的状态类型与对应的处置语义。</p>
       </header>
       <div class="state-list state-grid">
         <article v-for="item in stateCards" :key="item.code" class="line-row">
@@ -198,16 +208,16 @@ const boundaryGroups = computed(() => [
       <section class="section-block">
         <header class="section-head">
           <h3>当前质量面板</h3>
-          <p>质量低时要保守，不把坏输入硬抬成高风险。</p>
+          <p>展示当前骨架输入质量，用于辅助判断结果可信度。</p>
         </header>
         <div class="quality-list">
           <article v-for="item in qualityMeters" :key="item.label" class="quality-item">
             <div class="quality-head">
               <strong>{{ item.label }}</strong>
-              <span class="telemetry-value">{{ formatRisk(item.value) }}</span>
+              <span class="telemetry-value" :data-empty="item.value === null">{{ item.displayValue }}</span>
             </div>
-            <div class="quality-bar" aria-hidden="true">
-              <span :style="{ width: `${Math.max(0, Math.min(100, item.value * 100))}%` }" />
+            <div class="quality-bar" :data-empty="item.value === null" aria-hidden="true">
+              <span :style="{ width: item.value === null ? '0%' : `${Math.max(0, Math.min(100, item.value * 100))}%` }" />
             </div>
             <p>{{ item.detail }}</p>
           </article>
@@ -217,7 +227,7 @@ const boundaryGroups = computed(() => [
       <section class="section-block">
         <header class="section-head">
           <h3>运行阈值雷达</h3>
-          <p>每一种提醒都来自明确阈值，而不是拍脑袋。</p>
+          <p>系统依据预设的安全基线触发自动预警。</p>
         </header>
         <div class="radar-shell">
           <VChart :option="thresholdRadarOption" autoresize class="radar-chart" />
@@ -234,7 +244,7 @@ const boundaryGroups = computed(() => [
     <section class="section-block boundary-block">
       <header class="section-head">
         <h3>质量控制与边界</h3>
-        <p>把能做什么和不能做什么都写清楚，才可信。</p>
+        <p>展示当前适用场景、接入方式与运行边界。</p>
       </header>
       <div class="boundary-grid">
         <section v-for="group in boundaryGroups" :key="group.title" class="boundary-group">
@@ -244,12 +254,9 @@ const boundaryGroups = computed(() => [
           </ul>
         </section>
       </div>
-      <div class="control-list">
-        <article v-for="item in qualityControls" :key="item" class="line-row">
-          <strong>控制原则</strong>
-          <p>{{ item }}</p>
-        </article>
-      </div>
+      <ul class="control-list">
+        <li v-for="item in qualityControls" :key="item">{{ item }}</li>
+      </ul>
     </section>
   </section>
 </template>
@@ -457,10 +464,24 @@ const boundaryGroups = computed(() => [
 }
 
 .quality-list,
-.state-list,
-.control-list {
+.state-list {
   display: grid;
   gap: var(--space-4);
+}
+
+.control-list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0 0 0 var(--space-4);
+  border-left: 2px solid var(--color-line-soft);
+  list-style: none;
+}
+
+.control-list li {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
 }
 
 .state-grid {
@@ -486,6 +507,14 @@ const boundaryGroups = computed(() => [
   border-radius: 999px;
   overflow: hidden;
   background: var(--color-surface-soft);
+}
+
+.quality-bar[data-empty='true'] {
+  opacity: 0.45;
+}
+
+.telemetry-value[data-empty='true'] {
+  color: var(--color-text-muted);
 }
 
 .quality-bar span {
