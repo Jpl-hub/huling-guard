@@ -1,13 +1,38 @@
 <script setup lang="ts">
-import type { Incident } from '../types/runtime'
+import { computed } from 'vue'
+
+import type { DisplayState, Incident, SessionReport } from '../types/runtime'
 import { formatRisk, formatTimestamp, incidentAction, incidentLabel, stateLabel } from '../utils/presenters'
 
 import type { ViewMode } from '../types/runtime'
 
-defineProps<{
+const props = defineProps<{
   incidents: ReadonlyArray<Incident>
+  displayState: Readonly<DisplayState>
+  report: Readonly<SessionReport> | null
   viewMode: ViewMode
 }>()
+
+const helperText = computed(() => {
+  if (props.incidents.length) {
+    return '需要处理的关键时刻。'
+  }
+  if (!props.displayState.ready && (props.report?.total_frames ?? 0) > 0) {
+    return props.report?.ready_frames
+      ? '系统已形成部分连续判断，正在等待正式提醒。'
+      : '系统已进入分析，正在建立时序窗口。'
+  }
+  return '需要处理的关键时刻。'
+})
+
+const emptyText = computed(() => {
+  if (!props.displayState.ready && (props.report?.total_frames ?? 0) > 0) {
+    return props.report?.ready_frames
+      ? '已经开始形成连续判断，目前还没有正式提醒。'
+      : '已经开始分析这段视频，正在等待第一段连续结论。'
+  }
+  return '暂无需要处理的变化。'
+})
 </script>
 
 <template>
@@ -15,7 +40,7 @@ defineProps<{
     <header class="head">
       <div>
         <h2>最近变化</h2>
-        <p>需要处理的关键时刻。</p>
+        <p>{{ helperText }}</p>
       </div>
       <span>{{ incidents.length ? `${incidents.length} 条` : '无提醒' }}</span>
     </header>
@@ -45,7 +70,7 @@ defineProps<{
       </article>
     </div>
     <div v-else class="empty">
-      暂无需要处理的变化。
+      {{ emptyText }}
     </div>
   </section>
 </template>

@@ -58,6 +58,13 @@ const evidenceItems = computed(() => {
       label: '最近变化',
       value: `${incidentLabel(latestIncident.kind)} · ${formatTimestamp(latestIncident.timestamp)}`,
     })
+  } else if ((report.value?.total_frames ?? 0) > 0 && !store.displayState.value.ready) {
+    items.push({
+      label: '最近变化',
+      value: report.value?.ready_frames
+        ? `已形成 ${report.value.ready_frames} 帧连续判断，等待正式提醒。`
+        : '系统已进入分析，正在建立时序窗口。',
+    })
   } else {
     items.push({
       label: '最近变化',
@@ -216,7 +223,12 @@ const flowDescription = computed(() =>
         </section>
 
         <section class="side-panel">
-          <EventFeed :incidents="store.displayIncidents.value" :view-mode="store.state.mode" />
+          <EventFeed
+            :incidents="store.displayIncidents.value"
+            :display-state="store.displayState.value"
+            :report="store.displayReport.value"
+            :view-mode="store.state.mode"
+          />
         </section>
 
         <section class="side-panel">
