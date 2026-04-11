@@ -78,85 +78,86 @@ const emptyText = computed(() => {
 <style scoped>
 .event-feed {
   display: grid;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .head {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   align-items: flex-start;
 }
 
 .head h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   letter-spacing: -0.03em;
 }
 
 .head p {
-  margin: 8px 0 0;
-  color: rgba(199, 214, 231, 0.68);
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
 .head span:last-child {
-  color: rgba(199, 214, 231, 0.64);
+  color: var(--color-text-tertiary);
   font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .list {
   display: grid;
-  gap: 14px;
+  gap: var(--space-4);
 }
 
 .event-item {
   display: grid;
-  grid-template-columns: 12px minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: var(--space-3);
   align-items: start;
 }
 
 .event-marker {
-  width: 12px;
-  height: 12px;
-  margin-top: 8px;
+  width: 10px;
+  height: 10px;
+  margin-top: 9px;
   border-radius: 999px;
-  background: #43d7ff;
-  box-shadow: 0 0 0 6px rgba(67, 215, 255, 0.08);
+  background: var(--color-accent);
+  box-shadow: 0 0 0 5px var(--color-accent-soft);
 }
 
 .event-copy {
   padding-bottom: 14px;
-  border-bottom: 1px solid rgba(120, 146, 176, 0.12);
+  border-bottom: 1px solid var(--color-line-soft);
 }
 
 .title-row {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   flex-wrap: wrap;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
   align-items: center;
 }
 
 .title-row strong {
-  font-size: 16px;
+  font-size: 15px;
   letter-spacing: -0.02em;
 }
 
 .action-pill {
-  padding: 7px 10px;
-  border-radius: 999px;
-  background: rgba(67, 215, 255, 0.12);
-  color: #d9f7ff;
-  font-size: 12px;
+  color: var(--color-text-tertiary);
+  font-size: 11px;
   font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .event-copy p {
   margin: 0;
-  color: rgba(199, 214, 231, 0.72);
+  color: var(--color-text-secondary);
   font-size: 13px;
   line-height: 1.6;
 }
@@ -164,8 +165,8 @@ const emptyText = computed(() => {
 .empty {
   display: grid;
   place-items: center;
-  min-height: 160px;
-  color: rgba(199, 214, 231, 0.62);
+  min-height: 140px;
+  color: var(--color-text-tertiary);
   text-align: center;
 }
 </style>

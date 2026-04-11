@@ -286,37 +286,35 @@ const flowDescription = computed(() =>
 <style scoped>
 .live-page {
   display: grid;
-  gap: 18px;
+  gap: var(--space-6);
 }
 
 .status-banner {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  align-items: flex-end;
-  padding: 16px 18px;
-  border-radius: 24px;
-  background: rgba(6, 14, 24, 0.68);
-  backdrop-filter: blur(16px);
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: end;
+  padding: 0 0 var(--space-5);
+  border-bottom: 1px solid var(--color-line-soft);
 }
 
 .status-banner[data-tone='alert'] {
-  box-shadow: inset 0 0 0 1px rgba(255, 90, 94, 0.24), 0 18px 46px rgba(255, 90, 94, 0.12);
+  border-bottom-color: rgba(255, 140, 144, 0.3);
 }
 
 .status-banner[data-tone='watch'] {
-  box-shadow: inset 0 0 0 1px rgba(255, 192, 90, 0.2), 0 18px 46px rgba(255, 192, 90, 0.08);
+  border-bottom-color: rgba(242, 202, 123, 0.3);
 }
 
 .banner-main {
   display: grid;
-  gap: 8px;
-  min-width: 320px;
+  gap: var(--space-2);
+  min-width: 0;
 }
 
 .banner-meta {
   display: flex;
-  gap: 12px;
+  gap: var(--space-3);
   flex-wrap: wrap;
   align-items: center;
 }
@@ -326,16 +324,19 @@ const flowDescription = computed(() =>
 .flow-chip,
 .decision-badge,
 .source-chip {
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(226, 236, 246, 0.86);
-  font-size: 12px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font-size: 11px;
   font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .banner-main h1 {
   margin: 0;
+  color: var(--color-text-primary);
   font-size: clamp(28px, 3.4vw, 44px);
   line-height: 0.96;
   letter-spacing: -0.06em;
@@ -344,31 +345,31 @@ const flowDescription = computed(() =>
 .banner-main p {
   margin: 0;
   max-width: 58ch;
-  color: rgba(213, 224, 237, 0.74);
-  font-size: 13px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
 }
 
 .banner-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: var(--space-4);
   margin: 0;
-  width: min(760px, 100%);
 }
 
 .banner-stat {
-  padding-left: 16px;
-  border-left: 1px solid rgba(110, 141, 176, 0.16);
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--color-line-soft);
 }
 
 .banner-stat dt {
-  margin-bottom: 8px;
-  color: rgba(190, 207, 226, 0.62);
+  margin-bottom: var(--space-2);
+  color: var(--color-text-tertiary);
   font-size: 12px;
 }
 
 .banner-stat dd {
   margin: 0;
+  color: var(--color-text-primary);
   font-size: 18px;
   line-height: 1.1;
   letter-spacing: -0.04em;
@@ -376,42 +377,34 @@ const flowDescription = computed(() =>
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1.65fr) minmax(340px, 0.62fr);
-  gap: 18px;
+  grid-template-columns: minmax(0, 1.72fr) minmax(320px, 0.68fr);
+  gap: var(--space-7);
 }
 
 .stage-column,
 .command-column {
   display: grid;
-  gap: 18px;
+  gap: var(--space-6);
 }
 
 .command-column {
   align-content: start;
-  padding: 22px;
-  border-radius: 30px;
-  background: rgba(6, 14, 24, 0.74);
-  backdrop-filter: blur(18px);
+  padding-left: var(--space-7);
+  border-left: 1px solid var(--color-line-soft);
 }
 
 .flow-panel,
 .side-panel,
 .decision-panel {
-  border-radius: 30px;
-  background: rgba(6, 14, 24, 0.74);
-  backdrop-filter: blur(18px);
-}
-
-.flow-panel {
-  padding: 22px;
-}
-
-.side-panel {
-  padding: 18px 0 0;
   border-radius: 0;
   background: transparent;
   backdrop-filter: none;
-  border-top: 1px solid rgba(110, 141, 176, 0.12);
+}
+
+.flow-panel,
+.side-panel {
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-line-soft);
 }
 
 .flow-head,
@@ -420,7 +413,7 @@ const flowDescription = computed(() =>
 .action-block header {
   display: flex;
   justify-content: space-between;
-  gap: 14px;
+  gap: var(--space-4);
   align-items: flex-start;
 }
 
@@ -437,41 +430,38 @@ const flowDescription = computed(() =>
 .xray-head p,
 .evidence-block p,
 .action-block p {
-  margin: 8px 0 0;
-  color: rgba(199, 214, 231, 0.68);
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
 .decision-panel {
   display: grid;
-  gap: 22px;
-  padding: 0 0 18px;
-  border-radius: 0;
-  background: transparent;
-  backdrop-filter: none;
-  border-bottom: 1px solid rgba(110, 141, 176, 0.12);
+  gap: var(--space-5);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--color-line-soft);
 }
 
 .decision-panel[data-tone='alert'] {
-  border-bottom-color: rgba(255, 90, 94, 0.32);
+  border-bottom-color: rgba(255, 140, 144, 0.3);
 }
 
 .decision-panel[data-tone='watch'] {
-  border-bottom-color: rgba(255, 192, 90, 0.28);
+  border-bottom-color: rgba(242, 202, 123, 0.3);
 }
 
 .decision-head {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   align-items: center;
   flex-wrap: wrap;
 }
 
 .decision-copy small {
   display: inline-block;
-  margin-bottom: 12px;
-  color: rgba(199, 214, 231, 0.58);
+  margin-bottom: var(--space-3);
+  color: var(--color-text-muted);
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -479,36 +469,38 @@ const flowDescription = computed(() =>
 
 .decision-copy h2 {
   margin: 0;
-  font-size: clamp(28px, 3.2vw, 40px);
+  color: var(--color-text-primary);
+  font-size: clamp(30px, 3.2vw, 42px);
   line-height: 0.98;
   letter-spacing: -0.05em;
 }
 
 .decision-copy p {
   margin: 10px 0 0;
-  color: rgba(214, 225, 237, 0.74);
+  color: var(--color-text-secondary);
   font-size: 14px;
 }
 
 .decision-inline {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: var(--space-4);
 }
 
 .decision-inline article {
-  padding-top: 14px;
-  border-top: 1px solid rgba(110, 141, 176, 0.14);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-line-soft);
 }
 
 .decision-inline span {
   display: block;
-  margin-bottom: 8px;
-  color: rgba(199, 214, 231, 0.62);
+  margin-bottom: var(--space-2);
+  color: var(--color-text-tertiary);
   font-size: 12px;
 }
 
 .decision-inline strong {
+  color: var(--color-text-primary);
   font-size: 22px;
   line-height: 1.05;
   letter-spacing: -0.04em;
@@ -517,13 +509,13 @@ const flowDescription = computed(() =>
 .evidence-block,
 .action-block {
   display: grid;
-  gap: 14px;
+  gap: var(--space-3);
 }
 
 .evidence-block ul,
 .action-block ol {
   display: grid;
-  gap: 12px;
+  gap: var(--space-3);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -534,12 +526,12 @@ const flowDescription = computed(() =>
   display: grid;
   gap: 6px;
   padding: 14px 0;
-  border-top: 1px solid rgba(110, 141, 176, 0.12);
+  border-top: 1px solid var(--color-line-soft);
 }
 
 .evidence-block li span,
 .action-block li::marker {
-  color: rgba(199, 214, 231, 0.58);
+  color: var(--color-text-tertiary);
   font-size: 12px;
 }
 
@@ -547,7 +539,7 @@ const flowDescription = computed(() =>
 .action-block li {
   font-size: 14px;
   line-height: 1.6;
-  color: rgba(236, 243, 250, 0.94);
+  color: var(--color-text-primary);
 }
 
 .action-block ol {
@@ -557,58 +549,58 @@ const flowDescription = computed(() =>
 
 .command-actions {
   display: flex;
-  gap: 12px;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
 .quality-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 18px;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
 }
 
 .quality-box {
   display: grid;
-  gap: 8px;
-  padding: 18px;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.03);
+  gap: var(--space-2);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-line-soft);
 }
 
 .quality-box span {
-  color: rgba(199, 214, 231, 0.62);
+  color: var(--color-text-tertiary);
   font-size: 12px;
 }
 
 .quality-box strong {
+  color: var(--color-text-primary);
   font-size: 24px;
   letter-spacing: -0.04em;
 }
 
 .probabilities {
   display: grid;
-  gap: 12px;
-  margin-top: 18px;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
 }
 
 .probability-row {
   display: grid;
   grid-template-columns: 110px minmax(0, 1fr) 56px;
-  gap: 12px;
+  gap: var(--space-3);
   align-items: center;
 }
 
 .probability-row span {
-  color: rgba(230, 238, 247, 0.86);
+  color: var(--color-text-primary);
   font-size: 13px;
 }
 
 .track {
   position: relative;
-  height: 10px;
+  height: 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--color-surface-soft);
   overflow: hidden;
 }
 
@@ -616,31 +608,26 @@ const flowDescription = computed(() =>
   position: absolute;
   inset: 0 auto 0 0;
   border-radius: inherit;
-  background: rgba(67, 215, 255, 0.84);
+  background: var(--color-accent);
 }
 
 .probability-row strong {
   font-size: 13px;
   text-align: right;
-  color: rgba(232, 240, 249, 0.88);
+  color: var(--color-text-primary);
 }
 
 .empty-inline {
   display: grid;
   place-items: center;
   min-height: 120px;
-  color: rgba(199, 214, 231, 0.62);
+  color: var(--color-text-tertiary);
   text-align: center;
 }
 
 @media (max-width: 1200px) {
   .status-banner {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .banner-main {
-    min-width: 0;
+    grid-template-columns: 1fr;
   }
 
   .banner-strip {
@@ -652,14 +639,13 @@ const flowDescription = computed(() =>
   }
 
   .command-column {
+    padding-left: 0;
+    border-left: 0;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
   }
 
-  .decision-panel {
-    grid-column: 1 / -1;
-  }
-
+  .decision-panel,
   .xray-panel {
     grid-column: 1 / -1;
   }
@@ -668,48 +654,30 @@ const flowDescription = computed(() =>
 @media (max-width: 760px) {
   .banner-strip,
   .decision-inline,
-  .quality-grid {
+  .quality-grid,
+  .command-column,
+  .probability-row {
     grid-template-columns: 1fr;
   }
 
-  .status-banner,
-  .flow-panel,
   .command-column {
-    padding: 18px;
+    gap: var(--space-5);
   }
 
   .banner-stat {
-    padding-top: 12px;
+    padding-top: var(--space-3);
     padding-left: 0;
-    border-top: 1px solid rgba(110, 141, 176, 0.16);
+    border-top: 1px solid var(--color-line-soft);
     border-left: 0;
-  }
-
-  .decision-panel {
-    padding: 0 0 18px;
-  }
-
-  .command-column {
-    grid-template-columns: 1fr;
-  }
-
-  .probability-row {
-    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 640px) {
-  .status-banner,
-  .flow-panel,
-  .command-column {
-    padding: 14px;
-    border-radius: 22px;
+  .status-banner {
+    padding-bottom: var(--space-4);
   }
 
-  .banner-main h1 {
-    font-size: 24px;
-  }
-
+  .banner-main h1,
   .decision-copy h2 {
     font-size: 24px;
   }

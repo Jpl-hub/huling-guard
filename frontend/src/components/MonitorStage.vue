@@ -575,7 +575,7 @@ onBeforeUnmount(() => {
 .stage-head p,
 .feed-head span {
   margin: 6px 0 0;
-  color: rgba(205, 219, 235, 0.68);
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
@@ -590,8 +590,10 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 14px;
   padding: 18px 20px;
-  border-radius: 26px;
-  background: rgba(6, 14, 24, 0.74);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-line-soft);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-soft);
 }
 
 .ingest-copy {
@@ -607,7 +609,7 @@ onBeforeUnmount(() => {
 
 .ingest-copy p {
   margin: 0;
-  color: rgba(205, 219, 235, 0.72);
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
@@ -672,8 +674,8 @@ onBeforeUnmount(() => {
 .overlay-chip {
   padding: 10px 14px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(230, 238, 247, 0.82);
+  background: rgba(4, 10, 18, 0.68);
+  color: var(--color-text-primary);
   font-size: 12px;
   font-weight: 700;
 }
@@ -682,9 +684,9 @@ onBeforeUnmount(() => {
   position: relative;
   min-height: 720px;
   overflow: hidden;
-  border-radius: 36px;
-  background: #02060d;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.36);
+  border-radius: var(--radius-xl);
+  background: var(--color-bg-strong);
+  box-shadow: var(--shadow-stage);
 }
 
 .video-shell[data-tone='alert'] {
@@ -702,7 +704,7 @@ onBeforeUnmount(() => {
   min-height: 720px;
   object-fit: cover;
   display: block;
-  background: #02060d;
+  background: var(--color-bg-strong);
 }
 
 .video-empty {
@@ -721,7 +723,7 @@ onBeforeUnmount(() => {
   position: absolute;
   width: 34px;
   height: 34px;
-  border-color: rgba(67, 215, 255, 0.72);
+  border-color: rgba(121, 212, 231, 0.78);
   border-style: solid;
   z-index: 2;
 }
@@ -808,7 +810,7 @@ onBeforeUnmount(() => {
   max-width: 420px;
   padding: 14px 16px;
   border-radius: 18px;
-  background: rgba(13, 18, 28, 0.9);
+  background: var(--color-surface-raised);
   box-shadow: 0 16px 32px rgba(0, 0, 0, 0.26);
 }
 
@@ -934,14 +936,15 @@ onBeforeUnmount(() => {
 .source-card {
   display: grid;
   gap: 8px;
-  padding: 16px 18px;
-  border-radius: 22px;
-  background: rgba(6, 14, 24, 0.7);
-  backdrop-filter: blur(16px);
+  padding: 14px 0 0;
+  border-radius: 0;
+  border-top: 1px solid var(--color-line-soft);
+  background: transparent;
+  backdrop-filter: none;
 }
 
 .source-card small {
-  color: rgba(194, 208, 225, 0.58);
+  color: var(--color-text-tertiary);
   font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -962,7 +965,7 @@ onBeforeUnmount(() => {
 }
 
 .source-card span {
-  color: rgba(215, 227, 241, 0.72);
+  color: var(--color-text-secondary);
   font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -990,8 +993,8 @@ onBeforeUnmount(() => {
   gap: 10px;
   padding: 10px;
   border: 0;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-soft);
   color: inherit;
   text-align: left;
   cursor: pointer;
@@ -1001,8 +1004,8 @@ onBeforeUnmount(() => {
 .feed-card:hover,
 .feed-card.active {
   transform: translateY(-2px);
-  background: rgba(67, 215, 255, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(67, 215, 255, 0.22);
+  background: var(--color-accent-soft);
+  box-shadow: inset 0 0 0 1px rgba(121, 212, 231, 0.22);
 }
 
 .feed-video {
@@ -1062,7 +1065,7 @@ onBeforeUnmount(() => {
 }
 
 .feed-meta span {
-  color: rgba(205, 219, 235, 0.68);
+  color: var(--color-text-secondary);
   font-size: 12px;
 }
 

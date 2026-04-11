@@ -63,51 +63,53 @@ onBeforeUnmount(() => {
 <style scoped>
 .shell {
   min-height: 100vh;
-  background: #050b13;
+  background: var(--color-bg);
 }
 
 .main {
-  width: min(100%, 1600px);
+  width: min(100%, var(--page-max-width));
   margin: 0 auto;
-  padding: 18px 24px 40px;
+  padding: var(--space-5) var(--space-6) var(--space-8);
 }
 
 .context-bar {
   display: flex;
   justify-content: space-between;
-  gap: 24px;
-  align-items: center;
-  margin-bottom: 22px;
+  gap: var(--space-6);
+  align-items: flex-end;
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--color-line-soft);
 }
 
 .context-label {
   display: block;
-  color: rgba(241, 247, 252, 0.94);
+  color: var(--color-text-primary);
   font-size: 24px;
   font-weight: 700;
   letter-spacing: -0.04em;
 }
 
 .context-copy p {
-  margin: 6px 0 0;
-  color: rgba(205, 219, 235, 0.66);
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
 .page-actions {
   display: flex;
-  gap: 12px;
+  gap: var(--space-3);
   align-items: center;
   flex-wrap: wrap;
 }
 
 .service-pill {
   display: grid;
-  gap: 4px;
+  gap: var(--space-1);
   min-width: 152px;
-  padding: 10px 14px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.03);
+  padding: 10px 0 10px var(--space-4);
+  border-left: 1px solid var(--color-line-strong);
+  background: transparent;
 }
 
 .service-pill strong {
@@ -115,38 +117,41 @@ onBeforeUnmount(() => {
 }
 
 .service-pill span {
-  color: rgba(199, 214, 231, 0.64);
+  color: var(--color-text-tertiary);
   font-size: 12px;
 }
 
-.service-pill[data-ok='true'] {
-  background: rgba(54, 211, 153, 0.08);
+.service-pill[data-ok='true'] strong {
+  color: var(--color-ok);
 }
 
 .error-banner {
-  margin-bottom: 18px;
-  padding: 14px 16px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 94, 98, 0.18);
-  background: rgba(255, 94, 98, 0.12);
+  margin-bottom: var(--space-5);
+  padding: 14px 0 0;
+  border-top: 1px solid rgba(255, 140, 144, 0.28);
   color: #ffd6d3;
   font-size: 14px;
 }
 
 @media (max-width: 1080px) {
   .main {
-    padding: 20px 20px 32px;
+    padding: var(--space-5) var(--space-5) var(--space-7);
   }
 
   .context-bar {
     flex-direction: column;
     align-items: flex-start;
   }
+
+  .service-pill {
+    padding-left: 0;
+    border-left: 0;
+  }
 }
 
 @media (max-width: 640px) {
   .main {
-    padding: 14px 14px 24px;
+    padding: var(--space-4) var(--space-4) var(--space-6);
   }
 
   .context-label {
@@ -163,6 +168,8 @@ onBeforeUnmount(() => {
 
   .service-pill {
     width: 100%;
+    border-top: 1px solid var(--color-line-soft);
+    padding-top: 12px;
   }
 }
 </style>
