@@ -77,6 +77,21 @@ const selectedFeedIndex = computed(() =>
   Math.max(0, props.demoVideos.findIndex((item) => item.filename === props.selectedDemoFilename)),
 )
 
+const hasAnnotatedPlayback = computed(() =>
+  Boolean(
+    !hasLiveSource.value
+      && props.viewMode === 'xray'
+      && selectedVideo.value?.processing_status === 'ready'
+      && selectedVideo.value?.annotated_url,
+  ),
+)
+const selectedPlaybackUrl = computed(() =>
+  hasAnnotatedPlayback.value ? selectedVideo.value?.annotated_url || selectedVideo.value?.url || '' : selectedVideo.value?.url || '',
+)
+const selectedPlaybackKey = computed(() =>
+  `${selectedVideo.value?.filename || 'none'}:${props.viewMode}:${hasAnnotatedPlayback.value ? 'annotated' : 'raw'}`,
+)
+
 const sourceLabel = computed(() =>
   hasLiveSource.value
     ? props.liveSource?.source_label || '实时输入'
@@ -414,9 +429,9 @@ onBeforeUnmount(() => {
       <video
         v-else-if="selectedVideo"
         ref="mainVideoRef"
-        :key="selectedVideo.filename"
+        :key="selectedPlaybackKey"
         class="video"
-        :src="selectedVideo.url"
+        :src="selectedPlaybackUrl"
         :poster="selectedVideo.poster_url || undefined"
         muted
         playsinline
@@ -447,6 +462,7 @@ onBeforeUnmount(() => {
         <span class="overlay-chip record-chip">REC</span>
         <span class="overlay-chip">{{ cameraCode }}</span>
         <span class="overlay-chip">{{ sourceModeLabel }}</span>
+        <span v-if="hasAnnotatedPlayback" class="overlay-chip">骨架叠加回放</span>
         <span class="overlay-chip">{{ clock }}</span>
       </div>
 

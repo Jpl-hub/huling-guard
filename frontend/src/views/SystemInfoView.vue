@@ -181,7 +181,20 @@ const boundaryGroups = computed(() => [
       </div>
     </section>
 
-    <section class="section-grid">
+    <section class="section-block state-block">
+      <header class="section-head">
+        <h3>识别状态</h3>
+        <p>先看系统到底能识别什么，再看它是怎样做出判断的。</p>
+      </header>
+      <div class="state-list state-grid">
+        <article v-for="item in stateCards" :key="item.code" class="line-row">
+          <strong>{{ item.label }}</strong>
+          <p>{{ item.note }}</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section-grid metrics-grid">
       <section class="section-block">
         <header class="section-head">
           <h3>当前质量面板</h3>
@@ -218,40 +231,25 @@ const boundaryGroups = computed(() => [
       </section>
     </section>
 
-    <section class="section-grid">
-      <section class="section-block">
-        <header class="section-head">
-          <h3>识别状态</h3>
-          <p>不是只做跌倒检测，而是覆盖完整动作过程。</p>
-        </header>
-        <div class="state-list">
-          <article v-for="item in stateCards" :key="item.code" class="line-row">
-            <strong>{{ item.label }}</strong>
-            <p>{{ item.note }}</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="section-block">
-        <header class="section-head">
-          <h3>质量控制与边界</h3>
-          <p>把能做什么和不能做什么都写清楚，才可信。</p>
-        </header>
-        <div class="boundary-grid">
-          <section v-for="group in boundaryGroups" :key="group.title" class="boundary-group">
-            <h4>{{ group.title }}</h4>
-            <ul>
-              <li v-for="item in group.items" :key="item">{{ item }}</li>
-            </ul>
-          </section>
-        </div>
-        <div class="control-list">
-          <article v-for="item in qualityControls" :key="item" class="line-row">
-            <strong>控制原则</strong>
-            <p>{{ item }}</p>
-          </article>
-        </div>
-      </section>
+    <section class="section-block boundary-block">
+      <header class="section-head">
+        <h3>质量控制与边界</h3>
+        <p>把能做什么和不能做什么都写清楚，才可信。</p>
+      </header>
+      <div class="boundary-grid">
+        <section v-for="group in boundaryGroups" :key="group.title" class="boundary-group">
+          <h4>{{ group.title }}</h4>
+          <ul>
+            <li v-for="item in group.items" :key="item">{{ item }}</li>
+          </ul>
+        </section>
+      </div>
+      <div class="control-list">
+        <article v-for="item in qualityControls" :key="item" class="line-row">
+          <strong>控制原则</strong>
+          <p>{{ item }}</p>
+        </article>
+      </div>
     </section>
   </section>
 </template>
@@ -355,13 +353,16 @@ const boundaryGroups = computed(() => [
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-6);
+  align-items: start;
 }
 
 .section-block {
   display: grid;
-  gap: var(--space-4);
-  padding-top: var(--space-5);
-  border-top: 1px solid var(--color-line-soft);
+  gap: var(--space-5);
+  padding: var(--space-6);
+  background: var(--color-surface-soft);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 .section-head {
@@ -462,6 +463,11 @@ const boundaryGroups = computed(() => [
   gap: var(--space-4);
 }
 
+.state-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: var(--space-6);
+}
+
 .quality-item {
   display: grid;
   gap: var(--space-2);
@@ -498,6 +504,10 @@ const boundaryGroups = computed(() => [
 .boundary-group {
   display: grid;
   gap: var(--space-2);
+  padding: var(--space-4);
+  background: rgba(255, 255, 255, 0.015);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .boundary-group ul {
@@ -512,6 +522,11 @@ const boundaryGroups = computed(() => [
   gap: var(--space-1);
   padding-top: var(--space-3);
   border-top: 1px solid var(--color-line-soft);
+}
+
+.state-grid .line-row:nth-child(-n + 2) {
+  border-top: none;
+  padding-top: 0;
 }
 
 @keyframes pulse {
@@ -544,7 +559,8 @@ const boundaryGroups = computed(() => [
   .telemetry-strip,
   .pipeline-track,
   .threshold-list,
-  .boundary-grid {
+  .boundary-grid,
+  .state-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -557,8 +573,19 @@ const boundaryGroups = computed(() => [
   .telemetry-strip,
   .pipeline-track,
   .threshold-list,
-  .boundary-grid {
+  .boundary-grid,
+  .state-grid {
     grid-template-columns: 1fr;
+  }
+
+  .state-grid .line-row:nth-child(-n + 2) {
+    border-top: 1px solid var(--color-line-soft);
+    padding-top: var(--space-3);
+  }
+
+  .state-grid .line-row:first-child {
+    border-top: none;
+    padding-top: 0;
   }
 }
 </style>
