@@ -49,7 +49,7 @@ const selectedGuide = computed(() => {
   if (!report) {
     return {
       title: '选择一段过程',
-      detail: '选中后查看回放与提醒。',
+      detail: '左侧选择后可直接查看回放。',
     }
   }
   if (report.incident_total > 0) {
@@ -57,12 +57,12 @@ const selectedGuide = computed(() => {
       title: report.peak_risk
         ? `定位到 ${formatTimestamp(report.peak_risk.timestamp)}`
         : '查看最近一次提醒',
-      detail: '先确认提醒是否成立。',
+      detail: '从最高风险时刻开始复核。',
     }
   }
   return {
     title: '这段过程没有提醒',
-    detail: '可作为正常对照。',
+    detail: '用于对照日常活动状态。',
   }
 })
 
@@ -84,16 +84,16 @@ const archiveEntries = computed(() =>
 const emptyStateText = computed(() => {
   const selected = stateFilterOptions.value.find((item) => item.value === store.state.archiveFilterState)
   if (!(store.state.archiveSummary?.archive_total ?? 0)) {
-    return '还没有历史记录。先在实时值守里点“保存到历史回看”。'
+    return '暂无历史记录。请先在实时值守页保存当前过程。'
   }
   if (store.state.archiveFilterState) {
     if ((selected?.count ?? 0) <= 0) {
-      return `当前还没有“${selected?.label || '该状态'}”记录。先在实时值守里保存这类过程。`
+      return `当前还没有“${selected?.label || '该状态'}”记录。保存这类过程后会出现在这里。`
     }
     return `当前筛选下没有可显示的“${selected?.label || '该状态'}”记录。`
   }
   if (store.state.archiveIncidentsOnly) {
-    return '当前没有带提醒的历史记录。先保存一段出现提醒的过程。'
+    return '当前没有带提醒的历史记录。'
   }
   return '当前筛选条件下没有可展示的回看记录。'
 })
@@ -119,8 +119,8 @@ const emptyStateText = computed(() => {
       <section class="records-list">
         <header class="records-head">
           <div>
-            <h2>选择记录</h2>
-            <p>只会显示已经保存到历史回看的过程。</p>
+            <h2>已保存过程</h2>
+            <p>来自实时值守页保存的过程。</p>
           </div>
           <div class="filters">
             <a-select
