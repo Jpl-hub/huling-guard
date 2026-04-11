@@ -3,21 +3,31 @@ import { computed } from 'vue'
 
 import ArchivePreviewCard from '../components/ArchivePreviewCard.vue'
 import { useRuntimeStore } from '../composables/useRuntimeStore'
+import type { GuardState } from '../types/runtime'
 import { matchDemoVideo } from '../utils/media'
 import { archiveDisplayName, formatArchiveTime, formatRisk, formatSeconds, formatTimestamp, stateLabel } from '../utils/presenters'
 
 const store = useRuntimeStore()
 
+const stateFilterDefs = [
+  { value: 'fall', label: '跌倒' },
+  { value: 'prolonged_lying', label: '长卧风险' },
+  { value: 'near_fall', label: '失衡风险' },
+  { value: 'recovery', label: '恢复起身' },
+  { value: 'normal', label: '正常活动' },
+  { value: 'unknown', label: '未稳定判断' },
+]
+
 const stateFilterOptions = computed(() => {
   const counts = store.state.archiveSummary?.dominant_state_counts ?? {}
-  const items = [
-    { value: '', label: '全部状态', count: Number(store.state.archiveSummary?.archive_total ?? 0) },
-    { value: 'normal', label: '正常活动', count: Number(counts.normal ?? 0) },
-    { value: 'near_fall', label: '失衡风险', count: Number(counts.near_fall ?? 0) },
-    { value: 'fall', label: '跌倒', count: Number(counts.fall ?? 0) },
-    { value: 'recovery', label: '恢复起身', count: Number(counts.recovery ?? 0) },
-    { value: 'prolonged_lying', label: '长卧风险', count: Number(counts.prolonged_lying ?? 0) },
-  ]
+  const activeItems = stateFilterDefs
+    .map((item) => ({ ...item, count: Number(counts[item.value] ?? 0) }))
+    .filter((item) => item.count > 0)
+  const knownValues = new Set(stateFilterDefs.map((item) => item.value))
+  const extraItems = Object.entries(counts)
+    .filter(([value, count]) => !knownValues.has(value) && Number(count) > 0)
+    .map(([value, count]) => ({ value, label: stateLabel(value as GuardState), count: Number(count) }))
+  const items = [{ value: '', label: '全部状态', count: Number(store.state.archiveSummary?.archive_total ?? 0) }, ...activeItems, ...extraItems]
   return items.map((item) => ({
     ...item,
     text: `${item.label}（${item.count}）`,
@@ -28,12 +38,12 @@ const overviewCards = computed(() => [
   {
     label: '已留档过程',
     value: String(store.state.archiveSummary?.archive_total ?? 0),
-    detail: '已经保存的过程都会在这里回看。',
+    detail: '可回看的完整过程',
   },
   {
     label: '建议先复核',
     value: String(store.state.archiveSummary?.sessions_with_incidents ?? 0),
-    detail: '先看有提醒的过程，再回看正常过程做对照。',
+    detail: '包含正式提醒',
   },
   {
     label: '当前选中',
@@ -49,7 +59,7 @@ const selectedGuide = computed(() => {
   if (!report) {
     return {
       title: '选择一段过程',
-      detail: '左侧选择后可直接查看回放。',
+      detail: '左侧列表选择后查看回放。',
     }
   }
   if (report.incident_total > 0) {
@@ -62,7 +72,7 @@ const selectedGuide = computed(() => {
   }
   return {
     title: '这段过程没有提醒',
-    detail: '用于对照日常活动状态。',
+    detail: '可作为正常活动对照。',
   }
 })
 
@@ -88,14 +98,14 @@ const emptyStateText = computed(() => {
   }
   if (store.state.archiveFilterState) {
     if ((selected?.count ?? 0) <= 0) {
-      return `当前还没有“${selected?.label || '该状态'}”记录。保存这类过程后会出现在这里。`
+      return `这里还没有“${selected?.label || '该状态'}”记录。`
     }
-    return `当前筛选下没有可显示的“${selected?.label || '该状态'}”记录。`
+    return `没有可显示的“${selected?.label || '该状态'}”记录。`
   }
   if (store.state.archiveIncidentsOnly) {
-    return '当前没有带提醒的历史记录。'
+    return '当前没有带提醒的记录。'
   }
-  return '当前筛选条件下没有可展示的回看记录。'
+  return '没有可展示的回看记录。'
 })
 </script>
 
@@ -120,7 +130,6 @@ const emptyStateText = computed(() => {
         <header class="records-head">
           <div>
             <h2>已保存过程</h2>
-            <p>来自实时值守页保存的过程。</p>
           </div>
           <div class="filters">
             <a-select
@@ -205,10 +214,7 @@ const emptyStateText = computed(() => {
 .overview-band {
   display: grid;
   gap: 18px;
-  padding: 24px 26px;
-  border-radius: 30px;
-  background: rgba(6, 14, 24, 0.74);
-  backdrop-filter: blur(18px);
+  padding: 10px 2px 4px;
 }
 
 .overview-copy {
@@ -228,7 +234,6 @@ const emptyStateText = computed(() => {
   gap: 14px;
 }
 
-.overview-item,
 .records-list,
 .preview-panel {
   border-radius: 30px;
@@ -237,7 +242,8 @@ const emptyStateText = computed(() => {
 }
 
 .overview-item {
-  padding: 18px 20px;
+  padding: 2px 0 2px 16px;
+  border-left: 1px solid rgba(120, 146, 176, 0.18);
 }
 
 .overview-item small {
@@ -306,12 +312,6 @@ const emptyStateText = computed(() => {
   margin: 0;
   font-size: 24px;
   letter-spacing: -0.04em;
-}
-
-.records-head p {
-  margin: 8px 0 0;
-  color: rgba(199, 214, 231, 0.68);
-  font-size: 13px;
 }
 
 .filters {

@@ -244,7 +244,7 @@ async function archiveSession(): Promise<void> {
 
 async function resetRuntime(): Promise<void> {
   await runtimeApi.reset()
-  Message.success('已开始新一段')
+  Message.success('已重新开始判断')
   await refresh()
 }
 
