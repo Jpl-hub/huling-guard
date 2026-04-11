@@ -80,9 +80,9 @@ const selectedFeedIndex = computed(() =>
 const hasAnnotatedPlayback = computed(() =>
   Boolean(
     !hasLiveSource.value
-      && props.viewMode === 'xray'
       && selectedVideo.value?.processing_status === 'ready'
-      && selectedVideo.value?.annotated_url,
+      && selectedVideo.value?.annotated_url
+      && (props.viewMode === 'xray' || selectedVideo.value?.source_kind === 'upload'),
   ),
 )
 const selectedPlaybackUrl = computed(() =>

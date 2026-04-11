@@ -174,7 +174,7 @@ const flowDescription = computed(() =>
           </div>
 
           <div class="decision-copy">
-            <small>核心判定</small>
+            <small>当前结论</small>
             <h2>{{ store.verdict.value.action }}</h2>
             <p>这段画面已连续判断 {{ currentDurationText }}。</p>
           </div>
@@ -196,7 +196,7 @@ const flowDescription = computed(() =>
 
           <div class="evidence-block">
             <header>
-              <h3>核心判定</h3>
+              <h3>判定依据</h3>
             </header>
             <ul>
               <li v-for="item in evidenceItems" :key="item.label">
@@ -216,7 +216,15 @@ const flowDescription = computed(() =>
           </div>
 
           <div class="command-actions">
-            <a-button type="primary" size="large" @click="store.archiveSession">保存到历史回看</a-button>
+            <a-button
+              type="primary"
+              size="large"
+              :loading="store.state.archiveSaving"
+              :disabled="store.state.archiveSaving"
+              @click="store.archiveSession"
+            >
+              保存到历史回看
+            </a-button>
             <a-button size="large" @click="store.resetRuntime">重新开始判断</a-button>
           </div>
         </section>
