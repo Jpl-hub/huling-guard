@@ -8,6 +8,22 @@ import { archiveDisplayName, formatArchiveTime, formatRisk, formatSeconds, forma
 
 const store = useRuntimeStore()
 
+const stateFilterOptions = computed(() => {
+  const counts = store.state.archiveSummary?.dominant_state_counts ?? {}
+  const items = [
+    { value: '', label: '全部状态', count: Number(store.state.archiveSummary?.archive_total ?? 0) },
+    { value: 'normal', label: '正常活动', count: Number(counts.normal ?? 0) },
+    { value: 'near_fall', label: '失衡风险', count: Number(counts.near_fall ?? 0) },
+    { value: 'fall', label: '跌倒', count: Number(counts.fall ?? 0) },
+    { value: 'recovery', label: '恢复起身', count: Number(counts.recovery ?? 0) },
+    { value: 'prolonged_lying', label: '长卧风险', count: Number(counts.prolonged_lying ?? 0) },
+  ]
+  return items.map((item) => ({
+    ...item,
+    text: `${item.label}（${item.count}）`,
+  }))
+})
+
 const overviewCards = computed(() => [
   {
     label: '已留档过程',
@@ -64,6 +80,23 @@ const archiveEntries = computed(() =>
     }
   }),
 )
+
+const emptyStateText = computed(() => {
+  const selected = stateFilterOptions.value.find((item) => item.value === store.state.archiveFilterState)
+  if (!(store.state.archiveSummary?.archive_total ?? 0)) {
+    return '还没有历史记录。先在实时值守里点“保存到历史回看”。'
+  }
+  if (store.state.archiveFilterState) {
+    if ((selected?.count ?? 0) <= 0) {
+      return `当前还没有“${selected?.label || '该状态'}”记录。先在实时值守里保存这类过程。`
+    }
+    return `当前筛选下没有可显示的“${selected?.label || '该状态'}”记录。`
+  }
+  if (store.state.archiveIncidentsOnly) {
+    return '当前没有带提醒的历史记录。先保存一段出现提醒的过程。'
+  }
+  return '当前筛选条件下没有可展示的回看记录。'
+})
 </script>
 
 <template>
@@ -87,7 +120,7 @@ const archiveEntries = computed(() =>
         <header class="records-head">
           <div>
             <h2>选择记录</h2>
-            <p>右侧查看回放、提醒和关键时刻。</p>
+            <p>只会显示已经保存到历史回看的过程。</p>
           </div>
           <div class="filters">
             <a-select
@@ -96,12 +129,13 @@ const archiveEntries = computed(() =>
               placeholder="全部状态"
               @change="store.setArchiveFilterState(String($event))"
             >
-              <a-option value="">全部状态</a-option>
-              <a-option value="normal">正常活动</a-option>
-              <a-option value="near_fall">失衡风险</a-option>
-              <a-option value="fall">跌倒</a-option>
-              <a-option value="recovery">恢复起身</a-option>
-              <a-option value="prolonged_lying">长卧风险</a-option>
+              <a-option
+                v-for="option in stateFilterOptions"
+                :key="option.value || 'all'"
+                :value="option.value"
+              >
+                {{ option.text }}
+              </a-option>
             </a-select>
             <label class="switch-line">
               <span>只看提醒</span>
@@ -143,7 +177,7 @@ const archiveEntries = computed(() =>
             </div>
           </button>
           <div v-if="!(store.state.archives?.items?.length)" class="empty">
-            当前筛选条件下没有可展示的回看记录。
+            {{ emptyStateText }}
           </div>
         </div>
       </section>

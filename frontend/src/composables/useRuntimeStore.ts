@@ -228,13 +228,13 @@ async function loadArchive(sessionId: string): Promise<void> {
 
 async function archiveSession(): Promise<void> {
   await runtimeApi.archiveSession()
-  Message.success('已保存到历史回看')
+  Message.success('当前这段已保存到历史回看')
   await refresh()
 }
 
 async function resetRuntime(): Promise<void> {
   await runtimeApi.reset()
-  Message.success('已重新开始值守')
+  Message.success('已开始新一段')
   await refresh()
 }
 

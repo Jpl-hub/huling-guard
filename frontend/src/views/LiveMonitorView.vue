@@ -106,6 +106,11 @@ const flowDescription = computed(() =>
     ? '按时间顺序查看状态变化。'
     : '查看状态分布、骨架质量和运行参数。',
 )
+const actionHint = computed(() =>
+  store.state.meta?.archive_enabled
+    ? '保存到历史回看：把当前这段放进历史回看。开始新一段：清空当前这段，重新累计。'
+    : '当前环境还没有开启历史回看。',
+)
 </script>
 
 <template>
@@ -217,9 +222,11 @@ const flowDescription = computed(() =>
           </div>
 
           <div class="command-actions">
-            <a-button type="primary" size="large" @click="store.archiveSession">归档当前过程</a-button>
-            <a-button size="large" @click="store.resetRuntime">重新开始判断</a-button>
+            <a-button type="primary" size="large" @click="store.archiveSession">保存到历史回看</a-button>
+            <a-button size="large" @click="store.resetRuntime">开始新一段</a-button>
           </div>
+
+          <p class="action-hint">{{ actionHint }}</p>
         </section>
 
         <section class="side-panel">
@@ -559,6 +566,13 @@ const flowDescription = computed(() =>
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.action-hint {
+  margin: 10px 0 0;
+  color: rgba(199, 214, 231, 0.68);
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .quality-grid {
