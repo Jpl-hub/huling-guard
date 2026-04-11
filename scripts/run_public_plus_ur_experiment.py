@@ -35,6 +35,7 @@ def build_experiment_plan(
     kinematic_feature_set: str,
     clip_focal_gamma: float,
     quality_loss_weight: float,
+    sample_loss_weight: float = 0.0,
     batch_manifest: Path | None,
     batch_output_dir: Path | None,
     prepare_ur: bool,
@@ -128,6 +129,8 @@ def build_experiment_plan(
                     str(clip_focal_gamma),
                     "--quality-loss-weight",
                     str(quality_loss_weight),
+                    "--sample-loss-weight",
+                    str(sample_loss_weight),
                     "--runtime-config-template",
                     str(runtime_config_template),
                     "--train",
@@ -442,6 +445,7 @@ def main() -> None:
     parser.add_argument("--kinematic-feature-set", default="v2")
     parser.add_argument("--clip-focal-gamma", type=float, default=0.0)
     parser.add_argument("--quality-loss-weight", type=float, default=0.15)
+    parser.add_argument("--sample-loss-weight", type=float, default=0.0)
     parser.add_argument("--runtime-config-template", type=Path, default=Path("configs/runtime_room.yaml"))
     parser.add_argument("--camera", choices=("cam0", "cam1", "both"), default="cam0")
     parser.add_argument("--workers", type=int, default=12)
@@ -495,6 +499,7 @@ def main() -> None:
         kinematic_feature_set=args.kinematic_feature_set,
         clip_focal_gamma=args.clip_focal_gamma,
         quality_loss_weight=args.quality_loss_weight,
+        sample_loss_weight=args.sample_loss_weight,
         batch_manifest=batch_manifest,
         batch_output_dir=batch_output_dir,
         prepare_ur=args.prepare_ur,
