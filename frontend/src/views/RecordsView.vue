@@ -184,7 +184,11 @@ const emptyStateText = computed(() => {
             </div>
           </button>
           <div v-if="!(store.state.archives?.items?.length)" class="empty">
-            {{ emptyStateText }}
+            <a-empty>
+              <template #description>
+                <span>{{ emptyStateText }}</span>
+              </template>
+            </a-empty>
           </div>
         </div>
       </section>
@@ -447,9 +451,20 @@ const emptyStateText = computed(() => {
 .empty {
   display: grid;
   place-items: center;
-  min-height: 200px;
+  min-height: 240px;
+  padding: var(--space-5) 0;
   color: var(--color-text-tertiary);
   text-align: center;
+}
+
+.empty :deep(.arco-empty-icon) {
+  opacity: 0.72;
+}
+
+.empty :deep(.arco-empty-description) {
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+  line-height: 1.7;
 }
 
 @media (max-width: 1200px) {
