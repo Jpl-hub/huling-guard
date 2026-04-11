@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import json
 import time
+from typing import Callable
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -27,6 +28,7 @@ class LiveIngestConfig:
     request_timeout: float = 10.0
     max_frames: int | None = None
     loop: bool = False
+    stop_requested: Callable[[], bool] | None = None
 
 
 def _normalized_runtime_url(value: str) -> str:
@@ -78,6 +80,8 @@ def run_live_ingest(config: LiveIngestConfig) -> int:
     processed = 0
 
     while True:
+        if config.stop_requested and config.stop_requested():
+            return processed
         capture = _open_capture(config.source)
         if not capture.isOpened():
             raise FileNotFoundError(f"unable to open source: {config.source}")
@@ -87,6 +91,8 @@ def run_live_ingest(config: LiveIngestConfig) -> int:
         started_at = time.perf_counter()
         try:
             while True:
+                if config.stop_requested and config.stop_requested():
+                    return processed
                 ok, frame = capture.read()
                 if not ok:
                     break
@@ -158,4 +164,3 @@ def run_live_ingest(config: LiveIngestConfig) -> int:
 
         if not config.loop:
             return processed
-

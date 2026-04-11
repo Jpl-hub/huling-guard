@@ -7,7 +7,15 @@ import RiskTimelineChart from '../components/RiskTimelineChart.vue'
 import SessionSummaryPanel from '../components/SessionSummaryPanel.vue'
 import StateRibbon from '../components/StateRibbon.vue'
 import { useRuntimeStore } from '../composables/useRuntimeStore'
-import { formatPercent, formatRisk, stateTone } from '../utils/presenters'
+import {
+  formatPercent,
+  formatRisk,
+  formatSeconds,
+  formatTimestamp,
+  incidentLabel,
+  stateLabel,
+  stateTone,
+} from '../utils/presenters'
 
 const store = useRuntimeStore()
 
@@ -20,27 +28,97 @@ const probabilityEntries = computed(() =>
     .slice(0, 5),
 )
 const quality = computed(() => store.currentDataQuality.value)
+const pageTone = computed(() => stateTone(store.displayState.value.predictedState, store.displayState.value.riskScore))
+const report = computed(() => store.displayReport.value)
+const currentDurationText = computed(() =>
+  report.value ? formatSeconds(report.value.duration_seconds) : '-',
+)
+const bannerFacts = computed(() => [
+  {
+    label: '是否安全',
+    value: answerCards.value[0]?.value ?? '等待判断',
+  },
+  {
+    label: '要不要去看',
+    value: answerCards.value[1]?.value ?? store.verdict.value.action,
+  },
+  {
+    label: '最近发生',
+    value: answerCards.value[2]?.value ?? '暂无变化',
+  },
+])
+
+const evidenceItems = computed(() => {
+  const items: Array<{ label: string; value: string }> = []
+  const latestIncident = store.displayIncidents.value[0]
+  const longestSegment = report.value?.longest_segments?.[0]
+
+  if (latestIncident) {
+    items.push({
+      label: '最近变化',
+      value: `${incidentLabel(latestIncident.kind)} · ${formatTimestamp(latestIncident.timestamp)}`,
+    })
+  } else {
+    items.push({
+      label: '最近变化',
+      value: '这段画面还没有形成正式提醒。',
+    })
+  }
+
+  if (report.value?.peak_risk) {
+    items.push({
+      label: '风险高点',
+      value: `${formatTimestamp(report.value.peak_risk.timestamp)} 达到 ${formatRisk(report.value.peak_risk.risk_score)}`,
+    })
+  }
+
+  if (longestSegment) {
+    items.push({
+      label: '持续最久的状态',
+      value: `${stateLabel(longestSegment.state)} · ${formatSeconds(longestSegment.duration_seconds)}`,
+    })
+  }
+
+  if (quality.value) {
+    items.push({
+      label: '骨架质量',
+      value:
+        quality.value.pose_quality_score < 0.45
+          ? `当前偏低（${formatPercent(quality.value.pose_quality_score)}），系统会更保守。`
+          : `当前稳定（${formatPercent(quality.value.pose_quality_score)}），可以形成连续判断。`,
+    })
+  }
+
+  return items.slice(0, 3)
+})
+
+const nextSteps = computed(() => store.verdict.value.steps.slice(0, 2))
+const flowTitle = computed(() => (store.state.mode === 'care' ? '最近 10 秒过程' : '算法透视'))
+const flowDescription = computed(() =>
+  store.state.mode === 'care'
+    ? '按时间顺序查看状态变化。'
+    : '查看状态分布、骨架质量和运行参数。',
+)
 </script>
 
 <template>
   <section class="live-page">
-    <section class="decision-board">
-      <article
-        v-for="answer in answerCards"
-        :key="answer.label"
-        class="decision-item"
-        :data-tone="answer.tone"
-      >
-        <span>{{ answer.label }}</span>
-        <strong>{{ answer.value }}</strong>
-        <p>{{ answer.detail }}</p>
-      </article>
+    <section class="status-banner" :data-tone="pageTone">
+      <div class="banner-main">
+        <div class="banner-meta">
+          <span class="banner-mode">{{ store.displaySource.value.detail }}</span>
+          <span class="banner-source">{{ store.displaySource.value.label }}</span>
+        </div>
+        <h1>{{ answerCards[0]?.value ?? store.verdict.value.title }}</h1>
+        <p>{{ store.verdict.value.detail }}</p>
+      </div>
 
-      <article class="decision-item source-item">
-        <span>当前监看源</span>
-        <strong>{{ store.displaySource.value.label }}</strong>
-        <p>{{ store.displaySource.value.detail }} · {{ store.state.lastUpdatedAt || '尚未同步' }}</p>
-      </article>
+      <dl class="banner-strip">
+        <div v-for="fact in bannerFacts" :key="fact.label" class="banner-stat">
+          <dt>{{ fact.label }}</dt>
+          <dd>{{ fact.value }}</dd>
+        </div>
+      </dl>
     </section>
 
     <section class="workspace">
@@ -49,24 +127,28 @@ const quality = computed(() => store.currentDataQuality.value)
           :demo-videos="store.state.demoVideos"
           :selected-demo-filename="store.state.selectedDemoFilename"
           :live-source="store.state.liveSource"
+          :live-ingest="store.state.liveIngest"
           :live-frame-url="liveFrameUrl"
           :display-state="store.displayState.value"
           :report="store.displayReport.value"
           :source-detail="store.displaySource.value.detail"
+          :uploading="store.state.uploadingVideo"
           :view-mode="store.state.mode"
           @reload="store.refresh"
           @select-demo="store.selectDemo"
+          @upload-video="store.uploadVideo"
+          @start-live-ingest="store.startLiveIngest"
+          @stop-live-ingest="store.stopLiveIngest"
+          @playback-update="store.updateDemoPlayback"
         />
 
         <section class="flow-panel">
           <header class="flow-head">
             <div>
-              <span class="section-kicker">Timeline</span>
-              <h2>{{ store.state.mode === 'care' ? '连续状态' : '概率变化' }}</h2>
+              <h2>{{ flowTitle }}</h2>
+              <p>{{ flowDescription }}</p>
             </div>
-            <span class="flow-chip">
-              {{ store.displaySource.value.mode === 'demo' ? '模拟监看' : '实时接入' }}
-            </span>
+            <span class="flow-chip">{{ store.state.mode === 'care' ? '过程视图' : '引擎透视' }}</span>
           </header>
 
           <StateRibbon
@@ -79,26 +161,19 @@ const quality = computed(() => store.currentDataQuality.value)
       </div>
 
       <aside class="command-column">
-        <section
-          class="command-deck"
-          :data-tone="stateTone(store.displayState.value.predictedState, store.displayState.value.riskScore)"
-        >
-          <div class="command-head">
-            <span class="command-badge">{{ store.verdict.value.badge }}</span>
+        <section class="decision-panel" :data-tone="pageTone">
+          <div class="decision-head">
+            <span class="decision-badge">{{ store.verdict.value.badge }}</span>
             <span class="source-chip">{{ store.displaySource.value.detail }}</span>
           </div>
 
-          <div class="command-copy">
-            <small>{{ hasIncidents ? '先判断要不要过去' : '当前系统结论' }}</small>
-            <h2>{{ store.verdict.value.title }}</h2>
-            <p>{{ store.verdict.value.detail }}</p>
+          <div class="decision-copy">
+            <small>{{ hasIncidents ? '先判断要不要马上过去' : '当前以继续值守为主' }}</small>
+            <h2>{{ store.verdict.value.action }}</h2>
+            <p>这段画面已连续判断 {{ currentDurationText }}。</p>
           </div>
 
-          <div class="command-metrics">
-            <article>
-              <span>建议动作</span>
-              <strong>{{ store.verdict.value.action }}</strong>
-            </article>
+          <div class="decision-inline">
             <article>
               <span>当前风险</span>
               <strong>{{ formatRisk(store.displayState.value.riskScore) }}</strong>
@@ -107,15 +182,36 @@ const quality = computed(() => store.currentDataQuality.value)
               <span>最近提醒</span>
               <strong>{{ store.displayIncidents.value.length ? `${store.displayIncidents.value.length} 条` : '无' }}</strong>
             </article>
+            <article>
+              <span>本段时长</span>
+              <strong>{{ currentDurationText }}</strong>
+            </article>
           </div>
 
-          <div class="command-steps">
-            <span v-for="step in store.verdict.value.steps" :key="step">{{ step }}</span>
+          <div class="evidence-block">
+            <header>
+              <h3>判断依据</h3>
+            </header>
+            <ul>
+              <li v-for="item in evidenceItems" :key="item.label">
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}</strong>
+              </li>
+            </ul>
+          </div>
+
+          <div class="action-block">
+            <header>
+              <h3>接下来怎么做</h3>
+            </header>
+            <ol>
+              <li v-for="step in nextSteps" :key="step">{{ step }}</li>
+            </ol>
           </div>
 
           <div class="command-actions">
-            <a-button type="primary" size="large" @click="store.archiveSession">归档本段过程</a-button>
-            <a-button size="large" @click="store.resetRuntime">开始下一段监看</a-button>
+            <a-button type="primary" size="large" @click="store.archiveSession">归档当前过程</a-button>
+            <a-button size="large" @click="store.resetRuntime">重新开始判断</a-button>
           </div>
         </section>
 
@@ -135,15 +231,15 @@ const quality = computed(() => store.currentDataQuality.value)
         <section v-if="store.state.mode === 'xray'" class="side-panel xray-panel">
           <header class="xray-head">
             <div>
-              <span class="section-kicker">X-Ray</span>
               <h2>算法透视</h2>
+              <p>状态分布、骨架质量与运行参数。</p>
             </div>
           </header>
 
           <div v-if="quality" class="quality-grid">
             <article class="quality-box">
               <span>骨架质量</span>
-              <strong>{{ formatRisk(quality.pose_quality_score) }}</strong>
+              <strong>{{ formatPercent(quality.pose_quality_score) }}</strong>
             </article>
             <article class="quality-box">
               <span>关键点均值</span>
@@ -161,7 +257,7 @@ const quality = computed(() => store.currentDataQuality.value)
               :key="state"
               class="probability-row"
             >
-              <span>{{ state }}</span>
+              <span>{{ stateLabel(state as any) }}</span>
               <div class="track">
                 <div class="fill" :style="{ width: `${Math.max(4, Number(probability) * 100)}%` }" />
               </div>
@@ -178,112 +274,47 @@ const quality = computed(() => store.currentDataQuality.value)
 <style scoped>
 .live-page {
   display: grid;
-  gap: 20px;
+  gap: 18px;
 }
 
-.decision-board {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.decision-item,
-.flow-panel,
-.command-deck,
-.side-panel {
-  background: rgba(6, 14, 24, 0.74);
-  backdrop-filter: blur(18px);
-}
-
-.decision-item {
-  padding: 18px 20px;
-  border-radius: 24px;
-  border: 1px solid rgba(120, 146, 176, 0.14);
-}
-
-.decision-item span {
-  display: block;
-  margin-bottom: 10px;
-  color: rgba(199, 214, 231, 0.62);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-}
-
-.decision-item strong {
-  display: block;
-  margin-bottom: 8px;
-  font-size: clamp(22px, 2.5vw, 32px);
-  line-height: 0.98;
-  letter-spacing: -0.05em;
-}
-
-.decision-item p {
-  margin: 0;
-  color: rgba(199, 214, 231, 0.74);
-  font-size: 13px;
-}
-
-.decision-item[data-tone='alert'] strong {
-  color: #ffd6d2;
-}
-
-.decision-item[data-tone='watch'] strong {
-  color: #ffe3b5;
-}
-
-.source-item {
-  background: linear-gradient(180deg, rgba(67, 215, 255, 0.08), rgba(6, 14, 24, 0.82));
-}
-
-.workspace {
-  display: grid;
-  grid-template-columns: minmax(0, 1.95fr) minmax(360px, 0.88fr);
-  gap: 20px;
-}
-
-.stage-column,
-.command-column {
-  display: grid;
-  gap: 20px;
-}
-
-.flow-panel,
-.side-panel {
-  border-radius: 28px;
-  border: 1px solid rgba(120, 146, 176, 0.14);
-  padding: 22px;
-}
-
-.flow-head,
-.command-head,
-.xray-head {
+.status-banner {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
-  align-items: flex-start;
+  gap: 24px;
+  align-items: flex-end;
+  padding: 16px 18px;
+  border-radius: 24px;
+  background: rgba(6, 14, 24, 0.68);
+  backdrop-filter: blur(16px);
 }
 
-.section-kicker {
-  display: inline-block;
-  margin-bottom: 8px;
-  color: rgba(143, 181, 221, 0.76);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
+.status-banner[data-tone='alert'] {
+  box-shadow: inset 0 0 0 1px rgba(255, 90, 94, 0.24), 0 18px 46px rgba(255, 90, 94, 0.12);
 }
 
-.flow-head h2,
-.xray-head h2 {
-  margin: 0;
-  font-size: 24px;
-  letter-spacing: -0.04em;
+.status-banner[data-tone='watch'] {
+  box-shadow: inset 0 0 0 1px rgba(255, 192, 90, 0.2), 0 18px 46px rgba(255, 192, 90, 0.08);
 }
 
+.banner-main {
+  display: grid;
+  gap: 8px;
+  min-width: 320px;
+}
+
+.banner-meta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.banner-mode,
+.banner-source,
 .flow-chip,
-.command-badge,
+.decision-badge,
 .source-chip {
-  padding: 10px 14px;
+  padding: 8px 12px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.04);
   color: rgba(226, 236, 246, 0.86);
@@ -291,82 +322,225 @@ const quality = computed(() => store.currentDataQuality.value)
   font-weight: 700;
 }
 
-.command-deck {
-  display: grid;
-  gap: 18px;
-  border-radius: 28px;
-  border: 1px solid rgba(120, 146, 176, 0.14);
-  padding: 24px;
-}
-
-.command-deck[data-tone='alert'] {
-  box-shadow: inset 0 0 0 1px rgba(255, 94, 98, 0.28), 0 0 38px rgba(255, 94, 98, 0.08);
-}
-
-.command-deck[data-tone='watch'] {
-  box-shadow: inset 0 0 0 1px rgba(255, 179, 71, 0.22), 0 0 34px rgba(255, 179, 71, 0.08);
-}
-
-.command-copy small {
-  display: block;
-  margin-bottom: 10px;
-  color: rgba(199, 214, 231, 0.62);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-}
-
-.command-copy h2 {
-  margin: 0 0 10px;
-  font-size: clamp(28px, 3.4vw, 42px);
+.banner-main h1 {
+  margin: 0;
+  font-size: clamp(28px, 3.4vw, 44px);
   line-height: 0.96;
   letter-spacing: -0.06em;
 }
 
-.command-copy p {
+.banner-main p {
   margin: 0;
-  color: rgba(213, 224, 237, 0.84);
-  font-size: 14px;
-  line-height: 1.6;
+  max-width: 58ch;
+  color: rgba(213, 224, 237, 0.74);
+  font-size: 13px;
 }
 
-.command-metrics {
+.banner-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0;
+  width: min(760px, 100%);
+}
+
+.banner-stat {
+  padding-left: 16px;
+  border-left: 1px solid rgba(110, 141, 176, 0.16);
+}
+
+.banner-stat dt {
+  margin-bottom: 8px;
+  color: rgba(190, 207, 226, 0.62);
+  font-size: 12px;
+}
+
+.banner-stat dd {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(340px, 0.62fr);
+  gap: 18px;
+}
+
+.stage-column,
+.command-column {
+  display: grid;
+  gap: 18px;
+}
+
+.command-column {
+  align-content: start;
+  padding: 22px;
+  border-radius: 30px;
+  background: rgba(6, 14, 24, 0.74);
+  backdrop-filter: blur(18px);
+}
+
+.flow-panel,
+.side-panel,
+.decision-panel {
+  border-radius: 30px;
+  background: rgba(6, 14, 24, 0.74);
+  backdrop-filter: blur(18px);
+}
+
+.flow-panel {
+  padding: 22px;
+}
+
+.side-panel {
+  padding: 18px 0 0;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  border-top: 1px solid rgba(110, 141, 176, 0.12);
+}
+
+.flow-head,
+.xray-head,
+.evidence-block header,
+.action-block header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.flow-head h2,
+.xray-head h2,
+.evidence-block h3,
+.action-block h3 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: -0.03em;
+}
+
+.flow-head p,
+.xray-head p,
+.evidence-block p,
+.action-block p {
+  margin: 8px 0 0;
+  color: rgba(199, 214, 231, 0.68);
+  font-size: 13px;
+}
+
+.decision-panel {
+  display: grid;
+  gap: 22px;
+  padding: 0 0 18px;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  border-bottom: 1px solid rgba(110, 141, 176, 0.12);
+}
+
+.decision-panel[data-tone='alert'] {
+  border-bottom-color: rgba(255, 90, 94, 0.32);
+}
+
+.decision-panel[data-tone='watch'] {
+  border-bottom-color: rgba(255, 192, 90, 0.28);
+}
+
+.decision-head {
+  display: flex;
+  justify-content: space-between;
   gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
-.command-metrics article {
-  padding: 16px;
-  border-radius: 20px;
-  border: 1px solid rgba(120, 146, 176, 0.14);
-  background: rgba(255, 255, 255, 0.02);
+.decision-copy small {
+  display: inline-block;
+  margin-bottom: 12px;
+  color: rgba(199, 214, 231, 0.58);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.command-metrics span {
+.decision-copy h2 {
+  margin: 0;
+  font-size: clamp(28px, 3.2vw, 40px);
+  line-height: 0.98;
+  letter-spacing: -0.05em;
+}
+
+.decision-copy p {
+  margin: 10px 0 0;
+  color: rgba(214, 225, 237, 0.74);
+  font-size: 14px;
+}
+
+.decision-inline {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.decision-inline article {
+  padding-top: 14px;
+  border-top: 1px solid rgba(110, 141, 176, 0.14);
+}
+
+.decision-inline span {
   display: block;
   margin-bottom: 8px;
   color: rgba(199, 214, 231, 0.62);
   font-size: 12px;
 }
 
-.command-metrics strong {
-  font-size: 20px;
-  letter-spacing: -0.03em;
+.decision-inline strong {
+  font-size: 22px;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
 }
 
-.command-steps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+.evidence-block,
+.action-block {
+  display: grid;
+  gap: 14px;
 }
 
-.command-steps span {
-  padding: 10px 14px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(228, 236, 245, 0.82);
-  font-size: 13px;
+.evidence-block ul,
+.action-block ol {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.evidence-block li,
+.action-block li {
+  display: grid;
+  gap: 6px;
+  padding: 14px 0;
+  border-top: 1px solid rgba(110, 141, 176, 0.12);
+}
+
+.evidence-block li span,
+.action-block li::marker {
+  color: rgba(199, 214, 231, 0.58);
+  font-size: 12px;
+}
+
+.evidence-block li strong,
+.action-block li {
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(236, 243, 250, 0.94);
+}
+
+.action-block ol {
+  list-style: decimal;
+  padding-left: 18px;
 }
 
 .command-actions {
@@ -379,45 +553,47 @@ const quality = computed(() => store.currentDataQuality.value)
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-  margin-bottom: 16px;
+  margin-top: 18px;
 }
 
 .quality-box {
-  padding: 16px;
-  border-radius: 20px;
-  border: 1px solid rgba(120, 146, 176, 0.14);
-  background: rgba(255, 255, 255, 0.02);
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .quality-box span {
-  display: block;
-  margin-bottom: 8px;
   color: rgba(199, 214, 231, 0.62);
   font-size: 12px;
 }
 
 .quality-box strong {
-  font-size: 20px;
+  font-size: 24px;
+  letter-spacing: -0.04em;
 }
 
 .probabilities {
   display: grid;
   gap: 12px;
+  margin-top: 18px;
 }
 
 .probability-row {
   display: grid;
-  grid-template-columns: 88px minmax(0, 1fr) 64px;
+  grid-template-columns: 110px minmax(0, 1fr) 56px;
   gap: 12px;
   align-items: center;
 }
 
-.probability-row span,
-.probability-row strong {
+.probability-row span {
+  color: rgba(230, 238, 247, 0.86);
   font-size: 13px;
 }
 
 .track {
+  position: relative;
   height: 10px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.06);
@@ -425,42 +601,105 @@ const quality = computed(() => store.currentDataQuality.value)
 }
 
 .fill {
-  height: 100%;
+  position: absolute;
+  inset: 0 auto 0 0;
   border-radius: inherit;
-  background: linear-gradient(90deg, #3dd7ff, #2f72ff);
+  background: rgba(67, 215, 255, 0.84);
+}
+
+.probability-row strong {
+  font-size: 13px;
+  text-align: right;
+  color: rgba(232, 240, 249, 0.88);
 }
 
 .empty-inline {
+  display: grid;
+  place-items: center;
+  min-height: 120px;
   color: rgba(199, 214, 231, 0.62);
-  font-size: 13px;
+  text-align: center;
 }
 
-@media (max-width: 1280px) {
-  .decision-board {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+@media (max-width: 1200px) {
+  .status-banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .banner-main {
+    min-width: 0;
+  }
+
+  .banner-strip {
+    width: 100%;
   }
 
   .workspace {
     grid-template-columns: 1fr;
   }
+
+  .command-column {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .decision-panel {
+    grid-column: 1 / -1;
+  }
+
+  .xray-panel {
+    grid-column: 1 / -1;
+  }
 }
 
-@media (max-width: 900px) {
-  .command-metrics,
+@media (max-width: 760px) {
+  .banner-strip,
+  .decision-inline,
   .quality-grid {
     grid-template-columns: 1fr;
   }
-}
 
-@media (max-width: 720px) {
-  .decision-board {
+  .status-banner,
+  .flow-panel,
+  .command-column {
+    padding: 18px;
+  }
+
+  .banner-stat {
+    padding-top: 12px;
+    padding-left: 0;
+    border-top: 1px solid rgba(110, 141, 176, 0.16);
+    border-left: 0;
+  }
+
+  .decision-panel {
+    padding: 0 0 18px;
+  }
+
+  .command-column {
     grid-template-columns: 1fr;
   }
 
+  .probability-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .status-banner,
   .flow-panel,
-  .side-panel,
-  .command-deck {
-    padding: 18px;
+  .command-column {
+    padding: 14px;
+    border-radius: 22px;
+  }
+
+  .banner-main h1 {
+    font-size: 24px;
+  }
+
+  .decision-copy h2 {
+    font-size: 24px;
   }
 }
 </style>

@@ -9,6 +9,7 @@ model:
   kinematic_dim: 12
   kinematic_feature_set: v2
   scene_dim: 8
+  quality_dim: 3
   hidden_dim: 192
   num_heads: 6
   depth: 4
@@ -28,6 +29,7 @@ training:
   min_learning_rate: 0.00003
   weight_decay: 0.0001
   risk_loss_weight: 0.3
+  quality_loss_weight: 0.15
   class_balance_beta: 0.999
   num_workers: 8
   pin_memory: true

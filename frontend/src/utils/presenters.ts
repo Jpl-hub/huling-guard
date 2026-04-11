@@ -6,6 +6,7 @@ import type {
   RuntimeStateResponse,
   SessionReport,
   SummaryResponse,
+  TimelineItem,
   ViewMode,
 } from '../types/runtime'
 
@@ -122,6 +123,22 @@ export function formatArchiveTime(value: string | null | undefined): string {
   })
 }
 
+export function archiveDisplayName(
+  sessionName: string | null | undefined,
+  archivedAt: string | null | undefined,
+  fallback: string | null | undefined = null,
+): string {
+  const normalized = String(sessionName ?? '').trim()
+  if (normalized && !/^runtime(_|$)/i.test(normalized) && !/^session[_-]/i.test(normalized)) {
+    return normalized
+  }
+  if (fallback) {
+    return fallback
+  }
+  const timeLabel = formatArchiveTime(archivedAt)
+  return timeLabel === '-' ? '回看记录' : `回看记录 · ${timeLabel}`
+}
+
 export function buildDisplayStateFromRuntime(
   state: RuntimeStateResponse | null,
   summary: SummaryResponse | null,
@@ -168,6 +185,232 @@ export function buildDisplayStateFromReport(report: SessionReport): DisplayState
   }
 }
 
+function dedupeIncidents(incidents: Incident[]): Incident[] {
+  const seen = new Set<string>()
+  const unique: Incident[] = []
+  for (const incident of incidents) {
+    const key = `${incident.kind}-${Number(incident.timestamp ?? 0).toFixed(3)}`
+    if (seen.has(key)) {
+      continue
+    }
+    seen.add(key)
+    unique.push(incident)
+  }
+  return unique
+}
+
+function buildDerivedTimelineIncidents(items: ReadonlyArray<TimelineItem>): Incident[] {
+  const derived: Incident[] = []
+  let previousState: GuardState = null
+  for (const item of items) {
+    if (!item.ready || !item.predicted_state || item.predicted_state === 'normal') {
+      previousState = item.predicted_state ?? previousState
+      continue
+    }
+    if (item.predicted_state === previousState) {
+      continue
+    }
+    const kind =
+      item.predicted_state === 'near_fall'
+        ? 'near_fall_warning'
+        : item.predicted_state === 'fall'
+          ? 'confirmed_fall'
+          : item.predicted_state === 'prolonged_lying'
+            ? 'prolonged_lying'
+            : item.predicted_state === 'recovery'
+              ? 'recovery_detected'
+              : null
+    if (kind) {
+      derived.push({
+        kind,
+        timestamp: Number(item.timestamp ?? 0),
+        confidence: Number(item.confidence ?? 0),
+        payload: {
+          predicted_state: item.predicted_state,
+          risk_score: Number(item.risk_score ?? 0),
+        },
+      })
+    }
+    previousState = item.predicted_state
+  }
+  return derived
+}
+
+export function buildTimelineIncidents(items: ReadonlyArray<TimelineItem>, limit = 12): Incident[] {
+  const explicit = items.flatMap((item) =>
+    (item.incidents ?? []).map((incident) => ({
+      kind: String(incident.kind ?? 'unknown'),
+      timestamp: Number(incident.timestamp ?? item.timestamp ?? 0),
+      confidence: Number(incident.confidence ?? item.confidence ?? 0),
+      payload: (incident.payload ?? {
+        predicted_state: item.predicted_state,
+        risk_score: Number(item.risk_score ?? 0),
+      }) as Record<string, unknown>,
+    })),
+  )
+  return dedupeIncidents([...explicit, ...buildDerivedTimelineIncidents(items)])
+    .sort((left, right) => Number(right.timestamp) - Number(left.timestamp))
+    .slice(0, limit)
+}
+
+function buildStateSegmentsFromTimeline(items: ReadonlyArray<TimelineItem>) {
+  const readyItems = items.filter((item) => item.ready && item.predicted_state)
+  const segments: SessionReport['state_segments'] = []
+  let current: SessionReport['state_segments'][number] | null = null
+
+  for (const item of readyItems) {
+    if (current == null || current.state !== item.predicted_state) {
+      if (current != null) {
+        current.duration_seconds = Math.max(0, current.end_timestamp - current.start_timestamp)
+        segments.push(current)
+      }
+      current = {
+        state: item.predicted_state,
+        start_timestamp: Number(item.timestamp ?? 0),
+        end_timestamp: Number(item.timestamp ?? 0),
+        frame_count: 1,
+        max_risk_score: Number(item.risk_score ?? 0),
+        max_confidence: Number(item.confidence ?? 0),
+        duration_seconds: 0,
+      }
+      continue
+    }
+
+    current.end_timestamp = Number(item.timestamp ?? current.end_timestamp)
+    current.frame_count += 1
+    current.max_risk_score = Math.max(current.max_risk_score, Number(item.risk_score ?? 0))
+    current.max_confidence = Math.max(current.max_confidence, Number(item.confidence ?? 0))
+  }
+
+  if (current != null) {
+    current.duration_seconds = Math.max(0, current.end_timestamp - current.start_timestamp)
+    segments.push(current)
+  }
+
+  return segments
+}
+
+export function buildDisplayStateFromTimeline(
+  items: ReadonlyArray<TimelineItem>,
+  playbackStarted: boolean,
+): DisplayState {
+  if (!playbackStarted || !items.length) {
+    return {
+      predictedState: null,
+      riskScore: 0,
+      confidence: 0,
+      stateProbabilities: {},
+      incidentTotal: 0,
+      lastIncident: null,
+      ready: false,
+    }
+  }
+
+  const latest = [...items].reverse().find((item) => item.predicted_state) ?? items[items.length - 1]
+  const incidents = buildTimelineIncidents(items)
+  const readyItems = items.filter((item) => item.ready)
+  const counts = readyItems.reduce<Record<string, number>>((acc, item) => {
+    if (item.predicted_state) {
+      acc[item.predicted_state] = (acc[item.predicted_state] ?? 0) + 1
+    }
+    return acc
+  }, {})
+  const total = Object.values(counts).reduce((sum, value) => sum + Number(value), 0)
+
+  return {
+    predictedState: latest.predicted_state ?? null,
+    riskScore: Number(latest.risk_score ?? 0),
+    confidence: Number(latest.confidence ?? 0),
+    stateProbabilities:
+      latest.state_probs && Object.keys(latest.state_probs).length
+        ? latest.state_probs
+        : Object.fromEntries(Object.entries(counts).map(([key, value]) => [key, total > 0 ? value / total : 0])),
+    incidentTotal: incidents.length,
+    lastIncident: incidents[0] ?? null,
+    ready: readyItems.length > 0,
+  }
+}
+
+export function buildSessionReportFromTimeline(
+  baseReport: SessionReport,
+  items: ReadonlyArray<TimelineItem>,
+  playbackStarted: boolean,
+): SessionReport | null {
+  if (!playbackStarted || !items.length) {
+    return null
+  }
+
+  const readyItems = items.filter((item) => item.ready)
+  const incidents = buildTimelineIncidents(items, 64).sort((left, right) => Number(left.timestamp) - Number(right.timestamp))
+  const segments = buildStateSegmentsFromTimeline(items)
+  const counts = readyItems.reduce<Record<string, number>>((acc, item) => {
+    if (item.predicted_state) {
+      acc[item.predicted_state] = (acc[item.predicted_state] ?? 0) + 1
+    }
+    return acc
+  }, {})
+  const incidentCounts = incidents.reduce<Record<string, number>>((acc, incident) => {
+    acc[incident.kind] = (acc[incident.kind] ?? 0) + 1
+    return acc
+  }, {})
+  const dominantState =
+    (Object.entries(counts).sort((left, right) => Number(right[1]) - Number(left[1]))[0]?.[0] as GuardState | undefined) ?? null
+  const peak = readyItems.reduce<TimelineItem | null>((best, item) => {
+    if (best == null || Number(item.risk_score) > Number(best.risk_score)) {
+      return item
+    }
+    return best
+  }, null)
+  const endTimestamp = Number(items[items.length - 1]?.timestamp ?? 0)
+
+  return {
+    ...baseReport,
+    total_frames: items.length,
+    ready_frames: readyItems.length,
+    warmup_frames: Math.max(0, items.length - readyItems.length),
+    ready_ratio: items.length > 0 ? readyItems.length / items.length : 0,
+    start_timestamp: 0,
+    end_timestamp: endTimestamp,
+    duration_seconds: Math.max(0, endTimestamp),
+    peak_risk: peak
+      ? {
+          timestamp: Number(peak.timestamp ?? 0),
+          predicted_state: peak.predicted_state ?? null,
+          risk_score: Number(peak.risk_score ?? 0),
+          confidence: Number(peak.confidence ?? 0),
+        }
+      : null,
+    mean_risk_score:
+      readyItems.length > 0
+        ? readyItems.reduce((sum, item) => sum + Number(item.risk_score ?? 0), 0) / readyItems.length
+        : 0,
+    mean_confidence:
+      readyItems.length > 0
+        ? readyItems.reduce((sum, item) => sum + Number(item.confidence ?? 0), 0) / readyItems.length
+        : 0,
+    dominant_state: dominantState,
+    predicted_state_counts: counts,
+    incident_total: incidents.length,
+    incident_counts: incidentCounts,
+    first_incident: incidents[0] ?? null,
+    last_incident: incidents[incidents.length - 1] ?? null,
+    recent_incidents: incidents.slice(-5),
+    top_risk_moments: [...readyItems]
+      .sort((left, right) => Number(right.risk_score) - Number(left.risk_score))
+      .slice(0, 5)
+      .map((item) => ({
+        timestamp: Number(item.timestamp ?? 0),
+        predicted_state: item.predicted_state ?? null,
+        risk_score: Number(item.risk_score ?? 0),
+        confidence: Number(item.confidence ?? 0),
+      })),
+    state_segments: segments,
+    longest_segments: [...segments]
+      .sort((left, right) => Number(right.duration_seconds) - Number(left.duration_seconds))
+      .slice(0, 5),
+  }
+}
+
 export function buildReportIncidents(report: SessionReport): Incident[] {
   if (report.recent_incidents?.length) {
     return report.recent_incidents
@@ -193,9 +436,9 @@ export function buildQuickAnswers(
 ): QuickAnswer[] {
   if (!display.ready) {
     return [
-      { label: '当前是否安全', value: '正在判断', detail: '等待连续画面稳定', tone: 'neutral' },
-      { label: '是否需要过去', value: '先持续观察', detail: '还没有形成正式提醒', tone: 'neutral' },
-      { label: '最近发生了什么', value: '暂无关键变化', detail: '系统仍在建立首段状态流', tone: 'neutral' },
+      { label: '当前是否安全', value: '正在判断', detail: '还在收第一段连续画面', tone: 'neutral' },
+      { label: '是否需要过去', value: '先持续观察', detail: '暂时不用处理', tone: 'neutral' },
+      { label: '最近发生了什么', value: '暂无关键变化', detail: '等状态稳定后再给正式结论', tone: 'neutral' },
     ]
   }
 
@@ -210,12 +453,12 @@ export function buildQuickAnswers(
           : '当前稳定'
   const needGoNow =
     display.predictedState === 'recovery'
-      ? '继续看画面'
+      ? '继续观察'
       : tone === 'alert'
         ? '现在就去看'
         : tone === 'watch'
           ? '尽快确认'
-          : '暂不到场'
+          : '暂时不用过去'
   const recent =
     display.lastIncident != null
       ? `${incidentLabel(display.lastIncident.kind)} · ${formatTimestamp(display.lastIncident.timestamp)}`
@@ -237,7 +480,7 @@ export function buildQuickAnswers(
     {
       label: '最近发生了什么',
       value: recent,
-      detail: display.incidentTotal > 0 ? `累计 ${display.incidentTotal} 次提醒` : '当前无提醒',
+      detail: display.incidentTotal > 0 ? `本段共 ${display.incidentTotal} 次提醒` : '画面保持稳定',
       tone: display.incidentTotal > 0 ? 'watch' : 'safe',
     },
   ]
@@ -253,49 +496,49 @@ export function buildVerdict(display: DisplayState): {
   if (!display.ready) {
     return {
       badge: '正在建立判断',
-      title: '等待首段稳定状态',
-      action: '保持当前画面',
-      detail: '系统正在收集足够的连续画面。',
-      steps: ['保持画面连续输入', '等待首个稳定结论'],
+      title: '先保持画面连续',
+      action: '暂不处理',
+      detail: '系统还在形成第一段连续状态。',
+      steps: ['保持画面连续输入', '等结论稳定后再处理'],
     }
   }
 
   if (display.predictedState === 'fall' || display.predictedState === 'prolonged_lying') {
     return {
       badge: '立即处理',
-      title: display.predictedState === 'fall' ? '已检测到跌倒' : '已检测到长卧风险',
-      action: '立即到场查看',
-      detail: '这一段画面已经达到高风险级别。',
-      steps: ['先到场确认人员状态', '完成处理后再归档本段过程'],
+      title: display.predictedState === 'fall' ? '建议马上到场查看' : '建议马上查看长卧情况',
+      action: '现在过去',
+      detail: '这段画面已经出现需要处理的高风险过程。',
+      steps: ['先到现场确认人员状态', '处理完成后保存这段画面'],
     }
   }
 
   if (display.predictedState === 'near_fall') {
     return {
       badge: '尽快确认',
-      title: '画面中出现明显失衡',
+      title: '先确认是否已经失衡',
       action: '先看画面，再决定是否过去',
-      detail: '当前还不是跌倒结论，但风险已经抬高。',
-      steps: ['先确认是否已经恢复稳定', '若继续恶化则立即处理'],
+      detail: '当前风险明显抬高，但还不是最终跌倒结论。',
+      steps: ['先确认人员是否已经站稳', '如果动作继续恶化就立即到场'],
     }
   }
 
   if (display.predictedState === 'recovery') {
     return {
-      badge: '正在恢复',
-      title: '人物正在恢复起身',
-      action: '继续观察',
-      detail: '当前不属于高风险告警，但仍要继续值守。',
-      steps: ['确认是否回到正常活动', '若再次波动则重新判断'],
+      badge: '继续观察',
+      title: '当前像是在恢复起身',
+      action: '继续看 5 到 10 秒',
+      detail: '目前不属于高风险告警，但还要继续看后续动作。',
+      steps: ['确认人员是否回到正常活动', '如果再次失衡就重新判断'],
     }
   }
 
   return {
     badge: '当前稳定',
-    title: '当前为正常活动',
+    title: '当前无须处理',
     action: '继续值守',
     detail: '这段画面没有出现需要立刻处理的风险。',
-    steps: ['保持当前监看', '需要时再归档本段过程'],
+    steps: ['保持当前监看', '需要复盘时再保存这段画面'],
   }
 }
 

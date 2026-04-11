@@ -14,8 +14,8 @@ defineProps<{
   <section class="event-feed">
     <header class="head">
       <div>
-        <span class="section-kicker">Recent events</span>
-        <h2>最近提醒</h2>
+        <h2>最近变化</h2>
+        <p>需要处理的关键时刻。</p>
       </div>
       <span>{{ incidents.length ? `${incidents.length} 条` : '无提醒' }}</span>
     </header>
@@ -26,21 +26,26 @@ defineProps<{
         :key="`${incident.kind}-${incident.timestamp}`"
         class="event-item"
       >
-        <div class="title-row">
-          <strong>{{ incidentLabel(incident.kind) }}</strong>
-          <span class="action-pill">{{ incidentAction(incident.kind) }}</span>
-        </div>
-        <div class="meta-row">
-          <span>{{ formatTimestamp(incident.timestamp) }}</span>
-          <span v-if="incident.payload?.predicted_state">
-            状态 {{ stateLabel(String(incident.payload.predicted_state) as any) }}
-          </span>
-          <span v-if="viewMode === 'xray'">置信度 {{ formatRisk(incident.confidence) }}</span>
+        <span class="event-marker" />
+        <div class="event-copy">
+          <div class="title-row">
+            <strong>{{ incidentLabel(incident.kind) }}</strong>
+            <span class="action-pill">{{ incidentAction(incident.kind) }}</span>
+          </div>
+          <p>
+            {{ formatTimestamp(incident.timestamp) }}
+            <template v-if="incident.payload?.predicted_state">
+              · 当前判断 {{ stateLabel(String(incident.payload.predicted_state) as any) }}
+            </template>
+            <template v-if="viewMode === 'xray'">
+              · 置信度 {{ formatRisk(incident.confidence) }}
+            </template>
+          </p>
         </div>
       </article>
     </div>
     <div v-else class="empty">
-      当前没有需要处理的提醒。
+      暂无需要处理的变化。
     </div>
   </section>
 </template>
@@ -55,22 +60,19 @@ defineProps<{
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  align-items: baseline;
-}
-
-.section-kicker {
-  display: inline-block;
-  margin-bottom: 8px;
-  color: rgba(143, 181, 221, 0.76);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
+  align-items: flex-start;
 }
 
 .head h2 {
   margin: 0;
   font-size: 20px;
   letter-spacing: -0.03em;
+}
+
+.head p {
+  margin: 8px 0 0;
+  color: rgba(199, 214, 231, 0.68);
+  font-size: 13px;
 }
 
 .head span:last-child {
@@ -80,26 +82,36 @@ defineProps<{
 
 .list {
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 .event-item {
-  padding: 16px 18px;
-  border-radius: 22px;
-  border: 1px solid rgba(120, 146, 176, 0.14);
-  background: rgba(255, 255, 255, 0.02);
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
 }
 
-.title-row,
-.meta-row {
+.event-marker {
+  width: 12px;
+  height: 12px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: #43d7ff;
+  box-shadow: 0 0 0 6px rgba(67, 215, 255, 0.08);
+}
+
+.event-copy {
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(120, 146, 176, 0.12);
+}
+
+.title-row {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-}
-
-.title-row {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   align-items: center;
 }
 
@@ -117,17 +129,17 @@ defineProps<{
   font-weight: 700;
 }
 
-.meta-row span {
+.event-copy p {
+  margin: 0;
   color: rgba(199, 214, 231, 0.72);
   font-size: 13px;
+  line-height: 1.6;
 }
 
 .empty {
   display: grid;
   place-items: center;
   min-height: 160px;
-  border-radius: 22px;
-  border: 1px dashed rgba(120, 146, 176, 0.18);
   color: rgba(199, 214, 231, 0.62);
   text-align: center;
 }

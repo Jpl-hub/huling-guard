@@ -36,6 +36,32 @@
 - `recovery`
 - `prolonged_lying`
 
+当前模型内部结构为：
+
+- `Pose Encoder`：逐关节线性编码 `(x, y, confidence)`
+- `Spatial Summary`：帧内关节表示汇聚
+- `Feature Fusion`：融合骨架、运动学、场景关系特征
+- `Residual Temporal Blocks`：提取局部时间动态
+- `Transformer Encoder`：建模长时依赖
+- `Heads`：输出 `frame_logits`、`clip_logits`、`risk_logits`
+
+当前默认参数为：
+
+- `hidden_dim = 192`
+- `num_heads = 6`
+- `depth = 4`
+- `num_joints = 17`
+- `num_classes = 5`
+
+当前仓库内训练模板 `configs/train_scene_pose.yaml` 使用的模型口径为：
+
+- `kinematic_feature_set = v2`
+- `kinematic_dim = 12`
+- `scene_dim = 8`
+- `hidden_dim = 192`
+- `num_heads = 6`
+- `depth = 4`
+
 ### 2.4 事件层
 
 事件层采用 `EventEngine`，将连续状态流稳定为事件流。该层输出近跌倒提示、跌倒、长时间卧倒和恢复事件。
@@ -74,6 +100,17 @@
 5. `EventEngine` 生成事件
 6. FastAPI 输出接口结果
 7. 前端展示与 `SQLite` 归档
+
+当前运行时默认采用：
+
+- `window_size = 64`
+- `inference_stride = 4`
+
+并持续输出姿态质量指标：
+
+- `pose_quality_score`
+- `mean_keypoint_confidence`
+- `visible_joint_ratio`
 
 ## 5. 不采用的方案
 

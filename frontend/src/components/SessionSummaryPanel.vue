@@ -14,25 +14,25 @@ defineProps<{
   <section class="session-panel">
     <header class="head">
       <div>
-        <span class="section-kicker">Session</span>
-        <h2>本段过程</h2>
+        <h2>这段过程</h2>
+        <p>状态持续与风险高点。</p>
       </div>
     </header>
 
-    <div class="summary-grid">
-      <article class="summary-box">
-        <small>主导状态</small>
-        <strong>{{ stateLabel(report?.dominant_state ?? displayState.predictedState) }}</strong>
-      </article>
-      <article class="summary-box">
-        <small>最高风险时刻</small>
-        <strong>{{ formatTimestamp(report?.peak_risk?.timestamp ?? null) }}</strong>
-      </article>
-      <article class="summary-box">
-        <small>本段时长</small>
-        <strong>{{ formatSeconds(report?.duration_seconds ?? 0) }}</strong>
-      </article>
-    </div>
+    <dl class="summary-strip">
+      <div>
+        <dt>主导状态</dt>
+        <dd>{{ stateLabel(report?.dominant_state ?? displayState.predictedState) }}</dd>
+      </div>
+      <div>
+        <dt>最高风险时刻</dt>
+        <dd>{{ formatTimestamp(report?.peak_risk?.timestamp ?? null) }}</dd>
+      </div>
+      <div>
+        <dt>本段时长</dt>
+        <dd>{{ formatSeconds(report?.duration_seconds ?? 0) }}</dd>
+      </div>
+    </dl>
 
     <div class="segments">
       <article
@@ -47,11 +47,10 @@ defineProps<{
         <div class="segment-meta">
           <span>开始 {{ formatTimestamp(segment.start_timestamp) }}</span>
           <span>结束 {{ formatTimestamp(segment.end_timestamp) }}</span>
-          <span>共持续 {{ formatSeconds(segment.duration_seconds) }}</span>
         </div>
       </article>
       <div v-if="!(report?.longest_segments?.length)" class="empty">
-        当前还没有足够稳定的过程片段可以展示。
+        还没有形成稳定过程片段。
       </div>
     </div>
 
@@ -67,45 +66,40 @@ defineProps<{
   gap: 18px;
 }
 
-.section-kicker {
-  display: inline-block;
-  margin-bottom: 8px;
-  color: rgba(143, 181, 221, 0.76);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-}
-
 .head h2 {
   margin: 0;
   font-size: 20px;
   letter-spacing: -0.03em;
 }
 
-.summary-grid {
+.head p {
+  margin: 8px 0 0;
+  color: rgba(199, 214, 231, 0.68);
+  font-size: 13px;
+}
+
+.summary-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
+  margin: 0;
 }
 
-.summary-box {
-  padding: 18px;
-  border-radius: 22px;
-  border: 1px solid rgba(120, 146, 176, 0.14);
-  background: rgba(255, 255, 255, 0.02);
+.summary-strip div {
+  padding-top: 14px;
+  border-top: 1px solid rgba(120, 146, 176, 0.12);
 }
 
-.summary-box small {
-  display: block;
-  margin-bottom: 10px;
+.summary-strip dt {
+  margin-bottom: 8px;
   color: rgba(199, 214, 231, 0.64);
   font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
 }
 
-.summary-box strong {
-  font-size: 26px;
+.summary-strip dd {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
   line-height: 1.04;
   letter-spacing: -0.04em;
 }
@@ -116,10 +110,8 @@ defineProps<{
 }
 
 .segment-item {
-  padding: 16px 18px;
-  border-radius: 22px;
-  border: 1px solid rgba(120, 146, 176, 0.14);
-  background: rgba(255, 255, 255, 0.02);
+  padding: 14px 0;
+  border-top: 1px solid rgba(120, 146, 176, 0.12);
 }
 
 .segment-title,
@@ -153,7 +145,6 @@ defineProps<{
 .chip {
   padding: 9px 12px;
   border-radius: 999px;
-  border: 1px solid rgba(120, 146, 176, 0.18);
   background: rgba(255, 255, 255, 0.03);
   color: rgba(225, 235, 246, 0.84);
   font-size: 13px;
@@ -163,14 +154,12 @@ defineProps<{
   display: grid;
   place-items: center;
   min-height: 140px;
-  border-radius: 22px;
-  border: 1px dashed rgba(120, 146, 176, 0.18);
   color: rgba(199, 214, 231, 0.62);
   text-align: center;
 }
 
 @media (max-width: 720px) {
-  .summary-grid {
+  .summary-strip {
     grid-template-columns: 1fr;
   }
 }

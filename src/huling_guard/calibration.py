@@ -101,6 +101,23 @@ def select_best_threshold(
     return best
 
 
+def _infer_quality_dim_from_checkpoint(settings: "AppSettings", state_dict: dict[str, "torch.Tensor"]) -> int:
+    if settings.model is None:
+        raise ValueError("train config must contain model settings")
+    fusion_weight = state_dict.get("fusion.weight")
+    if fusion_weight is None or fusion_weight.ndim != 2:
+        return settings.model.quality_dim
+    joint_hidden = settings.model.hidden_dim // 2
+    base_dim = joint_hidden + settings.model.kinematic_dim + settings.model.scene_dim
+    inferred = int(fusion_weight.shape[1] - base_dim)
+    if inferred < 0:
+        raise ValueError(
+            "checkpoint fusion width is smaller than expected base feature width "
+            f"({fusion_weight.shape[1]} < {base_dim})"
+        )
+    return inferred
+
+
 def _build_model(settings: "AppSettings", checkpoint_path: Path, device: "torch.device") -> "ScenePoseTemporalNet":
     import torch
 
@@ -114,17 +131,19 @@ def _build_model(settings: "AppSettings", checkpoint_path: Path, device: "torch.
             "model.kinematic_dim does not match model.kinematic_feature_set "
             f"({settings.model.kinematic_dim} != {expected_kinematic_dim})"
         )
+    state_dict = torch.load(checkpoint_path, map_location="cpu")
+    quality_dim = _infer_quality_dim_from_checkpoint(settings, state_dict)
     model = ScenePoseTemporalNet(
         num_joints=settings.data.num_joints,
         pose_dim=settings.model.pose_dim,
         kinematic_dim=settings.model.kinematic_dim,
         scene_dim=settings.model.scene_dim,
+        quality_dim=quality_dim,
         hidden_dim=settings.model.hidden_dim,
         num_heads=settings.model.num_heads,
         depth=settings.model.depth,
         dropout=settings.model.dropout,
     )
-    state_dict = torch.load(checkpoint_path, map_location="cpu")
     model.load_state_dict(state_dict)
     model.to(device)
     model.eval()

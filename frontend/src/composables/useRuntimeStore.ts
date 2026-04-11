@@ -11,6 +11,7 @@ import type {
   GuardState,
   HealthResponse,
   Incident,
+  LiveIngestStatusResponse,
   MetaResponse,
   QuickAnswer,
   RuntimeStateResponse,
@@ -22,10 +23,11 @@ import type {
   LiveSourceResponse,
 } from '../types/runtime'
 import {
-  buildDisplayStateFromReport,
   buildDisplayStateFromRuntime,
+  buildDisplayStateFromTimeline,
   buildQuickAnswers,
-  buildReportIncidents,
+  buildSessionReportFromTimeline,
+  buildTimelineIncidents,
   buildVerdict,
   runtimeChips,
 } from '../utils/presenters'
@@ -43,9 +45,14 @@ interface RuntimeStoreState {
   runtimeIncidents: Incident[]
   systemProfile: SystemProfileResponse | null
   liveSource: LiveSourceResponse | null
+  liveIngest: LiveIngestStatusResponse | null
   demoVideos: DemoVideoItem[]
   selectedDemoFilename: string
   selectedDemoSession: DemoSessionResponse | null
+  uploadingVideo: boolean
+  demoPlaybackTime: number
+  demoPlaybackDuration: number
+  demoPlaybackStarted: boolean
   archives: ArchiveListResponse | null
   archiveSummary: ArchiveSummaryResponse | null
   selectedArchiveId: string
@@ -69,9 +76,14 @@ const state = reactive<RuntimeStoreState>({
   runtimeIncidents: [],
   systemProfile: null,
   liveSource: null,
+  liveIngest: null,
   demoVideos: [],
   selectedDemoFilename: '',
   selectedDemoSession: null,
+  uploadingVideo: false,
+  demoPlaybackTime: 0,
+  demoPlaybackDuration: 0,
+  demoPlaybackStarted: false,
   archives: null,
   archiveSummary: null,
   selectedArchiveId: '',
@@ -123,12 +135,22 @@ async function refreshArchives(): Promise<void> {
 }
 
 async function refreshDemos(): Promise<void> {
+  const previousSelectedFilename = state.selectedDemoFilename
   const payload = await runtimeApi.demoVideos()
-  state.demoVideos = payload.items
-  if (!state.selectedDemoFilename && payload.items.length) {
-    state.selectedDemoFilename = preferredDemoFilename(payload.items)
+  state.demoVideos = payload.items.map((item) => ({
+    ...item,
+    url: runtimeApi.mediaUrl(item.url),
+    poster_url: item.poster_url ? runtimeApi.mediaUrl(item.poster_url) : item.poster_url,
+  }))
+  if (!state.selectedDemoFilename && state.demoVideos.length) {
+    state.selectedDemoFilename = preferredDemoFilename(state.demoVideos)
+  } else if (state.selectedDemoFilename && !state.demoVideos.some((item) => item.filename === state.selectedDemoFilename)) {
+    state.selectedDemoFilename = preferredDemoFilename(state.demoVideos)
   }
-  if (state.selectedDemoFilename) {
+  const selectedItem = state.demoVideos.find((item) => item.filename === state.selectedDemoFilename) ?? null
+  const canLoadSession = Boolean(selectedItem && selectedItem.processing_status !== 'failed')
+
+  if (state.selectedDemoFilename && canLoadSession) {
     try {
       state.selectedDemoSession = await runtimeApi.demoSession(state.selectedDemoFilename)
     } catch {
@@ -136,6 +158,12 @@ async function refreshDemos(): Promise<void> {
     }
   } else {
     state.selectedDemoSession = null
+  }
+
+  if (previousSelectedFilename !== state.selectedDemoFilename) {
+    state.demoPlaybackTime = 0
+    state.demoPlaybackDuration = 0
+    state.demoPlaybackStarted = false
   }
 }
 
@@ -157,6 +185,7 @@ async function refresh(): Promise<void> {
       runtimeReportPayload,
       systemProfilePayload,
       liveSourcePayload,
+      liveIngestPayload,
     ] = await Promise.all([
       runtimeApi.health(),
       runtimeApi.meta(),
@@ -167,6 +196,7 @@ async function refresh(): Promise<void> {
       runtimeApi.sessionReport(),
       runtimeApi.systemProfile(),
       runtimeApi.liveSource(),
+      runtimeApi.liveIngestStatus(),
     ])
 
     state.health = healthPayload
@@ -178,6 +208,7 @@ async function refresh(): Promise<void> {
     state.runtimeReport = runtimeReportPayload
     state.systemProfile = systemProfilePayload
     state.liveSource = liveSourcePayload
+    state.liveIngest = liveIngestPayload
 
     await Promise.all([refreshDemos(), refreshArchives()])
 
@@ -197,19 +228,76 @@ async function loadArchive(sessionId: string): Promise<void> {
 
 async function archiveSession(): Promise<void> {
   await runtimeApi.archiveSession()
-  Message.success('本次记录已保存')
+  Message.success('已保存到历史回看')
   await refresh()
 }
 
 async function resetRuntime(): Promise<void> {
   await runtimeApi.reset()
-  Message.success('已开始新的记录')
+  Message.success('已重新开始值守')
   await refresh()
 }
 
 async function selectDemo(filename: string): Promise<void> {
   state.selectedDemoFilename = filename
-  state.selectedDemoSession = filename ? await runtimeApi.demoSession(filename) : null
+  state.demoPlaybackTime = 0
+  state.demoPlaybackDuration = 0
+  state.demoPlaybackStarted = false
+  const item = state.demoVideos.find((entry) => entry.filename === filename)
+  if (!filename || item?.processing_status === 'failed') {
+    state.selectedDemoSession = null
+    return
+  }
+  try {
+    state.selectedDemoSession = await runtimeApi.demoSession(filename)
+  } catch {
+    state.selectedDemoSession = null
+  }
+}
+
+async function uploadVideo(file: File): Promise<void> {
+  state.uploadingVideo = true
+  state.errorMessage = ''
+  try {
+    const payload = await runtimeApi.uploadVideo(file)
+    await refreshDemos()
+    await selectDemo(payload.item.filename)
+    Message.success('视频已接入，系统开始分析。')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '上传失败'
+    state.errorMessage = message
+    Message.error(message)
+  } finally {
+    state.uploadingVideo = false
+  }
+}
+
+async function startLiveIngest(payload: { source: string; sourceLabel?: string }): Promise<void> {
+  const source = payload.source.trim()
+  if (!source) {
+    Message.warning('请输入摄像头编号、RTSP 地址或视频路径')
+    return
+  }
+  state.errorMessage = ''
+  await runtimeApi.startLiveIngest({
+    source,
+    sourceLabel: payload.sourceLabel?.trim() || undefined,
+  })
+  Message.success('实时接入已启动')
+  await refresh()
+}
+
+async function stopLiveIngest(): Promise<void> {
+  state.errorMessage = ''
+  await runtimeApi.stopLiveIngest()
+  Message.success('正在停止实时接入')
+  await refresh()
+}
+
+function updateDemoPlayback(payload: { currentTime: number; duration: number; started: boolean }): void {
+  state.demoPlaybackTime = Number.isFinite(payload.currentTime) ? payload.currentTime : 0
+  state.demoPlaybackDuration = Number.isFinite(payload.duration) ? payload.duration : 0
+  state.demoPlaybackStarted = Boolean(payload.started)
 }
 
 function setMode(mode: ViewMode): void {
@@ -227,20 +315,53 @@ function setArchiveIncidentsOnly(next: boolean): void {
 }
 
 const useLiveRuntime = computed(() => Boolean(state.liveSource?.available))
+const selectedDemoItem = computed<DemoVideoItem | null>(() =>
+  state.demoVideos.find((item) => item.filename === state.selectedDemoFilename) ?? null,
+)
+const demoTimelineItems = computed(() => {
+  if (useLiveRuntime.value || !state.selectedDemoSession?.timeline?.items?.length || !state.demoPlaybackStarted) {
+    return []
+  }
+  const cutoff = state.demoPlaybackTime + 0.12
+  return state.selectedDemoSession.timeline.items.filter((item) => Number(item.timestamp ?? 0) <= cutoff)
+})
 const displayReport = computed<SessionReport | null>(() =>
-  useLiveRuntime.value ? state.runtimeReport : state.selectedDemoSession?.session_report ?? state.runtimeReport,
+  useLiveRuntime.value
+    ? state.runtimeReport
+    : state.selectedDemoSession?.session_report
+      ? buildSessionReportFromTimeline(state.selectedDemoSession.session_report, demoTimelineItems.value, state.demoPlaybackStarted)
+      : null,
 )
 const displayTimeline = computed<TimelineResponse | null>(() =>
-  useLiveRuntime.value ? state.runtimeTimeline : state.selectedDemoSession?.timeline ?? state.runtimeTimeline,
+  useLiveRuntime.value
+    ? state.runtimeTimeline
+    : selectedDemoItem.value
+      ? {
+        count: demoTimelineItems.value.length,
+        items: demoTimelineItems.value,
+      }
+      : null,
 )
 const displayState = computed<DisplayState>(() =>
-  !useLiveRuntime.value && state.selectedDemoSession?.session_report
-    ? buildDisplayStateFromReport(state.selectedDemoSession.session_report)
+  !useLiveRuntime.value && selectedDemoItem.value
+    ? state.selectedDemoSession
+      ? buildDisplayStateFromTimeline(demoTimelineItems.value, state.demoPlaybackStarted)
+      : {
+          predictedState: null,
+          riskScore: 0,
+          confidence: 0,
+          stateProbabilities: {},
+          incidentTotal: 0,
+          lastIncident: null,
+          ready: false,
+        }
     : buildDisplayStateFromRuntime(state.runtimeState, state.runtimeSummary),
 )
 const displayIncidents = computed<Incident[]>(() =>
-  !useLiveRuntime.value && state.selectedDemoSession?.session_report
-    ? buildReportIncidents(state.selectedDemoSession.session_report)
+  !useLiveRuntime.value && selectedDemoItem.value
+    ? state.selectedDemoSession
+      ? buildTimelineIncidents(demoTimelineItems.value)
+      : []
     : state.runtimeIncidents,
 )
 const quickAnswers = computed<QuickAnswer[]>(() => buildQuickAnswers(displayState.value))
@@ -253,11 +374,15 @@ const activeRuntimeChips = computed(() =>
     featureSet: state.meta?.kinematic_feature_set,
     archiveEnabled: state.meta?.archive_enabled,
     scenePriorLoaded: state.meta?.scene_prior_loaded,
-    poseQualityScore: state.runtimeState?.data_quality?.pose_quality_score ?? state.runtimeSummary?.data_quality?.pose_quality_score,
-    meanKeypointConfidence:
-      state.runtimeState?.data_quality?.mean_keypoint_confidence ?? state.runtimeSummary?.data_quality?.mean_keypoint_confidence,
-    visibleJointRatio:
-      state.runtimeState?.data_quality?.visible_joint_ratio ?? state.runtimeSummary?.data_quality?.visible_joint_ratio,
+    poseQualityScore: useLiveRuntime.value
+      ? state.runtimeState?.data_quality?.pose_quality_score ?? state.runtimeSummary?.data_quality?.pose_quality_score
+      : undefined,
+    meanKeypointConfidence: useLiveRuntime.value
+      ? state.runtimeState?.data_quality?.mean_keypoint_confidence ?? state.runtimeSummary?.data_quality?.mean_keypoint_confidence
+      : undefined,
+    visibleJointRatio: useLiveRuntime.value
+      ? state.runtimeState?.data_quality?.visible_joint_ratio ?? state.runtimeSummary?.data_quality?.visible_joint_ratio
+      : undefined,
   }),
 )
 const displaySource = computed(() => {
@@ -268,11 +393,20 @@ const displaySource = computed(() => {
       detail: '实时接入',
     }
   }
-  if (state.selectedDemoSession) {
+  if (selectedDemoItem.value) {
+    const sourceLabel = selectedDemoItem.value.original_name || selectedDemoItem.value.name
+    const sourceDetail =
+      selectedDemoItem.value.source_kind === 'upload'
+        ? selectedDemoItem.value.processing_status === 'processing'
+          ? '上传分析中'
+          : selectedDemoItem.value.processing_status === 'failed'
+            ? '上传失败'
+            : '上传分析'
+        : '模拟监看'
     return {
       mode: 'demo',
-      label: state.selectedDemoSession.name,
-      detail: '模拟监看',
+      label: sourceLabel,
+      detail: sourceDetail,
     }
   }
   return {
@@ -287,10 +421,12 @@ const liveFrameUrl = computed(() => {
     return ''
   }
   const version = state.liveSource.updated_at ?? Date.now()
-  return `/live-frame?v=${encodeURIComponent(String(version))}`
+  return runtimeApi.mediaUrl(`/live-frame?v=${encodeURIComponent(String(version))}`)
 })
 const displayDominantState = computed<GuardState>(() => displayReport.value?.dominant_state ?? displayState.value.predictedState)
-const currentDataQuality = computed(() => state.runtimeState?.data_quality ?? state.runtimeSummary?.data_quality ?? null)
+const currentDataQuality = computed(() =>
+  useLiveRuntime.value ? state.runtimeState?.data_quality ?? state.runtimeSummary?.data_quality ?? null : null,
+)
 
 function startPolling(): void {
   if (pollingTimer !== null) {
@@ -325,9 +461,13 @@ export function useRuntimeStore() {
     liveFrameUrl,
     refresh,
     selectDemo,
+    uploadVideo,
+    startLiveIngest,
+    stopLiveIngest,
     loadArchive,
     archiveSession,
     resetRuntime,
+    updateDemoPlayback,
     setMode,
     setArchiveFilterState,
     setArchiveIncidentsOnly,

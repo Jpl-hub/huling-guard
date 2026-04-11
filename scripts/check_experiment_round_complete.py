@@ -44,13 +44,14 @@ def check_experiment_round_complete(
         "promotion_summary": _status(promotion_summary_path),
         "round_summary": _status(round_summary_path),
     }
+    has_event_summary = event_summary_path is not None and event_summary_path.is_file()
 
     required_names = ["training_summary"]
     required_names.extend(
         name
         for name, path in (
             ("sample_summary", sample_summary_path),
-            ("event_summary", event_summary_path),
+            ("event_summary", event_summary_path if has_event_summary else None),
             ("release_verification", release_verification_path),
             ("deployment_selection", deployment_selection_path),
             ("comparison_summary", comparison_summary_path),
@@ -90,7 +91,7 @@ def check_experiment_round_complete(
                     "note": "当前轮总览报告应包含样本级分类结果",
                 }
             )
-        if event_summary_path is not None:
+        if has_event_summary:
             blocking_checks.append(
                 {
                     "name": "round_summary_has_event_summary",

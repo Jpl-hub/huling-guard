@@ -1,39 +1,70 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+
 import ArchivePreviewCard from '../components/ArchivePreviewCard.vue'
 import { useRuntimeStore } from '../composables/useRuntimeStore'
-import { formatArchiveTime, formatRisk, formatSeconds, stateLabel } from '../utils/presenters'
+import { matchDemoVideo } from '../utils/media'
+import { archiveDisplayName, formatArchiveTime, formatRisk, formatSeconds, stateLabel } from '../utils/presenters'
 
 const store = useRuntimeStore()
+
+const overviewCards = computed(() => [
+  {
+    label: '已归档过程',
+    value: String(store.state.archiveSummary?.archive_total ?? 0),
+    detail: '所有已保存的过程都会在这里回看。',
+  },
+  {
+    label: '需要优先复核',
+    value: String(store.state.archiveSummary?.sessions_with_incidents ?? 0),
+    detail: '先看出现提醒的过程，再回看正常过程做对照。',
+  },
+  {
+    label: '最近一条结论',
+    value: stateLabel(store.state.archiveSummary?.latest_archive?.dominant_state ?? null),
+    detail: formatArchiveTime(store.state.archiveSummary?.latest_archive?.archived_at ?? null),
+  },
+])
+
+const archiveEntries = computed(() =>
+  (store.state.archives?.items ?? []).map((item) => {
+    const demoVideo = matchDemoVideo(store.state.demoVideos, [item.session_name, item.session_id])
+    return {
+      item,
+      demoVideo,
+      title: archiveDisplayName(
+        item.session_name,
+        item.archived_at,
+        demoVideo?.original_name || demoVideo?.name || null,
+      ),
+    }
+  }),
+)
 </script>
 
 <template>
   <section class="records-page">
     <section class="overview-band">
-      <article class="overview-item">
-        <small>回看总数</small>
-        <strong>{{ store.state.archiveSummary?.archive_total ?? 0 }}</strong>
-      </article>
-      <article class="overview-item">
-        <small>包含提醒</small>
-        <strong>{{ store.state.archiveSummary?.sessions_with_incidents ?? 0 }}</strong>
-      </article>
-      <article class="overview-item">
-        <small>平均时长</small>
-        <strong>{{ formatSeconds(store.state.archiveSummary?.mean_duration_seconds ?? 0) }}</strong>
-      </article>
-      <article class="overview-item emphasis">
-        <small>最近一条</small>
-        <strong>{{ stateLabel(store.state.archiveSummary?.latest_archive?.dominant_state ?? null) }}</strong>
-        <span>{{ formatArchiveTime(store.state.archiveSummary?.latest_archive?.archived_at ?? null) }}</span>
-      </article>
+      <div class="overview-copy">
+        <h2>历史回看</h2>
+        <p>把已经发生过的一整段过程拉出来复查，先看是否真的需要干预，再看系统是不是判断准确。</p>
+      </div>
+
+      <div class="overview-stats">
+        <article v-for="item in overviewCards" :key="item.label" class="overview-item">
+          <small>{{ item.label }}</small>
+          <strong>{{ item.value }}</strong>
+          <span>{{ item.detail }}</span>
+        </article>
+      </div>
     </section>
 
     <section class="records-layout">
       <section class="records-list">
         <header class="records-head">
           <div>
-            <span class="section-kicker">Archive</span>
-            <h2>回看记录</h2>
+            <h2>选择一段过程</h2>
+            <p>点击左侧记录，右侧会展开完整过程、关键时刻和回放入口。</p>
           </div>
           <div class="filters">
             <a-select
@@ -61,24 +92,31 @@ const store = useRuntimeStore()
 
         <div class="archive-list">
           <button
-            v-for="item in store.state.archives?.items ?? []"
-            :key="item.session_id"
+            v-for="entry in archiveEntries"
+            :key="entry.item.session_id"
             type="button"
             class="archive-item"
-            :class="{ active: item.session_id === store.state.selectedArchiveId }"
-            @click="store.loadArchive(item.session_id)"
+            :class="{ active: entry.item.session_id === store.state.selectedArchiveId }"
+            @click="store.loadArchive(entry.item.session_id)"
           >
-            <div class="title-row">
-              <strong>{{ item.session_name || item.session_id }}</strong>
-              <span class="state-pill">{{ stateLabel(item.dominant_state) }}</span>
-            </div>
-            <div class="meta-row">
-              <span>{{ formatArchiveTime(item.archived_at) }}</span>
-              <span>{{ formatSeconds(item.duration_seconds) }}</span>
-            </div>
-            <div class="meta-row muted">
-              <span>提醒 {{ item.incident_total }}</span>
-              <span>峰值 {{ formatRisk(item.peak_risk_score) }}</span>
+            <div class="archive-row">
+              <div v-if="entry.demoVideo?.poster_url" class="archive-thumb">
+                <img :src="entry.demoVideo.poster_url" :alt="entry.item.session_name || entry.item.session_id" />
+              </div>
+              <div class="archive-body">
+                <div class="title-row">
+                  <div>
+                    <strong>{{ entry.title }}</strong>
+                    <p>{{ formatArchiveTime(entry.item.archived_at) }}</p>
+                  </div>
+                  <span class="state-pill">{{ stateLabel(entry.item.dominant_state) }}</span>
+                </div>
+                <div class="meta-row">
+                  <span>时长 {{ formatSeconds(entry.item.duration_seconds) }}</span>
+                  <span>{{ entry.item.incident_total > 0 ? `提醒 ${entry.item.incident_total} 次` : '没有正式提醒' }}</span>
+                  <span>峰值 {{ formatRisk(entry.item.peak_risk_score) }}</span>
+                </div>
+              </div>
             </div>
           </button>
           <div v-if="!(store.state.archives?.items?.length)" class="empty">
@@ -100,20 +138,48 @@ const store = useRuntimeStore()
 <style scoped>
 .records-page {
   display: grid;
-  gap: 20px;
+  gap: 18px;
 }
 
 .overview-band {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 18px;
+  padding: 24px 26px;
+  border-radius: 30px;
+  background: rgba(6, 14, 24, 0.74);
+  backdrop-filter: blur(18px);
+}
+
+.overview-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.overview-copy h2 {
+  margin: 0;
+  font-size: 34px;
+  line-height: 0.96;
+  letter-spacing: -0.05em;
+}
+
+.overview-copy p {
+  margin: 0;
+  max-width: 72ch;
+  color: rgba(199, 214, 231, 0.74);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.overview-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
 }
 
 .overview-item,
 .records-list,
 .preview-panel {
-  border-radius: 28px;
-  border: 1px solid rgba(120, 146, 176, 0.14);
+  border-radius: 30px;
   background: rgba(6, 14, 24, 0.74);
   backdrop-filter: blur(18px);
 }
@@ -125,17 +191,17 @@ const store = useRuntimeStore()
 .overview-item small {
   display: block;
   margin-bottom: 10px;
-  color: rgba(199, 214, 231, 0.64);
+  color: rgba(199, 214, 231, 0.58);
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
 }
 
 .overview-item strong {
   display: block;
   margin-bottom: 6px;
-  font-size: 24px;
-  letter-spacing: -0.04em;
+  font-size: 28px;
+  letter-spacing: -0.05em;
 }
 
 .overview-item span {
@@ -143,13 +209,9 @@ const store = useRuntimeStore()
   font-size: 13px;
 }
 
-.overview-item.emphasis {
-  background: linear-gradient(180deg, rgba(67, 215, 255, 0.1), rgba(6, 14, 24, 0.82));
-}
-
 .records-layout {
   display: grid;
-  grid-template-columns: minmax(360px, 0.86fr) minmax(0, 1.14fr);
+  grid-template-columns: minmax(360px, 0.84fr) minmax(0, 1.16fr);
   gap: 18px;
 }
 
@@ -162,23 +224,20 @@ const store = useRuntimeStore()
   display: flex;
   justify-content: space-between;
   gap: 18px;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 18px;
-}
-
-.section-kicker {
-  display: inline-block;
-  margin-bottom: 8px;
-  color: rgba(143, 181, 221, 0.76);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
 }
 
 .records-head h2 {
   margin: 0;
   font-size: 24px;
   letter-spacing: -0.04em;
+}
+
+.records-head p {
+  margin: 8px 0 0;
+  color: rgba(199, 214, 231, 0.68);
+  font-size: 13px;
 }
 
 .filters {
@@ -204,15 +263,15 @@ const store = useRuntimeStore()
 .archive-item {
   position: relative;
   display: grid;
-  gap: 8px;
+  gap: 10px;
   text-align: left;
-  padding: 16px 18px 16px 22px;
+  padding: 18px 18px 18px 22px;
   border-radius: 24px;
-  border: 1px solid rgba(120, 146, 176, 0.14);
-  background: rgba(255, 255, 255, 0.02);
+  border: 0;
+  background: rgba(255, 255, 255, 0.03);
   color: inherit;
   cursor: pointer;
-  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease;
+  transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
 }
 
 .archive-item::before {
@@ -227,12 +286,38 @@ const store = useRuntimeStore()
 .archive-item:hover,
 .archive-item.active {
   transform: translateY(-2px);
-  border-color: rgba(67, 215, 255, 0.22);
   background: rgba(67, 215, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(67, 215, 255, 0.22);
 }
 
 .archive-item.active::before {
   background: #43d7ff;
+}
+
+.archive-row {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+}
+
+.archive-thumb {
+  overflow: hidden;
+  border-radius: 18px;
+  background: #07111d;
+  aspect-ratio: 16 / 10;
+}
+
+.archive-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.archive-body {
+  display: grid;
+  gap: 12px;
 }
 
 .title-row,
@@ -244,56 +329,60 @@ const store = useRuntimeStore()
 }
 
 .title-row strong {
+  display: block;
+  margin-bottom: 6px;
   font-size: 16px;
-  letter-spacing: -0.03em;
+}
+
+.title-row p {
+  margin: 0;
+  color: rgba(199, 214, 231, 0.62);
+  font-size: 12px;
 }
 
 .state-pill {
-  padding: 7px 10px;
+  padding: 9px 12px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(226, 236, 246, 0.86);
+  background: rgba(67, 215, 255, 0.14);
+  color: #d9f7ff;
   font-size: 12px;
   font-weight: 700;
 }
 
 .meta-row span {
-  color: rgba(199, 214, 231, 0.72);
-  font-size: 13px;
-}
-
-.meta-row.muted span {
-  color: rgba(199, 214, 231, 0.62);
+  color: rgba(199, 214, 231, 0.74);
+  font-size: 12px;
 }
 
 .empty {
   display: grid;
   place-items: center;
   min-height: 200px;
-  border-radius: 24px;
-  border: 1px dashed rgba(120, 146, 176, 0.18);
   color: rgba(199, 214, 231, 0.62);
   text-align: center;
 }
 
-@media (max-width: 1280px) {
-  .overview-band {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .records-layout {
+@media (max-width: 1200px) {
+  .records-layout,
+  .overview-stats {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 720px) {
-  .overview-band {
-    grid-template-columns: 1fr;
+  .overview-band,
+  .records-list,
+  .preview-panel {
+    padding: 16px;
+    border-radius: 22px;
   }
 
   .records-head {
     flex-direction: column;
-    align-items: flex-start;
+  }
+
+  .archive-row {
+    grid-template-columns: 1fr;
   }
 }
 </style>

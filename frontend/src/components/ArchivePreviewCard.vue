@@ -2,7 +2,16 @@
 import { computed, ref } from 'vue'
 
 import type { DemoVideoItem, SessionReport } from '../types/runtime'
-import { formatArchiveTime, formatRisk, formatSeconds, formatTimestamp, incidentLabel, stateLabel } from '../utils/presenters'
+import {
+  archiveDisplayName,
+  formatArchiveTime,
+  formatRisk,
+  formatSeconds,
+  formatTimestamp,
+  incidentLabel,
+  stateLabel,
+} from '../utils/presenters'
+import { matchDemoVideo } from '../utils/media'
 
 const props = defineProps<{
   report: Readonly<SessionReport> | null
@@ -11,19 +20,16 @@ const props = defineProps<{
 
 const videoRef = ref<HTMLVideoElement | null>(null)
 
-const matchedVideo = computed(() => {
-  if (!props.report?.source_path) {
-    return null
-  }
-  const normalizedSource = props.report.source_path.replace(/\\/g, '/')
-  const sourceName = normalizedSource.split('/').pop() ?? ''
-  const sourceStem = sourceName.replace(/\.mp4$/i, '')
-  return (
-    props.demoVideos.find((item) => item.filename === sourceName)
-    ?? props.demoVideos.find((item) => item.name === sourceStem)
-    ?? null
-  )
-})
+const matchedVideo = computed(() =>
+  matchDemoVideo(props.demoVideos, [props.report?.source_path, props.report?.session_name, props.report?.session_id]),
+)
+const displayTitle = computed(() =>
+  archiveDisplayName(
+    props.report?.session_name,
+    props.report?.archived_at,
+    matchedVideo.value?.original_name || matchedVideo.value?.name || null,
+  ),
+)
 
 function seekTo(timestamp: number | null | undefined) {
   if (!videoRef.value || !Number.isFinite(timestamp)) {
@@ -39,28 +45,32 @@ function seekTo(timestamp: number | null | undefined) {
     <template v-if="report">
       <header class="preview-head">
         <div>
-          <span class="section-kicker">Replay</span>
-          <h2>{{ report.session_name || '历史回看' }}</h2>
+          <h2>{{ displayTitle }}</h2>
           <p>{{ formatArchiveTime(report.archived_at) }}</p>
         </div>
         <span class="state-pill">{{ stateLabel(report.dominant_state) }}</span>
       </header>
 
+      <div class="lead-copy">
+        <strong>{{ report.incident_total > 0 ? '先看最高风险时刻，再看最近提醒。' : '这段过程没有正式提醒，可作为正常对照样本。' }}</strong>
+        <span>这里展示的是已经归档的一整段过程，不是单帧截图。</span>
+      </div>
+
       <div class="topline">
         <article class="stat emphasis">
-          <small>主导状态</small>
+          <small>这段过程结论</small>
           <strong>{{ stateLabel(report.dominant_state) }}</strong>
         </article>
         <article class="stat">
-          <small>记录时长</small>
+          <small>持续时长</small>
           <strong>{{ formatSeconds(report.duration_seconds) }}</strong>
         </article>
         <article class="stat">
-          <small>累计提醒</small>
+          <small>正式提醒</small>
           <strong>{{ report.incident_total }}</strong>
         </article>
         <article class="stat">
-          <small>峰值风险</small>
+          <small>最高风险</small>
           <strong>{{ formatRisk(report.peak_risk?.risk_score ?? 0) }}</strong>
         </article>
       </div>
@@ -68,18 +78,22 @@ function seekTo(timestamp: number | null | undefined) {
       <div v-if="matchedVideo" class="video-block">
         <div class="video-head">
           <h3>过程回放</h3>
-          <span>{{ matchedVideo.name }}</span>
+          <span>{{ matchedVideo.original_name || matchedVideo.name }}</span>
         </div>
         <div class="video-shell">
           <video
             ref="videoRef"
+            :key="matchedVideo.filename"
             class="video"
             :src="matchedVideo.url"
+            :poster="matchedVideo.poster_url || undefined"
             controls
-            preload="metadata"
+            preload="auto"
             muted
             playsinline
-          />
+          >
+            当前浏览器无法播放这段回看视频。
+          </video>
           <div class="jump-row">
             <button
               v-if="report.peak_risk"
@@ -103,7 +117,7 @@ function seekTo(timestamp: number | null | undefined) {
       </div>
 
       <div class="section">
-        <h3>关键阶段</h3>
+        <h3>这段过程发生了什么</h3>
         <div class="list">
           <article
             v-for="segment in (report.longest_segments ?? []).slice(0, 4)"
@@ -125,7 +139,7 @@ function seekTo(timestamp: number | null | undefined) {
 
       <div class="section two-col">
         <div>
-          <h3>风险高点</h3>
+          <h3>高风险时刻</h3>
           <div class="list compact">
             <article
               v-for="moment in (report.top_risk_moments ?? []).slice(0, 5)"
@@ -145,7 +159,7 @@ function seekTo(timestamp: number | null | undefined) {
         </div>
 
         <div>
-          <h3>最近提醒</h3>
+          <h3>系统提醒</h3>
           <div class="list compact">
             <article
               v-for="incident in (report.recent_incidents ?? []).slice(0, 4)"
@@ -180,13 +194,20 @@ function seekTo(timestamp: number | null | undefined) {
   gap: 22px;
 }
 
-.section-kicker {
-  display: inline-block;
-  margin-bottom: 8px;
-  color: rgba(143, 181, 221, 0.76);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
+.lead-copy {
+  display: grid;
+  gap: 6px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(120, 146, 176, 0.12);
+}
+
+.lead-copy strong {
+  font-size: 15px;
+}
+
+.lead-copy span {
+  color: rgba(199, 214, 231, 0.72);
+  font-size: 13px;
 }
 
 .video-block {
@@ -222,7 +243,6 @@ function seekTo(timestamp: number | null | undefined) {
   width: 100%;
   max-height: 420px;
   border-radius: 22px;
-  border: 1px solid rgba(120, 146, 176, 0.14);
   background: #07111d;
   object-fit: cover;
 }
@@ -288,12 +308,11 @@ function seekTo(timestamp: number | null | undefined) {
 .stat {
   padding: 18px;
   border-radius: 22px;
-  border: 1px solid rgba(120, 146, 176, 0.14);
   background: rgba(255, 255, 255, 0.02);
 }
 
 .stat.emphasis {
-  background: linear-gradient(180deg, rgba(67, 215, 255, 0.1), rgba(255, 255, 255, 0.02));
+  background: rgba(67, 215, 255, 0.08);
 }
 
 .stat small {
@@ -325,15 +344,9 @@ function seekTo(timestamp: number | null | undefined) {
   gap: 12px;
 }
 
-.list.compact .item {
-  padding: 14px 16px;
-}
-
 .item {
-  padding: 16px 18px;
-  border-radius: 20px;
-  border: 1px solid rgba(120, 146, 176, 0.14);
-  background: rgba(255, 255, 255, 0.02);
+  padding: 14px 0;
+  border-top: 1px solid rgba(120, 146, 176, 0.12);
 }
 
 .title-row,
@@ -350,47 +363,26 @@ function seekTo(timestamp: number | null | undefined) {
 
 .title-row strong {
   font-size: 15px;
-  letter-spacing: -0.02em;
 }
 
-.title-row span,
 .meta-row span {
   color: rgba(199, 214, 231, 0.72);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .empty,
 .empty-inline {
   display: grid;
   place-items: center;
-  min-height: 140px;
-  border-radius: 22px;
-  border: 1px dashed rgba(120, 146, 176, 0.18);
+  min-height: 160px;
   color: rgba(199, 214, 231, 0.62);
   text-align: center;
 }
 
-.empty-inline {
-  min-height: 120px;
-}
-
-@media (max-width: 1100px) {
-  .topline,
-  .two-col {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 720px) {
+@media (max-width: 980px) {
   .topline,
   .two-col {
     grid-template-columns: 1fr;
-  }
-
-  .preview-head,
-  .video-head {
-    flex-direction: column;
-    align-items: flex-start;
   }
 }
 </style>

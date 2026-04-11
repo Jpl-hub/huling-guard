@@ -10,6 +10,13 @@ const store = useRuntimeStore()
 const route = useRoute()
 
 const pageTitle = computed(() => String(route.meta.title ?? '实时值守'))
+const pageHint = computed(() =>
+  route.path === '/records'
+    ? '先筛出需要复核的过程，再定位关键时刻。'
+    : route.path === '/system'
+      ? '了解这套系统怎么接入、怎么判断、怎么留档。'
+      : '只看当前状态、最近变化和处理建议。',
+)
 const modeModel = computed({
   get: () => store.state.mode,
   set: (value) => store.setMode(value),
@@ -32,12 +39,13 @@ onBeforeUnmount(() => {
       <header class="context-bar">
         <div class="context-copy">
           <span class="context-label">{{ pageTitle }}</span>
+          <p>{{ pageHint }}</p>
         </div>
 
         <div class="page-actions">
           <ModeSwitch v-model="modeModel" />
           <div class="service-pill" :data-ok="store.state.health?.status === 'ok'">
-            <strong>{{ store.state.health?.status === 'ok' ? '服务在线' : '等待连接' }}</strong>
+            <strong>{{ store.state.health?.status === 'ok' ? '运行正常' : '等待连接' }}</strong>
             <span>{{ store.state.lastUpdatedAt || '尚未同步' }}</span>
           </div>
         </div>
@@ -55,16 +63,13 @@ onBeforeUnmount(() => {
 <style scoped>
 .shell {
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgba(53, 124, 255, 0.18), transparent 22%),
-    radial-gradient(circle at right, rgba(67, 215, 255, 0.08), transparent 26%),
-    #050b13;
+  background: #050b13;
 }
 
 .main {
   width: min(100%, 1600px);
   margin: 0 auto;
-  padding: 22px 28px 40px;
+  padding: 18px 24px 40px;
 }
 
 .context-bar {
@@ -76,11 +81,17 @@ onBeforeUnmount(() => {
 }
 
 .context-label {
-  color: rgba(214, 228, 242, 0.82);
-  font-size: 12px;
+  display: block;
+  color: rgba(241, 247, 252, 0.94);
+  font-size: 24px;
   font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  letter-spacing: -0.04em;
+}
+
+.context-copy p {
+  margin: 6px 0 0;
+  color: rgba(205, 219, 235, 0.66);
+  font-size: 13px;
 }
 
 .page-actions {
@@ -96,7 +107,6 @@ onBeforeUnmount(() => {
   min-width: 152px;
   padding: 10px 14px;
   border-radius: 18px;
-  border: 1px solid rgba(120, 146, 176, 0.18);
   background: rgba(255, 255, 255, 0.03);
 }
 
@@ -110,7 +120,6 @@ onBeforeUnmount(() => {
 }
 
 .service-pill[data-ok='true'] {
-  border-color: rgba(54, 211, 153, 0.24);
   background: rgba(54, 211, 153, 0.08);
 }
 
@@ -132,6 +141,28 @@ onBeforeUnmount(() => {
   .context-bar {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .main {
+    padding: 14px 14px 24px;
+  }
+
+  .context-label {
+    font-size: 20px;
+  }
+
+  .context-copy p {
+    font-size: 12px;
+  }
+
+  .page-actions {
+    width: 100%;
+  }
+
+  .service-pill {
+    width: 100%;
   }
 }
 </style>

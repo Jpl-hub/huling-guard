@@ -28,6 +28,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=2026)
     parser.add_argument("--kinematic-feature-set", default="v2")
     parser.add_argument("--clip-focal-gamma", type=float, default=0.0)
+    parser.add_argument("--quality-loss-weight", type=float, default=0.15)
     parser.add_argument("--runtime-config-template", type=Path, default=Path("configs/runtime_room.yaml"))
     parser.add_argument("--train", action="store_true")
     parser.add_argument("--val-subjects", nargs="+", default=list(DEFAULT_VAL_SUBJECTS))
@@ -84,6 +85,8 @@ def main() -> None:
         args.kinematic_feature_set,
         "--clip-focal-gamma",
         str(args.clip_focal_gamma),
+        "--quality-loss-weight",
+        str(args.quality_loss_weight),
         "--runtime-config-template",
         str(runtime_template),
         "--raw-manifests",

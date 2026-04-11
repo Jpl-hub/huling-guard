@@ -15,6 +15,7 @@ __all__ = [
     "load_omnifall_split",
     "merge_jsonl_manifests",
     "download_ur_fall_rgb_archives",
+    "build_transition_interval_labels",
     "prepare_ur_fall_manifest",
     "split_manifest_by_subject",
     "split_pose_manifest_by_raw_split",
@@ -43,6 +44,10 @@ _EXPORTS = {
     "download_ur_fall_rgb_archives": (
         "huling_guard.data.ur_fall",
         "download_ur_fall_rgb_archives",
+    ),
+    "build_transition_interval_labels": (
+        "huling_guard.data.transition_mining",
+        "build_transition_interval_labels",
     ),
     "prepare_ur_fall_manifest": ("huling_guard.data.ur_fall", "prepare_ur_fall_manifest"),
     "split_manifest_by_subject": ("huling_guard.data.splits", "split_manifest_by_subject"),

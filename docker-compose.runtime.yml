@@ -12,13 +12,16 @@ services:
         TORCH_VERSION: ${HULING_TORCH_VERSION:-2.5.1+cpu}
     container_name: huling-guard-runtime
     ports:
-      - "${HULING_RUNTIME_PORT:-8000}:8000"
+      - "${HULING_RUNTIME_PUBLIC_PORT:-18014}:8000"
     environment:
       HULING_DEVICE: "${HULING_DEVICE:-cpu}"
+      PYTHONPATH: /app/src
     volumes:
       - ${HULING_RELEASE_DIR:-./runtime-release}:/runtime-release
       - ${HULING_RUNTIME_DATA_DIR:-./runtime-data}:/runtime-data
       - ${HULING_DEMO_DIR:-./runtime-demo}:/runtime-demo
+      - ./src:/app/src:ro
+      - ./frontend/dist:/app/frontend-dist:ro
     command:
       [
         "python",

@@ -18,6 +18,7 @@ model:
   kinematic_dim: 12
   kinematic_feature_set: v2
   scene_dim: 8
+  quality_dim: 3
   hidden_dim: 256
   num_heads: 8
   depth: 6
@@ -31,6 +32,7 @@ training:
   weight_decay: 0.0001
   clip_focal_gamma: 1.5
   risk_loss_weight: 0.3
+  quality_loss_weight: 0.15
   class_balance_beta: 0.999
   num_workers: 8
   pin_memory: true
@@ -49,12 +51,14 @@ training:
     assert settings.model is not None
     assert settings.model.kinematic_feature_set == "v2"
     assert settings.model.kinematic_dim == 12
+    assert settings.model.quality_dim == 3
     assert settings.training is not None
     assert settings.training.seed == 3407
     assert settings.training.batch_size == 64
     assert settings.training.min_learning_rate == 0.00003
     assert settings.training.clip_focal_gamma == 1.5
     assert settings.training.num_workers == 8
+    assert settings.training.quality_loss_weight == 0.15
     assert settings.training.pin_memory is True
     assert settings.training.amp is True
     assert settings.training.grad_clip_norm == 1.0
@@ -107,6 +111,7 @@ model:
   kinematic_dim: 12
   kinematic_feature_set: v2
   scene_dim: 8
+  quality_dim: 3
   hidden_dim: 256
   num_heads: 8
   depth: 6
@@ -127,6 +132,7 @@ training:
   weight_decay: 0.0001
   clip_focal_gamma: 0.0
   risk_loss_weight: 0.3
+  quality_loss_weight: 0.15
   class_balance_beta: 0.999
   num_workers: 8
   pin_memory: true

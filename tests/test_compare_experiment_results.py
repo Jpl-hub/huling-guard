@@ -3,7 +3,11 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from compare_experiment_results import build_comparison_payload, build_markdown
+from compare_experiment_results import _load_optional_json, build_comparison_payload, build_markdown
+
+
+def test_load_optional_json_skips_missing_summary(tmp_path: Path) -> None:
+    assert _load_optional_json(tmp_path / "missing.json") is None
 
 
 def test_compare_experiment_results_builds_training_and_event_deltas() -> None:

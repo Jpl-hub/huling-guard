@@ -23,6 +23,7 @@ def test_build_experiment_plan_includes_requested_steps() -> None:
         seed=3407,
         kinematic_feature_set="v2",
         clip_focal_gamma=1.5,
+        quality_loss_weight=0.05,
         batch_manifest=batch_manifest,
         batch_output_dir=batch_output_dir,
         prepare_ur=True,
@@ -84,3 +85,5 @@ def test_build_experiment_plan_includes_requested_steps() -> None:
     assert "v2" in plan[2]["command"]
     assert "--clip-focal-gamma" in plan[2]["command"]
     assert "1.5" in plan[2]["command"]
+    assert "--quality-loss-weight" in plan[2]["command"]
+    assert "0.05" in plan[2]["command"]

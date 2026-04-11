@@ -136,23 +136,23 @@ const markers = computed(() =>
 }
 
 .segment[data-state='normal'] {
-  background: linear-gradient(180deg, #19c37d, #13845d);
+  background: #19c37d;
 }
 
 .segment[data-state='near_fall'] {
-  background: linear-gradient(180deg, #f3b94d, #df8a14);
+  background: #f3b94d;
 }
 
 .segment[data-state='fall'] {
-  background: linear-gradient(180deg, #ff6d77, #ca3849);
+  background: #ff6d77;
 }
 
 .segment[data-state='recovery'] {
-  background: linear-gradient(180deg, #49b6ff, #2f72ff);
+  background: #49b6ff;
 }
 
 .segment[data-state='prolonged_lying'] {
-  background: linear-gradient(180deg, #ff8f66, #de4d14);
+  background: #ff8f66;
 }
 
 .marker {

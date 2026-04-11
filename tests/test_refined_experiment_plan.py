@@ -23,6 +23,7 @@ def test_build_refined_experiment_plan_includes_compare_step() -> None:
         seed=3407,
         kinematic_feature_set="v2",
         clip_focal_gamma=1.5,
+        quality_loss_weight=0.05,
         train_interval_labels=train_intervals,
         eval_interval_labels=None,
         interval_min_overlap=0.5,
@@ -65,6 +66,8 @@ def test_build_refined_experiment_plan_includes_compare_step() -> None:
     assert "v2" in plan[0]["command"]
     assert "--clip-focal-gamma" in plan[0]["command"]
     assert "1.5" in plan[0]["command"]
+    assert "--quality-loss-weight" in plan[0]["command"]
+    assert "0.05" in plan[0]["command"]
     assert "scripts/compare_expected_state_manifests.py" in plan[-5]["command"]
     assert "--baseline-event-summary" in plan[-4]["command"]
     assert "--baseline-sample-summary" in plan[-4]["command"]
