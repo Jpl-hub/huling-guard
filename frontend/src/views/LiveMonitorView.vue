@@ -58,6 +58,13 @@ const evidenceItems = computed(() => {
       label: '最近变化',
       value: `${incidentLabel(latestIncident.kind)} · ${formatTimestamp(latestIncident.timestamp)}`,
     })
+  } else if ((report.value?.total_frames ?? 0) > 0 && !store.displayState.value.ready) {
+    items.push({
+      label: '最近变化',
+      value: report.value?.ready_frames
+        ? `已形成 ${report.value.ready_frames} 帧连续判断，等待正式提醒。`
+        : '系统已进入分析，正在建立时序窗口。',
+    })
   } else {
     items.push({
       label: '最近变化',
@@ -98,6 +105,11 @@ const flowDescription = computed(() =>
   store.state.mode === 'care'
     ? '按时间顺序查看状态变化。'
     : '查看状态分布、骨架质量和运行参数。',
+)
+const actionHint = computed(() =>
+  store.state.meta?.archive_enabled
+    ? '保存到历史回看：把当前这段放进历史回看。开始新一段：清空当前这段，重新累计。'
+    : '当前环境还没有开启历史回看。',
 )
 </script>
 
@@ -210,13 +222,20 @@ const flowDescription = computed(() =>
           </div>
 
           <div class="command-actions">
-            <a-button type="primary" size="large" @click="store.archiveSession">归档当前过程</a-button>
-            <a-button size="large" @click="store.resetRuntime">重新开始判断</a-button>
+            <a-button type="primary" size="large" @click="store.archiveSession">保存到历史回看</a-button>
+            <a-button size="large" @click="store.resetRuntime">开始新一段</a-button>
           </div>
+
+          <p class="action-hint">{{ actionHint }}</p>
         </section>
 
         <section class="side-panel">
-          <EventFeed :incidents="store.displayIncidents.value" :view-mode="store.state.mode" />
+          <EventFeed
+            :incidents="store.displayIncidents.value"
+            :display-state="store.displayState.value"
+            :report="store.displayReport.value"
+            :view-mode="store.state.mode"
+          />
         </section>
 
         <section class="side-panel">
@@ -547,6 +566,13 @@ const flowDescription = computed(() =>
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.action-hint {
+  margin: 10px 0 0;
+  color: rgba(199, 214, 231, 0.68);
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .quality-grid {

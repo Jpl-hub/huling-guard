@@ -4,27 +4,67 @@ import { computed } from 'vue'
 import ArchivePreviewCard from '../components/ArchivePreviewCard.vue'
 import { useRuntimeStore } from '../composables/useRuntimeStore'
 import { matchDemoVideo } from '../utils/media'
-import { archiveDisplayName, formatArchiveTime, formatRisk, formatSeconds, stateLabel } from '../utils/presenters'
+import { archiveDisplayName, formatArchiveTime, formatRisk, formatSeconds, formatTimestamp, stateLabel } from '../utils/presenters'
 
 const store = useRuntimeStore()
 
+const stateFilterOptions = computed(() => {
+  const counts = store.state.archiveSummary?.dominant_state_counts ?? {}
+  const items = [
+    { value: '', label: '全部状态', count: Number(store.state.archiveSummary?.archive_total ?? 0) },
+    { value: 'normal', label: '正常活动', count: Number(counts.normal ?? 0) },
+    { value: 'near_fall', label: '失衡风险', count: Number(counts.near_fall ?? 0) },
+    { value: 'fall', label: '跌倒', count: Number(counts.fall ?? 0) },
+    { value: 'recovery', label: '恢复起身', count: Number(counts.recovery ?? 0) },
+    { value: 'prolonged_lying', label: '长卧风险', count: Number(counts.prolonged_lying ?? 0) },
+  ]
+  return items.map((item) => ({
+    ...item,
+    text: `${item.label}（${item.count}）`,
+  }))
+})
+
 const overviewCards = computed(() => [
   {
-    label: '已归档过程',
+    label: '已留档过程',
     value: String(store.state.archiveSummary?.archive_total ?? 0),
-    detail: '所有已保存的过程都会在这里回看。',
+    detail: '已经保存的过程都会在这里回看。',
   },
   {
-    label: '需要优先复核',
+    label: '建议先复核',
     value: String(store.state.archiveSummary?.sessions_with_incidents ?? 0),
-    detail: '先看出现提醒的过程，再回看正常过程做对照。',
+    detail: '先看有提醒的过程，再回看正常过程做对照。',
   },
   {
-    label: '最近一条结论',
-    value: stateLabel(store.state.archiveSummary?.latest_archive?.dominant_state ?? null),
-    detail: formatArchiveTime(store.state.archiveSummary?.latest_archive?.archived_at ?? null),
+    label: '当前选中',
+    value: stateLabel(store.state.selectedArchiveReport?.dominant_state ?? store.state.archiveSummary?.latest_archive?.dominant_state ?? null),
+    detail: store.state.selectedArchiveReport
+      ? `本段时长 ${formatSeconds(store.state.selectedArchiveReport.duration_seconds)}`
+      : formatArchiveTime(store.state.archiveSummary?.latest_archive?.archived_at ?? null),
   },
 ])
+
+const selectedGuide = computed(() => {
+  const report = store.state.selectedArchiveReport
+  if (!report) {
+    return {
+      title: '选择一段过程',
+      detail: '选中后查看回放与提醒。',
+    }
+  }
+  if (report.incident_total > 0) {
+    return {
+      title: report.peak_risk
+        ? `定位到 ${formatTimestamp(report.peak_risk.timestamp)}`
+        : '查看最近一次提醒',
+      detail: '先确认提醒是否成立。',
+    }
+  }
+  return {
+    title: '这段过程没有提醒',
+    detail: '可作为正常对照。',
+  }
+})
 
 const archiveEntries = computed(() =>
   (store.state.archives?.items ?? []).map((item) => {
@@ -40,6 +80,23 @@ const archiveEntries = computed(() =>
     }
   }),
 )
+
+const emptyStateText = computed(() => {
+  const selected = stateFilterOptions.value.find((item) => item.value === store.state.archiveFilterState)
+  if (!(store.state.archiveSummary?.archive_total ?? 0)) {
+    return '还没有历史记录。先在实时值守里点“保存到历史回看”。'
+  }
+  if (store.state.archiveFilterState) {
+    if ((selected?.count ?? 0) <= 0) {
+      return `当前还没有“${selected?.label || '该状态'}”记录。先在实时值守里保存这类过程。`
+    }
+    return `当前筛选下没有可显示的“${selected?.label || '该状态'}”记录。`
+  }
+  if (store.state.archiveIncidentsOnly) {
+    return '当前没有带提醒的历史记录。先保存一段出现提醒的过程。'
+  }
+  return '当前筛选条件下没有可展示的回看记录。'
+})
 </script>
 
 <template>
@@ -47,7 +104,6 @@ const archiveEntries = computed(() =>
     <section class="overview-band">
       <div class="overview-copy">
         <h2>历史回看</h2>
-        <p>把已经发生过的一整段过程拉出来复查，先看是否真的需要干预，再看系统是不是判断准确。</p>
       </div>
 
       <div class="overview-stats">
@@ -63,8 +119,8 @@ const archiveEntries = computed(() =>
       <section class="records-list">
         <header class="records-head">
           <div>
-            <h2>选择一段过程</h2>
-            <p>点击左侧记录，右侧会展开完整过程、关键时刻和回放入口。</p>
+            <h2>选择记录</h2>
+            <p>只会显示已经保存到历史回看的过程。</p>
           </div>
           <div class="filters">
             <a-select
@@ -73,12 +129,13 @@ const archiveEntries = computed(() =>
               placeholder="全部状态"
               @change="store.setArchiveFilterState(String($event))"
             >
-              <a-option value="">全部状态</a-option>
-              <a-option value="normal">正常活动</a-option>
-              <a-option value="near_fall">失衡风险</a-option>
-              <a-option value="fall">跌倒</a-option>
-              <a-option value="recovery">恢复起身</a-option>
-              <a-option value="prolonged_lying">长卧风险</a-option>
+              <a-option
+                v-for="option in stateFilterOptions"
+                :key="option.value || 'all'"
+                :value="option.value"
+              >
+                {{ option.text }}
+              </a-option>
             </a-select>
             <label class="switch-line">
               <span>只看提醒</span>
@@ -120,12 +177,16 @@ const archiveEntries = computed(() =>
             </div>
           </button>
           <div v-if="!(store.state.archives?.items?.length)" class="empty">
-            当前筛选条件下没有可展示的回看记录。
+            {{ emptyStateText }}
           </div>
         </div>
       </section>
 
       <section class="preview-panel">
+        <div class="preview-guide">
+          <strong>{{ selectedGuide.title }}</strong>
+          <span>{{ selectedGuide.detail }}</span>
+        </div>
         <ArchivePreviewCard
           :report="store.state.selectedArchiveReport"
           :demo-videos="store.state.demoVideos"
@@ -151,8 +212,7 @@ const archiveEntries = computed(() =>
 }
 
 .overview-copy {
-  display: grid;
-  gap: 10px;
+  display: block;
 }
 
 .overview-copy h2 {
@@ -160,14 +220,6 @@ const archiveEntries = computed(() =>
   font-size: 34px;
   line-height: 0.96;
   letter-spacing: -0.05em;
-}
-
-.overview-copy p {
-  margin: 0;
-  max-width: 72ch;
-  color: rgba(199, 214, 231, 0.74);
-  font-size: 14px;
-  line-height: 1.6;
 }
 
 .overview-stats {
@@ -192,9 +244,8 @@ const archiveEntries = computed(() =>
   display: block;
   margin-bottom: 10px;
   color: rgba(199, 214, 231, 0.58);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
+  font-size: 12px;
+  letter-spacing: 0.04em;
 }
 
 .overview-item strong {
@@ -218,6 +269,29 @@ const archiveEntries = computed(() =>
 .records-list,
 .preview-panel {
   padding: 22px;
+}
+
+.preview-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.preview-guide {
+  display: grid;
+  gap: 6px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(120, 146, 176, 0.12);
+}
+
+.preview-guide strong {
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+
+.preview-guide span {
+  color: rgba(199, 214, 231, 0.72);
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .records-head {

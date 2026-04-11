@@ -436,9 +436,9 @@ export function buildQuickAnswers(
 ): QuickAnswer[] {
   if (!display.ready) {
     return [
-      { label: '当前是否安全', value: '正在判断', detail: '还在收第一段连续画面', tone: 'neutral' },
+      { label: '当前是否安全', value: '等待连续结论', detail: '系统正在建立第一段连续判断', tone: 'neutral' },
       { label: '是否需要过去', value: '先持续观察', detail: '暂时不用处理', tone: 'neutral' },
-      { label: '最近发生了什么', value: '暂无关键变化', detail: '等状态稳定后再给正式结论', tone: 'neutral' },
+      { label: '最近发生了什么', value: '分析已经开始', detail: '等时序窗口稳定后给正式结论', tone: 'neutral' },
     ]
   }
 
@@ -495,10 +495,10 @@ export function buildVerdict(display: DisplayState): {
 } {
   if (!display.ready) {
     return {
-      badge: '正在建立判断',
+      badge: '正在建立连续判断',
       title: '先保持画面连续',
       action: '暂不处理',
-      detail: '系统还在形成第一段连续状态。',
+      detail: '系统已进入分析，正在形成第一段连续状态。',
       steps: ['保持画面连续输入', '等结论稳定后再处理'],
     }
   }

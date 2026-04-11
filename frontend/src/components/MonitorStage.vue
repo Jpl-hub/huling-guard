@@ -112,7 +112,14 @@ const sourceStatus = computed(() => {
     return { label: '实时源状态', value: '接入失败', tone: 'alert' as const }
   }
   if (selectedVideo.value?.processing_status === 'processing') {
-    return { label: '分析状态', value: '正在分析', tone: 'watch' as const }
+    const processed = Number(selectedVideo.value.processed_frames ?? 0)
+    const stageValue =
+      processed <= 0
+        ? '正在读取视频'
+        : props.displayState.ready || (props.report?.ready_frames ?? 0) > 0
+          ? '正在形成正式结论'
+          : '正在建立时序窗口'
+    return { label: '分析状态', value: stageValue, tone: 'watch' as const }
   }
   if (selectedVideo.value?.processing_status === 'failed') {
     return { label: '分析状态', value: '分析失败', tone: 'alert' as const }
@@ -160,9 +167,43 @@ const analysisCopy = computed(() => {
     return selectedVideo.value.error_message || '这段上传视频分析失败，请更换视频后重试。'
   }
   if (selectedVideo.value?.processing_status === 'processing') {
-    return '视频已经接入，系统正在逐帧提取骨架并生成这一段的状态时间线。'
+    const processed = Number(selectedVideo.value?.processed_frames ?? 0)
+    if (processed <= 0) {
+      return '视频已经接入，系统正在读取画面并准备启动逐帧推理。'
+    }
+    if (props.displayState.ready || (props.report?.ready_frames ?? 0) > 0) {
+      return '系统已经进入分析阶段，正在继续补全这段视频的状态时间线。'
+    }
+    return '系统已经开始逐帧提取骨架，正在建立第一段连续时序判断。'
   }
   return ''
+})
+
+const focusStateLabel = computed(() => {
+  if (selectedVideo.value?.processing_status === 'processing' && !props.displayState.ready) {
+    return (props.report?.ready_frames ?? 0) > 0 ? '正在形成结论' : '时序预热中'
+  }
+  return stateLabel(props.displayState.predictedState)
+})
+
+const focusStageText = computed(() => {
+  if (hasLiveSource.value) {
+    return '实时画面接入中'
+  }
+  if (hasRunningIngest.value) {
+    return '正在等待实时画面进入'
+  }
+  if (selectedVideo.value?.source_kind === 'upload') {
+    if (selectedVideo.value.processing_status === 'processing') {
+      return Number(selectedVideo.value.processed_frames ?? 0) > 0
+        ? props.displayState.ready || (props.report?.ready_frames ?? 0) > 0
+          ? '已进入分析，正在继续补全时间线'
+          : '已开始分析，正在建立时序窗口'
+        : '视频已接入，正在准备分析'
+    }
+    return '正在播放上传视频回放'
+  }
+  return '正在播放固定机位样例流'
 })
 
 const uploadProgressRatio = computed(() => {
@@ -427,18 +468,8 @@ onBeforeUnmount(() => {
 
       <div class="overlay overlay-bottom">
         <div class="focus-copy">
-          <strong>{{ stateLabel(displayState.predictedState) }}</strong>
-          <span>
-            {{
-              hasLiveSource
-                ? '实时画面接入中'
-                : hasRunningIngest
-                  ? '正在等待实时画面进入'
-                : selectedVideo?.source_kind === 'upload'
-                  ? '正在播放上传视频回放'
-                  : '正在播放固定机位样例流'
-            }}
-          </span>
+          <strong>{{ focusStateLabel }}</strong>
+          <span>{{ focusStageText }}</span>
         </div>
         <div class="hud-metrics">
           <span>本段 {{ formatSeconds(report?.duration_seconds ?? 0) }}</span>

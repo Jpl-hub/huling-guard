@@ -91,6 +91,11 @@ export const runtimeApi = {
   },
   archiveSummary: () => request<ArchiveSummaryResponse>('/archives/summary'),
   archiveById: (sessionId: string) => request<SessionReport>(`/archives/${encodeURIComponent(sessionId)}`),
-  archiveSession: () => request<{ status: string }>('/archive-session', { method: 'POST' }),
+  archiveSession: (payload?: { demoFilename?: string }) =>
+    request<{ status: string }>('/archive-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ demo_filename: payload?.demoFilename ?? null }),
+    }),
   reset: () => request<{ status: string }>('/reset', { method: 'POST' }),
 }

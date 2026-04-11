@@ -11,7 +11,7 @@ import time
 from uuid import uuid4
 
 import numpy as np
-from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, Request, UploadFile
+from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -50,6 +50,10 @@ class LiveIngestStartRequest(BaseModel):
     preview_stride: int = Field(default=4, ge=1, le=24)
     score_threshold: float = Field(default=0.2, ge=0.0, le=1.0)
     loop: bool = Field(default=False, description="视频文件播完后是否循环继续。")
+
+
+class ArchiveSessionRequest(BaseModel):
+    demo_filename: str | None = Field(default=None, description="当前选中的演示或上传视频文件名。")
 
 
 def _empty_snapshot() -> PipelineSnapshot:
@@ -288,6 +292,8 @@ def create_runtime_app(
         else _load_dashboard_html()
     )
     archive_store = RuntimeArchiveStore(archive_root) if archive_root is not None else None
+    active_upload_jobs: set[str] = set()
+    active_upload_jobs_lock = threading.Lock()
     resolved_demo_video_root = Path(demo_video_root).resolve() if demo_video_root is not None else None
     live_preview: dict[str, object] = {
         "bytes": None,
@@ -397,6 +403,7 @@ def create_runtime_app(
     def _build_upload_response(stem: str) -> dict[str, object]:
         if resolved_demo_video_root is None:
             raise HTTPException(status_code=503, detail="demo video root is not enabled")
+        _maybe_resume_upload(stem)
         path = resolved_demo_video_root / f"{stem}.mp4"
         metadata = _load_upload_metadata(resolved_demo_video_root, stem)
         report_path = resolved_demo_video_root.parent / "reports" / "sessions" / f"{stem}.json"
@@ -414,6 +421,61 @@ def create_runtime_app(
             "processed_frames": metadata.get("processed_frames"),
             "total_frames": metadata.get("total_frames"),
         }
+
+    def _run_upload_job(stem: str) -> None:
+        try:
+            _process_uploaded_video(stem)
+        finally:
+            with active_upload_jobs_lock:
+                active_upload_jobs.discard(stem)
+
+    def _start_upload_job(stem: str) -> bool:
+        with active_upload_jobs_lock:
+            if stem in active_upload_jobs:
+                return False
+            active_upload_jobs.add(stem)
+        thread = threading.Thread(target=_run_upload_job, args=(stem,), daemon=True, name=f"upload-job-{stem[:16]}")
+        thread.start()
+        return True
+
+    def _maybe_resume_upload(stem: str) -> None:
+        if resolved_demo_video_root is None:
+            return
+        metadata = _load_upload_metadata(resolved_demo_video_root, stem)
+        if str(metadata.get("source_kind") or "") != "upload":
+            return
+        if str(metadata.get("processing_status") or "") != "processing":
+            return
+
+        report_path = resolved_demo_video_root.parent / "reports" / "sessions" / f"{stem}.json"
+        if report_path.is_file():
+            _write_upload_metadata(
+                resolved_demo_video_root,
+                stem,
+                {
+                    **metadata,
+                    "processing_status": "ready",
+                    "error_message": None,
+                    "finished_at": metadata.get("finished_at") or time.time(),
+                },
+            )
+            return
+
+        input_path = resolved_demo_video_root / f"{stem}.mp4"
+        if not input_path.is_file():
+            _write_upload_metadata(
+                resolved_demo_video_root,
+                stem,
+                {
+                    **metadata,
+                    "processing_status": "failed",
+                    "error_message": "上传文件不存在，无法恢复分析任务。",
+                    "finished_at": time.time(),
+                },
+            )
+            return
+
+        _start_upload_job(stem)
 
     def _process_uploaded_video(stem: str) -> None:
         if resolved_demo_video_root is None:
@@ -590,6 +652,9 @@ def create_runtime_app(
 
     @app.get("/demo-videos")
     def demo_videos() -> dict[str, object]:
+        if resolved_demo_video_root is not None:
+            for path in resolved_demo_video_root.glob("upload_*.mp4"):
+                _maybe_resume_upload(path.stem)
         items = _list_demo_videos(resolved_demo_video_root)
         return {
             "enabled": resolved_demo_video_root is not None,
@@ -599,7 +664,7 @@ def create_runtime_app(
         }
 
     @app.post("/uploaded-videos")
-    async def upload_video(background_tasks: BackgroundTasks, video: UploadFile = File(...)) -> dict[str, object]:
+    async def upload_video(video: UploadFile = File(...)) -> dict[str, object]:
         if resolved_demo_video_root is None:
             raise HTTPException(status_code=503, detail="demo video root is not enabled")
         if upload_pipeline_factory is None:
@@ -628,7 +693,7 @@ def create_runtime_app(
                 "total_frames": None,
             },
         )
-        background_tasks.add_task(_process_uploaded_video, stem)
+        _start_upload_job(stem)
         return {
             "status": "processing",
             "item": _build_upload_response(stem),
@@ -674,6 +739,7 @@ def create_runtime_app(
         if normalized != filename:
             raise HTTPException(status_code=400, detail="invalid demo session filename")
         stem = Path(normalized).stem
+        _maybe_resume_upload(stem)
         try:
             return _load_demo_session_payload(resolved_demo_video_root, stem=stem, limit=limit)
         except FileNotFoundError as error:
@@ -820,14 +886,32 @@ def create_runtime_app(
         return PlainTextResponse(format_session_report_markdown(report))
 
     @app.post("/archive-session")
-    def archive_session(limit: int = Query(default=512, ge=1, le=snapshot_history_size)) -> dict[str, object]:
+    def archive_session(
+        payload: ArchiveSessionRequest | None = None,
+        limit: int = Query(default=512, ge=1, le=snapshot_history_size),
+    ) -> dict[str, object]:
         if archive_store is None:
             raise HTTPException(status_code=503, detail="archive is not enabled")
-        report = _build_runtime_session_report(
-            snapshot_history=snapshot_history,
-            incident_history=incident_history,
-            limit=limit,
-        )
+        demo_filename = payload.demo_filename if payload is not None else None
+        if demo_filename:
+            if resolved_demo_video_root is None:
+                raise HTTPException(status_code=503, detail="demo video root is not enabled")
+            normalized = Path(demo_filename).name
+            if normalized != demo_filename:
+                raise HTTPException(status_code=400, detail="invalid demo session filename")
+            stem = Path(normalized).stem
+            _maybe_resume_upload(stem)
+            metadata = _load_upload_metadata(resolved_demo_video_root, stem)
+            if str(metadata.get("source_kind") or "") == "upload" and str(metadata.get("processing_status") or "") == "processing":
+                raise HTTPException(status_code=409, detail="当前视频还在分析，完成后再保存到历史回看")
+            session_payload = _load_demo_session_payload(resolved_demo_video_root, stem=stem, limit=0)
+            report = dict(session_payload["session_report"])
+        else:
+            report = _build_runtime_session_report(
+                snapshot_history=snapshot_history,
+                incident_history=incident_history,
+                limit=limit,
+            )
         record = archive_store.archive_report(report)
         return {"status": "archived", "record": record}
 

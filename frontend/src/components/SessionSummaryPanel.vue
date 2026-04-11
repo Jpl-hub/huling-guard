@@ -1,13 +1,55 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+
 import type { DisplayState, SessionReport, ViewMode } from '../types/runtime'
 import { formatSeconds, formatTimestamp, stateLabel } from '../utils/presenters'
 
-defineProps<{
+const props = defineProps<{
   report: Readonly<SessionReport> | null
   displayState: Readonly<DisplayState>
   runtimeChips: ReadonlyArray<string>
   viewMode: ViewMode
 }>()
+
+const dominantStateText = computed(() =>
+  props.displayState.ready
+    ? stateLabel(props.report?.dominant_state ?? props.displayState.predictedState)
+    : props.report?.ready_frames
+      ? '正在形成结论'
+      : '时序预热中',
+)
+
+const peakMomentText = computed(() => {
+  if (props.report?.peak_risk?.timestamp != null) {
+    return formatTimestamp(props.report.peak_risk.timestamp)
+  }
+  return props.displayState.ready ? '-' : '尚未形成'
+})
+
+const durationText = computed(() => {
+  if (props.displayState.ready || (props.report?.duration_seconds ?? 0) > 0) {
+    return formatSeconds(props.report?.duration_seconds ?? 0)
+  }
+  if ((props.report?.total_frames ?? 0) > 0) {
+    return `已分析 ${props.report?.total_frames ?? 0} 帧`
+  }
+  return '-'
+})
+
+const emptyText = computed(() => {
+  if (!props.report) {
+    return '当前还没有可展示的过程片段。'
+  }
+  if (!props.displayState.ready) {
+    if (props.report.ready_frames > 0) {
+      return `已形成 ${props.report.ready_frames} 帧连续判断，正在等待更稳定的过程片段。`
+    }
+    if (props.report.total_frames > 0) {
+      return `已读取 ${props.report.total_frames} 帧，正在建立连续时序窗口。`
+    }
+  }
+  return '还没有形成稳定过程片段。'
+})
 </script>
 
 <template>
@@ -22,15 +64,15 @@ defineProps<{
     <dl class="summary-strip">
       <div>
         <dt>主导状态</dt>
-        <dd>{{ stateLabel(report?.dominant_state ?? displayState.predictedState) }}</dd>
+        <dd>{{ dominantStateText }}</dd>
       </div>
       <div>
         <dt>最高风险时刻</dt>
-        <dd>{{ formatTimestamp(report?.peak_risk?.timestamp ?? null) }}</dd>
+        <dd>{{ peakMomentText }}</dd>
       </div>
       <div>
         <dt>本段时长</dt>
-        <dd>{{ formatSeconds(report?.duration_seconds ?? 0) }}</dd>
+        <dd>{{ durationText }}</dd>
       </div>
     </dl>
 
@@ -50,7 +92,7 @@ defineProps<{
         </div>
       </article>
       <div v-if="!(report?.longest_segments?.length)" class="empty">
-        还没有形成稳定过程片段。
+        {{ emptyText }}
       </div>
     </div>
 
