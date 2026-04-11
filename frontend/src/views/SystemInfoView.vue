@@ -33,19 +33,19 @@ const topFacts = computed(() => {
   const profile = store.state.systemProfile?.runtime_profile
   return [
     {
-      label: '怎么接入',
+      label: '接入方式',
       value: '实时接入 / 模拟监看 / 上传复核',
-      detail: '三种入口都已经接上真实运行链路。',
+      detail: '三种入口都可直接使用。',
     },
     {
-      label: '怎么判断',
+      label: '判断方式',
       value: `${meta?.window_size ?? profile?.window_size ?? '-'} 帧连续判断`,
-      detail: '不是只看一帧，而是看一整段动作过程。',
+      detail: '按连续过程输出结论。',
     },
     {
-      label: '怎么留档',
+      label: '留档方式',
       value: meta?.archive_enabled || profile?.archive_enabled ? '已开启' : '未开启',
-      detail: '已经保存的过程可回看、复核和继续训练。',
+      detail: '已保存过程可直接回看。',
     },
   ]
 })
@@ -90,7 +90,7 @@ const inputModes = computed(() => [
     <section class="hero panel">
       <div class="hero-copy">
         <small>{{ store.state.systemProfile?.product_name || '护龄智守' }}</small>
-        <h2>怎么看、什么时候信、出了事怎么回看</h2>
+        <h2>接入、判断、留档</h2>
         <p>{{ store.state.systemProfile?.product_tagline || '单房间固定机位安全值守系统' }}</p>
       </div>
       <dl class="hero-facts">
@@ -106,7 +106,7 @@ const inputModes = computed(() => [
       <article class="panel section">
         <header>
           <h3>适合谁来用</h3>
-          <p>这页只保留用户真正关心的系统能力，不堆开发字段。</p>
+          <p>面向日常值守与照护使用。</p>
         </header>
         <ul class="goal-list">
           <li v-for="goal in targetUsers" :key="goal">{{ goal }}</li>
@@ -115,8 +115,8 @@ const inputModes = computed(() => [
 
       <article class="panel section">
         <header>
-          <h3>打开系统后怎么用</h3>
-          <p>先接画面，再看结论，最后回看留档。</p>
+          <h3>使用顺序</h3>
+          <p>接入画面后即可开始值守。</p>
         </header>
         <div class="pipeline">
           <div
@@ -133,7 +133,7 @@ const inputModes = computed(() => [
       <article class="panel section">
         <header>
           <h3>当前已经支持的入口</h3>
-          <p>这三种输入都是真实功能，不是示意页或假按钮。</p>
+          <p>三种入口都已接到真实运行链路。</p>
         </header>
         <div class="input-grid">
           <div v-for="item in inputModes" :key="item.title" class="state-card">
@@ -163,7 +163,7 @@ const inputModes = computed(() => [
       <article class="panel section">
         <header>
           <h3>什么时候可以信它</h3>
-          <p>系统不靠一句“模型很强”，而是靠这些约束控制误报。</p>
+          <p>这些约束用于控制误报和误触发。</p>
         </header>
         <ul class="goal-list">
           <li v-for="item in trustPoints" :key="item">{{ item }}</li>
@@ -172,8 +172,8 @@ const inputModes = computed(() => [
 
       <article class="panel section full-span">
         <header>
-          <h3>当前主链怎么组成</h3>
-          <p>保留会影响 1.0 结果的关键参数和主链模块，不在这里堆全量技术细节。</p>
+          <h3>当前主链</h3>
+          <p>这里只保留会影响运行结果的关键模块和参数。</p>
         </header>
         <div class="pipeline compact-pipeline">
           <div

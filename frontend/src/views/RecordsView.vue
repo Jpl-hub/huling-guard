@@ -32,21 +32,21 @@ const selectedGuide = computed(() => {
   const report = store.state.selectedArchiveReport
   if (!report) {
     return {
-      title: '先选一段过程',
-      detail: '左侧选中一条记录后，右侧会展开回放、关键时刻和系统提醒。',
+      title: '选择一段过程',
+      detail: '选中后查看回放与提醒。',
     }
   }
   if (report.incident_total > 0) {
     return {
       title: report.peak_risk
-        ? `先看 ${formatTimestamp(report.peak_risk.timestamp)} 的最高风险时刻`
-        : '先看最近一次正式提醒',
-      detail: '确认这次提醒是不是真的需要干预，再决定是否把它回灌为复查样本。',
+        ? `定位到 ${formatTimestamp(report.peak_risk.timestamp)}`
+        : '查看最近一次提醒',
+      detail: '先确认提醒是否成立。',
     }
   }
   return {
-    title: '这段过程没有正式提醒',
-    detail: '可作为正常对照片段，用来确认系统没有把日常动作误报成异常。',
+    title: '这段过程没有提醒',
+    detail: '可作为正常对照。',
   }
 })
 
@@ -71,7 +71,6 @@ const archiveEntries = computed(() =>
     <section class="overview-band">
       <div class="overview-copy">
         <h2>历史回看</h2>
-        <p>先选一段过程，再看它是不是需要干预。这里保留的是完整过程，不是零散截图。</p>
       </div>
 
       <div class="overview-stats">
@@ -87,8 +86,8 @@ const archiveEntries = computed(() =>
       <section class="records-list">
         <header class="records-head">
           <div>
-            <h2>先筛，再看</h2>
-            <p>左侧选记录，右侧直接看回放、最高风险时刻和系统提醒。</p>
+            <h2>选择记录</h2>
+            <p>右侧查看回放、提醒和关键时刻。</p>
           </div>
           <div class="filters">
             <a-select
@@ -179,8 +178,7 @@ const archiveEntries = computed(() =>
 }
 
 .overview-copy {
-  display: grid;
-  gap: 10px;
+  display: block;
 }
 
 .overview-copy h2 {
@@ -188,14 +186,6 @@ const archiveEntries = computed(() =>
   font-size: 34px;
   line-height: 0.96;
   letter-spacing: -0.05em;
-}
-
-.overview-copy p {
-  margin: 0;
-  max-width: 72ch;
-  color: rgba(199, 214, 231, 0.74);
-  font-size: 14px;
-  line-height: 1.6;
 }
 
 .overview-stats {

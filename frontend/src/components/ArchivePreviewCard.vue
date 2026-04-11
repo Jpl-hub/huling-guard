@@ -52,8 +52,7 @@ function seekTo(timestamp: number | null | undefined) {
       </header>
 
       <div class="lead-copy">
-        <strong>{{ report.incident_total > 0 ? '先看最高风险时刻，再看最近提醒。' : '这段过程没有正式提醒，可作为正常对照样本。' }}</strong>
-        <span>这里展示的是已经归档的一整段过程，不是单帧截图。</span>
+        <strong>{{ report.incident_total > 0 ? '优先查看最高风险时刻。' : '这段过程没有正式提醒。' }}</strong>
       </div>
 
       <div class="topline">

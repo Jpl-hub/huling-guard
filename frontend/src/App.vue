@@ -12,10 +12,10 @@ const route = useRoute()
 const pageTitle = computed(() => String(route.meta.title ?? '实时值守'))
 const pageHint = computed(() =>
   route.path === '/records'
-    ? '先筛出需要复核的过程，再定位关键时刻。'
+    ? '查看留档过程与关键时刻。'
     : route.path === '/system'
-      ? '了解这套系统怎么接入、怎么判断、怎么留档。'
-      : '只看当前状态、最近变化和处理建议。',
+      ? '查看接入方式、判断主链和运行口径。'
+      : '查看当前状态、最近变化和处理建议。',
 )
 const modeModel = computed({
   get: () => store.state.mode,
