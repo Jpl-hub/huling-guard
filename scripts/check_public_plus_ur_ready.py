@@ -56,6 +56,7 @@ def check_public_plus_ur_ready(
     kinematic_feature_set: str = "v2",
     clip_focal_gamma: float = 0.0,
     quality_loss_weight: float = 0.15,
+    sample_loss_weight: float = 0.0,
     baseline_run_name: str | None = None,
     baseline_batch_output_dir: Path | None = None,
 ) -> dict[str, Any]:
@@ -123,6 +124,8 @@ def check_public_plus_ur_ready(
         str(clip_focal_gamma),
         "--quality-loss-weight",
         str(quality_loss_weight),
+        "--sample-loss-weight",
+        str(sample_loss_weight),
         "--train",
         "--package-release",
         "--resume",
@@ -208,6 +211,7 @@ def main() -> None:
     parser.add_argument("--kinematic-feature-set", default="v2")
     parser.add_argument("--clip-focal-gamma", type=float, default=0.0)
     parser.add_argument("--quality-loss-weight", type=float, default=0.15)
+    parser.add_argument("--sample-loss-weight", type=float, default=0.0)
     parser.add_argument("--baseline-run-name")
     parser.add_argument("--baseline-batch-output-dir", type=Path)
     parser.add_argument("--output-json", type=Path)
@@ -235,6 +239,7 @@ def main() -> None:
         kinematic_feature_set=args.kinematic_feature_set,
         clip_focal_gamma=args.clip_focal_gamma,
         quality_loss_weight=args.quality_loss_weight,
+        sample_loss_weight=args.sample_loss_weight,
         baseline_run_name=args.baseline_run_name,
         baseline_batch_output_dir=baseline_batch_output_dir,
     )

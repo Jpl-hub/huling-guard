@@ -65,6 +65,7 @@ def build_config(
     kinematic_feature_set: str,
     clip_focal_gamma: float,
     quality_loss_weight: float,
+    sample_loss_weight: float,
 ) -> dict[str, object]:
     kinematic_dim = get_kinematic_feature_dim(kinematic_feature_set)
     return {
@@ -104,6 +105,7 @@ def build_config(
             "clip_focal_gamma": clip_focal_gamma,
             "risk_loss_weight": 0.3,
             "quality_loss_weight": quality_loss_weight,
+            "sample_loss_weight": sample_loss_weight,
             "class_balance_beta": 0.999,
             "num_workers": 8,
             "pin_memory": True,
@@ -130,6 +132,7 @@ def main() -> None:
     parser.add_argument("--kinematic-feature-set", default="v2")
     parser.add_argument("--clip-focal-gamma", type=float, default=0.0)
     parser.add_argument("--quality-loss-weight", type=float, default=0.15)
+    parser.add_argument("--sample-loss-weight", type=float, default=0.0)
     parser.add_argument("--train", action="store_true")
     parser.add_argument("--run-name", default="public_merged")
     parser.add_argument("--runtime-config-template", type=Path)
@@ -368,6 +371,7 @@ def main() -> None:
         kinematic_feature_set=args.kinematic_feature_set,
         clip_focal_gamma=args.clip_focal_gamma,
         quality_loss_weight=args.quality_loss_weight,
+        sample_loss_weight=args.sample_loss_weight,
     )
     config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
     print(f"[write] {config_path}", flush=True)

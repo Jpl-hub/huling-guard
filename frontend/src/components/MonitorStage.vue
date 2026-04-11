@@ -462,7 +462,7 @@ onBeforeUnmount(() => {
         <span class="overlay-chip record-chip">REC</span>
         <span class="overlay-chip">{{ cameraCode }}</span>
         <span class="overlay-chip">{{ sourceModeLabel }}</span>
-        <span v-if="hasAnnotatedPlayback" class="overlay-chip">骨架叠加回放</span>
+        <span v-if="hasAnnotatedPlayback" class="overlay-chip">骨架/框叠加回放</span>
         <span class="overlay-chip">{{ clock }}</span>
       </div>
 
