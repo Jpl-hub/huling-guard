@@ -51,6 +51,16 @@ def _pad_to_length(array: np.ndarray, length: int) -> tuple[np.ndarray, np.ndarr
     return padded, mask
 
 
+def _build_frame_quality_target(poses: np.ndarray, padding_mask: np.ndarray) -> np.ndarray:
+    confidences = poses[..., 2].astype(np.float32)
+    mean_confidence = confidences.mean(axis=-1)
+    visible_joint_ratio = (confidences >= 0.35).astype(np.float32).mean(axis=-1)
+    target = np.clip((0.60 * mean_confidence) + (0.40 * visible_joint_ratio), 0.05, 1.0)
+    target = target.astype(np.float32)
+    target[padding_mask] = 0.0
+    return target
+
+
 @dataclass(slots=True)
 class WindowEntry:
     sample_id: str
@@ -62,6 +72,7 @@ class WindowEntry:
     internal_label: str
     start: int
     end: int
+    sample_weight: float = 1.0
 
 
 class PoseWindowDataset(Dataset):
@@ -101,6 +112,7 @@ class PoseWindowDataset(Dataset):
                         internal_label=payload["internal_label"],
                         start=int(payload["start"]),
                         end=int(payload["end"]),
+                        sample_weight=max(1.0, float(payload.get("sample_weight") or 1.0)),
                     )
                 )
 
@@ -117,7 +129,7 @@ class PoseWindowDataset(Dataset):
         class_counts = self.class_counts().clamp_min(1).to(dtype=torch.float32)
         weights = torch.zeros(len(self.entries), dtype=torch.float32)
         for index, entry in enumerate(self.entries):
-            weights[index] = 1.0 / class_counts[STATE_TO_INDEX[entry.internal_label]]
+            weights[index] = entry.sample_weight / class_counts[STATE_TO_INDEX[entry.internal_label]]
         return weights
 
     def __getitem__(self, index: int) -> dict[str, torch.Tensor]:
@@ -189,6 +201,7 @@ class PoseWindowDataset(Dataset):
         padded_kinematics, _ = _pad_to_length(kinematics, self.window_size)
         padded_scene, _ = _pad_to_length(scene_features, self.window_size)
 
+        frame_quality_target = _build_frame_quality_target(padded_pose, padding_mask)
         state = entry.internal_label
         return {
             "poses": torch.from_numpy(padded_pose),
@@ -197,6 +210,8 @@ class PoseWindowDataset(Dataset):
             "padding_mask": torch.from_numpy(padding_mask),
             "label_id": torch.tensor(STATE_TO_INDEX[state], dtype=torch.long),
             "risk_target": torch.tensor(risk_target_for_state(state), dtype=torch.float32),
+            "frame_quality_target": torch.from_numpy(frame_quality_target),
+            "sample_weight": torch.tensor(entry.sample_weight, dtype=torch.float32),
         }
 
 
@@ -270,6 +285,7 @@ def _run_epoch(
     class_weights: torch.Tensor | None,
     clip_focal_gamma: float,
     risk_loss_weight: float,
+    quality_loss_weight: float,
     amp_enabled: bool,
     grad_clip_norm: float,
     scaler: torch.amp.GradScaler | None,
@@ -279,6 +295,8 @@ def _run_epoch(
     total_loss = 0.0
     total_samples = 0
     total_risk_correct = 0
+    total_quality_abs_error = 0.0
+    total_quality_frames = 0
     all_predictions: list[int] = []
     all_labels: list[int] = []
 
@@ -295,9 +313,12 @@ def _run_epoch(
                 outputs=outputs,
                 label_ids=batch["label_id"],
                 risk_targets=batch["risk_target"],
+                frame_quality_targets=batch["frame_quality_target"],
+                padding_mask=batch["padding_mask"],
                 class_weights=class_weights,
                 clip_focal_gamma=clip_focal_gamma,
                 risk_loss_weight=risk_loss_weight,
+                quality_loss_weight=quality_loss_weight,
             )
         if training:
             optimizer.zero_grad(set_to_none=True)
@@ -318,6 +339,9 @@ def _run_epoch(
         predictions = outputs["clip_logits"].argmax(dim=-1)
         risk_predictions = (torch.sigmoid(outputs["risk_logits"]) >= 0.5).float()
         total_risk_correct += int((risk_predictions == batch["risk_target"]).sum().item())
+        valid_quality_mask = (~batch["padding_mask"]).to(dtype=outputs["frame_quality"].dtype)
+        total_quality_abs_error += float((torch.abs(outputs["frame_quality"] - batch["frame_quality_target"]) * valid_quality_mask).sum().item())
+        total_quality_frames += int(valid_quality_mask.sum().item())
         all_predictions.extend(int(value) for value in predictions.detach().cpu().tolist())
         all_labels.extend(int(value) for value in batch["label_id"].detach().cpu().tolist())
         total_samples += int(batch["label_id"].size(0))
@@ -333,6 +357,7 @@ def _run_epoch(
         "macro_f1": summary["macro_f1"],
         "weighted_f1": summary["weighted_f1"],
         "risk_accuracy": total_risk_correct / max(total_samples, 1),
+        "quality_mae": total_quality_abs_error / max(total_quality_frames, 1),
         "support": summary["support"],
         "label_names": summary["label_names"],
         "confusion_matrix": summary["confusion_matrix"],
@@ -410,6 +435,7 @@ def run_training(config_path: str | Path) -> Path:
             generator=loader_generator,
         )
     train_class_counts = train_dataset.class_counts()
+    hard_weighted_windows = sum(1 for entry in train_dataset.entries if entry.sample_weight > 1.0)
     class_weights = build_class_balance_weights(
         class_counts=train_class_counts,
         beta=settings.training.class_balance_beta,
@@ -420,6 +446,7 @@ def run_training(config_path: str | Path) -> Path:
         pose_dim=settings.model.pose_dim,
         kinematic_dim=settings.model.kinematic_dim,
         scene_dim=settings.model.scene_dim,
+        quality_dim=settings.model.quality_dim,
         hidden_dim=settings.model.hidden_dim,
         num_heads=settings.model.num_heads,
         depth=settings.model.depth,
@@ -463,6 +490,7 @@ def run_training(config_path: str | Path) -> Path:
             class_weights=class_weights,
             clip_focal_gamma=settings.training.clip_focal_gamma,
             risk_loss_weight=settings.training.risk_loss_weight,
+            quality_loss_weight=settings.training.quality_loss_weight,
             amp_enabled=amp_enabled,
             grad_clip_norm=settings.training.grad_clip_norm,
             scaler=scaler,
@@ -484,6 +512,7 @@ def run_training(config_path: str | Path) -> Path:
                     class_weights=class_weights,
                     clip_focal_gamma=settings.training.clip_focal_gamma,
                     risk_loss_weight=settings.training.risk_loss_weight,
+                    quality_loss_weight=settings.training.quality_loss_weight,
                     amp_enabled=amp_enabled,
                     grad_clip_norm=settings.training.grad_clip_norm,
                     scaler=None,
@@ -570,6 +599,7 @@ def run_training(config_path: str | Path) -> Path:
             "train_class_counts": {
                 state: int(train_class_counts[idx].item()) for idx, state in enumerate(INTERNAL_STATES)
             },
+            "hard_weighted_windows": int(hard_weighted_windows),
             "class_weights": {
                 state: float(class_weights[idx].detach().cpu().item())
                 for idx, state in enumerate(INTERNAL_STATES)

@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 from collections import Counter, deque
+from collections.abc import Callable
 import json
 from pathlib import Path
+import re
+import shutil
+import threading
+import time
+from uuid import uuid4
 
 import numpy as np
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -13,6 +19,7 @@ from pydantic import BaseModel, Field
 from huling_guard.data.pose_io import normalize_pose_coords
 from huling_guard.runtime.archive_store import RuntimeArchiveStore
 from huling_guard.runtime.pipeline import PipelineSnapshot, RealtimePipeline
+from huling_guard.runtime.rtmo import RTMOPoseEstimator
 from huling_guard.runtime.session_report import (
     build_session_report,
     format_session_report_markdown,
@@ -33,6 +40,16 @@ class PoseFrameRequest(BaseModel):
         default=None,
         description="Optional source frame height used to normalize pixel coordinates.",
     )
+
+
+class LiveIngestStartRequest(BaseModel):
+    source: str = Field(..., description="RTSP 地址、设备编号或本地视频路径。")
+    source_label: str | None = Field(default=None, description="前端显示名称。")
+    rtmo_device: str | None = Field(default=None, description="RTMO 推理设备，默认沿用运行时设备。")
+    frame_stride: int = Field(default=1, ge=1, le=8)
+    preview_stride: int = Field(default=4, ge=1, le=24)
+    score_threshold: float = Field(default=0.2, ge=0.0, le=1.0)
+    loop: bool = Field(default=False, description="视频文件播完后是否循环继续。")
 
 
 def _empty_snapshot() -> PipelineSnapshot:
@@ -147,18 +164,61 @@ def _list_demo_videos(root: Path | None) -> list[dict[str, object]]:
     if root is None or not root.is_dir():
         return []
     items: list[dict[str, object]] = []
+    poster_root = root.parent / "posters"
     for path in sorted(root.glob("*.mp4")):
         report_path = root.parent / "reports" / "sessions" / f"{path.stem}.json"
+        metadata = _load_upload_metadata(root, path.stem)
+        poster_path = None
+        for suffix in (".jpg", ".jpeg", ".png", ".webp"):
+            candidate = poster_root / f"{path.stem}{suffix}"
+            if candidate.is_file():
+                poster_path = candidate
+                break
         items.append(
             {
                 "name": path.stem,
                 "filename": path.name,
                 "size_bytes": path.stat().st_size,
                 "url": f"/demo-videos/{path.name}",
+                "poster_url": f"/demo-posters/{poster_path.name}" if poster_path is not None else None,
                 "has_session_report": report_path.is_file(),
+                "source_kind": str(metadata.get("source_kind") or "demo"),
+                "processing_status": str(metadata.get("processing_status") or "ready"),
+                "original_name": metadata.get("original_name"),
+                "error_message": metadata.get("error_message"),
+                "processed_frames": metadata.get("processed_frames"),
+                "total_frames": metadata.get("total_frames"),
             }
         )
     return items
+
+
+def _upload_jobs_root(demo_root: Path) -> Path:
+    return demo_root.parent / "uploads" / "jobs"
+
+
+def _upload_metadata_path(demo_root: Path, stem: str) -> Path:
+    return _upload_jobs_root(demo_root) / f"{stem}.json"
+
+
+def _load_upload_metadata(demo_root: Path, stem: str) -> dict[str, object]:
+    path = _upload_metadata_path(demo_root, stem)
+    if not path.is_file():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _write_upload_metadata(demo_root: Path, stem: str, payload: dict[str, object]) -> dict[str, object]:
+    path = _upload_metadata_path(demo_root, stem)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return payload
+
+
+def _sanitize_upload_name(filename: str) -> str:
+    stem = Path(filename).stem.strip().lower()
+    stem = re.sub(r"[^a-z0-9]+", "_", stem).strip("_")
+    return stem or "video"
 
 
 def _load_demo_session_payload(root: Path | None, stem: str, limit: int = 180) -> dict[str, object]:
@@ -166,25 +226,35 @@ def _load_demo_session_payload(root: Path | None, stem: str, limit: int = 180) -
         raise FileNotFoundError("demo video root is not enabled")
     report_path = root.parent / "reports" / "sessions" / f"{stem}.json"
     prediction_path = root.parent / "predictions" / f"{stem}.jsonl"
-    if not report_path.is_file():
+    if not report_path.is_file() and not prediction_path.is_file():
         raise FileNotFoundError(f"demo session report not found: {stem}")
 
-    report = json.loads(report_path.read_text(encoding="utf-8"))
-    timeline_items: list[dict[str, object]] = []
+    report = json.loads(report_path.read_text(encoding="utf-8")) if report_path.is_file() else None
+    full_timeline_items: list[dict[str, object]] = []
     if prediction_path.is_file():
         for line in prediction_path.read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if not line:
                 continue
             payload = json.loads(line)
-            timeline_items.append(
+            full_timeline_items.append(
                 {
                     "timestamp": payload.get("timestamp", 0.0),
+                    "ready": payload.get("ready", False),
                     "predicted_state": payload.get("predicted_state"),
+                    "state_probs": payload.get("state_probs") or {},
                     "risk_score": payload.get("risk_score", 0.0),
                     "confidence": payload.get("confidence", 0.0),
+                    "incidents": payload.get("incidents") or [],
                 }
             )
+    if report is None:
+        report = build_session_report(
+            snapshots=full_timeline_items,
+            session_name=stem,
+            source_path=str((root / f"{stem}.mp4").resolve()),
+        )
+    timeline_items = full_timeline_items
     if limit > 0:
         timeline_items = timeline_items[-limit:]
     return {
@@ -202,6 +272,9 @@ def create_runtime_app(
     demo_video_root: str | Path | None = None,
     frontend_dist_root: str | Path | None = None,
     system_profile: dict[str, object] | None = None,
+    upload_pipeline_factory: Callable[[], RealtimePipeline] | None = None,
+    upload_rtmo_device: str = "cpu",
+    ingest_runtime_url: str | None = None,
 ) -> FastAPI:
     app = FastAPI(title="HuLing Guard Runtime API", version="0.1.0")
     incident_history: deque[dict[str, object]] = deque(maxlen=incident_history_size)
@@ -227,10 +300,230 @@ def create_runtime_app(
         "annotated": False,
         "updated_at": None,
     }
+    live_ingest_lock = threading.Lock()
+    live_ingest_stop = threading.Event()
+    live_ingest_worker: dict[str, threading.Thread | None] = {"thread": None}
+    live_ingest_status: dict[str, object] = {
+        "status": "idle",
+        "active": False,
+        "source": None,
+        "source_label": None,
+        "rtmo_device": None,
+        "frame_stride": None,
+        "preview_stride": None,
+        "loop": False,
+        "processed_frames": 0,
+        "started_at": None,
+        "finished_at": None,
+        "error_message": None,
+    }
     profile_payload = system_profile or _default_system_profile(
         pipeline=pipeline,
         archive_enabled=archive_store is not None,
     )
+
+    def _reset_live_preview() -> None:
+        live_preview.update(
+            {
+                "bytes": None,
+                "content_type": "image/jpeg",
+                "source": None,
+                "source_label": None,
+                "timestamp": None,
+                "frame_width": None,
+                "frame_height": None,
+                "annotated": False,
+                "updated_at": None,
+            }
+        )
+
+    def _current_live_ingest_status() -> dict[str, object]:
+        with live_ingest_lock:
+            payload = dict(live_ingest_status)
+        thread = live_ingest_worker.get("thread")
+        payload["active"] = bool(thread is not None and thread.is_alive())
+        return payload
+
+    def _run_live_ingest_job(job: LiveIngestStartRequest) -> None:
+        processed_frames = 0
+        final_status = "completed"
+        error_message: str | None = None
+        try:
+            from huling_guard.runtime.live_ingest import LiveIngestConfig, run_live_ingest
+
+            with live_ingest_lock:
+                live_ingest_status.update(
+                    {
+                        "status": "running",
+                        "active": True,
+                        "error_message": None,
+                        "finished_at": None,
+                    }
+                )
+
+            processed_frames = run_live_ingest(
+                LiveIngestConfig(
+                    runtime_url=str(ingest_runtime_url),
+                    source=job.source,
+                    source_label=job.source_label,
+                    rtmo_device=job.rtmo_device or upload_rtmo_device,
+                    frame_stride=job.frame_stride,
+                    preview_stride=job.preview_stride,
+                    score_threshold=job.score_threshold,
+                    loop=job.loop,
+                    stop_requested=live_ingest_stop.is_set,
+                )
+            )
+            final_status = "stopped" if live_ingest_stop.is_set() else "completed"
+        except Exception as exc:  # pragma: no cover - runtime background path
+            final_status = "failed"
+            error_message = str(exc)
+        finally:
+            _reset_live_preview()
+            finished_at = time.time()
+            with live_ingest_lock:
+                live_ingest_status.update(
+                    {
+                        "status": final_status,
+                        "active": False,
+                        "processed_frames": processed_frames,
+                        "finished_at": finished_at,
+                        "error_message": error_message,
+                    }
+                )
+            live_ingest_worker["thread"] = None
+            live_ingest_stop.clear()
+
+    def _build_upload_response(stem: str) -> dict[str, object]:
+        if resolved_demo_video_root is None:
+            raise HTTPException(status_code=503, detail="demo video root is not enabled")
+        path = resolved_demo_video_root / f"{stem}.mp4"
+        metadata = _load_upload_metadata(resolved_demo_video_root, stem)
+        report_path = resolved_demo_video_root.parent / "reports" / "sessions" / f"{stem}.json"
+        return {
+            "name": stem,
+            "filename": path.name,
+            "size_bytes": path.stat().st_size if path.is_file() else 0,
+            "url": f"/demo-videos/{path.name}",
+            "poster_url": None,
+            "has_session_report": report_path.is_file(),
+            "source_kind": "upload",
+            "processing_status": str(metadata.get("processing_status") or "processing"),
+            "original_name": metadata.get("original_name"),
+            "error_message": metadata.get("error_message"),
+            "processed_frames": metadata.get("processed_frames"),
+            "total_frames": metadata.get("total_frames"),
+        }
+
+    def _process_uploaded_video(stem: str) -> None:
+        if resolved_demo_video_root is None:
+            return
+        metadata = _load_upload_metadata(resolved_demo_video_root, stem)
+        input_path = resolved_demo_video_root / f"{stem}.mp4"
+        prediction_path = resolved_demo_video_root.parent / "predictions" / f"{stem}.jsonl"
+        report_json_path = resolved_demo_video_root.parent / "reports" / "sessions" / f"{stem}.json"
+        report_markdown_path = resolved_demo_video_root.parent / "reports" / "markdown" / f"{stem}.md"
+        if not input_path.is_file():
+            _write_upload_metadata(
+                resolved_demo_video_root,
+                stem,
+                {
+                    **metadata,
+                    "processing_status": "failed",
+                    "error_message": "上传文件不存在，无法开始分析。",
+                    "finished_at": time.time(),
+                },
+            )
+            return
+
+        _write_upload_metadata(
+            resolved_demo_video_root,
+            stem,
+            {
+                **metadata,
+                "processing_status": "processing",
+                "error_message": None,
+                "started_at": time.time(),
+                "processed_frames": 0,
+            },
+        )
+        try:
+            if upload_pipeline_factory is None:
+                raise RuntimeError("上传视频分析未启用")
+            from huling_guard.runtime.video_inference import run_video_inference_with_runtime
+            import cv2
+
+            total_frames: int | None = None
+            capture = cv2.VideoCapture(str(input_path))
+            try:
+                if capture.isOpened():
+                    frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+                    total_frames = frame_count if frame_count > 0 else None
+            finally:
+                capture.release()
+
+            _write_upload_metadata(
+                resolved_demo_video_root,
+                stem,
+                {
+                    **metadata,
+                    "processing_status": "processing",
+                    "error_message": None,
+                    "started_at": metadata.get("started_at") or time.time(),
+                    "processed_frames": 0,
+                    "total_frames": total_frames,
+                },
+            )
+
+            def _update_upload_progress(processed_frames: int) -> None:
+                current = _load_upload_metadata(resolved_demo_video_root, stem)
+                _write_upload_metadata(
+                    resolved_demo_video_root,
+                    stem,
+                    {
+                        **current,
+                        "processing_status": "processing",
+                        "error_message": None,
+                        "processed_frames": processed_frames,
+                        "total_frames": total_frames,
+                    },
+                )
+
+            inference_pipeline = upload_pipeline_factory()
+            estimator = RTMOPoseEstimator(device=upload_rtmo_device)
+            processed_frames = run_video_inference_with_runtime(
+                input_path=input_path,
+                pipeline=inference_pipeline,
+                estimator=estimator,
+                output_jsonl=prediction_path,
+                output_report_json=report_json_path,
+                output_report_markdown=report_markdown_path,
+                progress_callback=_update_upload_progress,
+            )
+            _write_upload_metadata(
+                resolved_demo_video_root,
+                stem,
+                {
+                    **metadata,
+                    "processing_status": "ready",
+                    "error_message": None,
+                    "finished_at": time.time(),
+                    "processed_frames": processed_frames,
+                    "total_frames": total_frames,
+                },
+            )
+        except Exception as exc:  # pragma: no cover - runtime side effect path
+            _write_upload_metadata(
+                resolved_demo_video_root,
+                stem,
+                {
+                    **metadata,
+                    "processing_status": "failed",
+                    "error_message": str(exc),
+                    "finished_at": time.time(),
+                    "total_frames": metadata.get("total_frames"),
+                },
+            )
 
     if resolved_frontend_dist_root is not None:
         assets_root = resolved_frontend_dist_root / "assets"
@@ -305,6 +598,43 @@ def create_runtime_app(
             "items": items,
         }
 
+    @app.post("/uploaded-videos")
+    async def upload_video(background_tasks: BackgroundTasks, video: UploadFile = File(...)) -> dict[str, object]:
+        if resolved_demo_video_root is None:
+            raise HTTPException(status_code=503, detail="demo video root is not enabled")
+        if upload_pipeline_factory is None:
+            raise HTTPException(status_code=503, detail="upload inference is not enabled")
+        original_name = Path(video.filename or "video.mp4").name
+        suffix = Path(original_name).suffix.lower()
+        if suffix != ".mp4":
+            raise HTTPException(status_code=400, detail="当前仅支持上传 mp4 视频")
+
+        stem = f"upload_{int(time.time())}_{_sanitize_upload_name(original_name)}_{uuid4().hex[:8]}"
+        target_path = resolved_demo_video_root / f"{stem}.mp4"
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        with target_path.open("wb") as handle:
+            shutil.copyfileobj(video.file, handle)
+
+        metadata = _write_upload_metadata(
+            resolved_demo_video_root,
+            stem,
+            {
+                "source_kind": "upload",
+                "processing_status": "processing",
+                "original_name": original_name,
+                "error_message": None,
+                "created_at": time.time(),
+                "processed_frames": 0,
+                "total_frames": None,
+            },
+        )
+        background_tasks.add_task(_process_uploaded_video, stem)
+        return {
+            "status": "processing",
+            "item": _build_upload_response(stem),
+            "metadata": metadata,
+        }
+
     @app.get("/demo-videos/{filename}")
     def demo_video_file(filename: str) -> FileResponse:
         if resolved_demo_video_root is None:
@@ -319,6 +649,23 @@ def create_runtime_app(
             raise HTTPException(status_code=400, detail="invalid demo video path") from error
         if not path.is_file():
             raise HTTPException(status_code=404, detail=f"demo video not found: {filename}")
+        return FileResponse(path)
+
+    @app.get("/demo-posters/{filename}")
+    def demo_poster_file(filename: str) -> FileResponse:
+        if resolved_demo_video_root is None:
+            raise HTTPException(status_code=404, detail="demo video root is not enabled")
+        normalized = Path(filename).name
+        if normalized != filename:
+            raise HTTPException(status_code=400, detail="invalid demo poster filename")
+        poster_root = resolved_demo_video_root.parent / "posters"
+        path = (poster_root / normalized).resolve()
+        try:
+            path.relative_to(poster_root)
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail="invalid demo poster path") from error
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail=f"demo poster not found: {filename}")
         return FileResponse(path)
 
     @app.get("/demo-sessions/{filename}")
@@ -344,6 +691,74 @@ def create_runtime_app(
             "annotated": live_preview["annotated"],
             "updated_at": live_preview["updated_at"],
         }
+
+    @app.get("/live-ingest")
+    def live_ingest() -> dict[str, object]:
+        return _current_live_ingest_status()
+
+    @app.post("/live-ingest/start")
+    def start_live_ingest(payload: LiveIngestStartRequest) -> dict[str, object]:
+        if ingest_runtime_url is None:
+            raise HTTPException(status_code=503, detail="live ingest is not enabled")
+        source = payload.source.strip()
+        if not source:
+            raise HTTPException(status_code=400, detail="请输入摄像头编号、RTSP 地址或视频路径")
+        thread = live_ingest_worker.get("thread")
+        if thread is not None and thread.is_alive():
+            raise HTTPException(status_code=409, detail="当前已有实时接入任务在运行")
+
+        request_payload = payload.model_copy(
+            update={
+                "source": source,
+                "source_label": (payload.source_label or "").strip() or None,
+                "rtmo_device": payload.rtmo_device or upload_rtmo_device,
+            }
+        )
+        live_ingest_stop.clear()
+        _reset_live_preview()
+        started_at = time.time()
+        with live_ingest_lock:
+            live_ingest_status.update(
+                {
+                    "status": "starting",
+                    "active": True,
+                    "source": request_payload.source,
+                    "source_label": request_payload.source_label,
+                    "rtmo_device": request_payload.rtmo_device,
+                    "frame_stride": request_payload.frame_stride,
+                    "preview_stride": request_payload.preview_stride,
+                    "loop": request_payload.loop,
+                    "processed_frames": 0,
+                    "started_at": started_at,
+                    "finished_at": None,
+                    "error_message": None,
+                }
+            )
+        thread = threading.Thread(
+            target=_run_live_ingest_job,
+            args=(request_payload,),
+            name="huling-live-ingest",
+            daemon=True,
+        )
+        live_ingest_worker["thread"] = thread
+        thread.start()
+        return _current_live_ingest_status()
+
+    @app.post("/live-ingest/stop")
+    def stop_live_ingest() -> dict[str, object]:
+        thread = live_ingest_worker.get("thread")
+        if thread is None or not thread.is_alive():
+            with live_ingest_lock:
+                if live_ingest_status.get("status") in {"running", "starting", "stopping"}:
+                    live_ingest_status["status"] = "idle"
+                    live_ingest_status["active"] = False
+            _reset_live_preview()
+            return _current_live_ingest_status()
+
+        live_ingest_stop.set()
+        with live_ingest_lock:
+            live_ingest_status.update({"status": "stopping", "active": True})
+        return _current_live_ingest_status()
 
     @app.get("/live-frame")
     def live_frame() -> Response:

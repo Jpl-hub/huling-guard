@@ -8,6 +8,8 @@ import shutil
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 
 def _copy_if_exists(source: Path, target: Path) -> Path | None:
     if not source.is_file():
@@ -33,6 +35,38 @@ def _artifact_entry(path: Path | None, release_dir: Path) -> dict[str, Any] | No
         "size_bytes": path.stat().st_size,
         "sha256": _sha256(path),
     }
+
+
+def _resolve_optional_path(value: str | None, *, base_dir: Path) -> Path | None:
+    if not value:
+        return None
+    candidate = Path(value)
+    if candidate.is_absolute():
+        return candidate if candidate.exists() else None
+    lookup = [base_dir / candidate, Path.cwd() / candidate]
+    for item in lookup:
+        if item.exists():
+            return item.resolve()
+    return None
+
+
+def _prepare_runtime_config(runtime_config: Path, output: Path) -> tuple[Path, Path | None]:
+    runtime_config_target = output / "config" / "runtime_config.yaml"
+    payload = yaml.safe_load(runtime_config.read_text(encoding="utf-8"))
+    room = payload.get("room") if isinstance(payload, dict) else None
+    prior_target: Path | None = None
+    if isinstance(room, dict):
+        prior_source = _resolve_optional_path(room.get("prior_path"), base_dir=runtime_config.parent)
+        if prior_source is not None and prior_source.is_file():
+            prior_target = output / "config" / prior_source.name
+            _copy_if_exists(prior_source, prior_target)
+            room["prior_path"] = prior_target.relative_to(runtime_config_target.parent).as_posix()
+    runtime_config_target.parent.mkdir(parents=True, exist_ok=True)
+    runtime_config_target.write_text(
+        yaml.safe_dump(payload, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+    return runtime_config_target, prior_target
 
 
 def package_runtime_release(
@@ -68,7 +102,6 @@ def package_runtime_release(
     output = Path(output_dir).resolve()
     checkpoint_target = output / "checkpoints" / checkpoint.name
     train_config_target = output / "config" / "train_config.yaml"
-    runtime_config_target = output / "config" / "runtime_config.yaml"
     summary_json_target = output / "reports" / "summary.json"
     summary_md_target = output / "reports" / "summary.md"
     selection_json_target = output / "reports" / "deployment_selection.json"
@@ -76,7 +109,7 @@ def package_runtime_release(
 
     _copy_if_exists(checkpoint, checkpoint_target)
     _copy_if_exists(train_config, train_config_target)
-    _copy_if_exists(runtime_config, runtime_config_target)
+    runtime_config_target, prior_target = _prepare_runtime_config(runtime_config, output)
     _copy_if_exists(run_path / "summary.json", summary_json_target)
     _copy_if_exists(run_path / "summary.md", summary_md_target)
     _copy_if_exists(selection_summary, selection_json_target)
@@ -96,6 +129,7 @@ def package_runtime_release(
         "checkpoint_role": "selected" if checkpoint.name == "selected.pt" else "best",
         "train_config": _rel(train_config_target),
         "runtime_config": _rel(runtime_config_target),
+        "scene_prior": _rel(prior_target),
         "reports": {
             "summary_json": _rel(summary_json_target),
             "summary_md": _rel(summary_md_target),
@@ -127,6 +161,7 @@ def package_runtime_release(
         "checkpoint": _artifact_entry(checkpoint_target, output),
         "train_config": _artifact_entry(train_config_target, output),
         "runtime_config": _artifact_entry(runtime_config_target, output),
+        "scene_prior": _artifact_entry(prior_target, output),
         "summary_json": _artifact_entry(summary_json_target, output),
         "summary_md": _artifact_entry(summary_md_target, output),
         "deployment_selection_json": _artifact_entry(selection_json_target, output),

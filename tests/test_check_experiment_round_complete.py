@@ -75,3 +75,21 @@ def test_check_experiment_round_complete_fails_when_release_verification_is_bad(
     assert summary["complete"] is False
     failed = [check for check in summary["checks"] if not check["passed"]]
     assert any(check["name"] == "release_verification_ok" for check in failed)
+
+
+def test_check_experiment_round_complete_treats_missing_event_summary_as_optional(tmp_path: Path) -> None:
+    training_summary = tmp_path / "summary.json"
+    round_summary = tmp_path / "round.json"
+    missing_event_summary = tmp_path / "event.json"
+
+    training_summary.write_text('{"best_epoch": 9, "best_metrics": {"macro_f1": 0.5}}', encoding="utf-8")
+    round_summary.write_text('{"artifacts": {"has_event_summary": false}}', encoding="utf-8")
+
+    summary = check_experiment_round_complete(
+        run_name="public_plus_ur_v1",
+        training_summary_path=training_summary,
+        event_summary_path=missing_event_summary,
+        round_summary_path=round_summary,
+    )
+
+    assert "event_summary" not in summary["required_artifacts"]

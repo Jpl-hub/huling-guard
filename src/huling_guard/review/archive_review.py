@@ -238,6 +238,7 @@ def export_review_intervals(review_queue_path: Path) -> dict[str, Any]:
                     "start_time": float(candidate["start_time"]),
                     "end_time": float(candidate["end_time"]),
                     "source": f"review_queue:{clip['clip_id']}:{candidate['candidate_id']}",
+                    "sample_weight": max(1.0, float(candidate.get("sample_weight") or candidate.get("weight") or 1.0)),
                 }
             )
 

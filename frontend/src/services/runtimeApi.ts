@@ -12,6 +12,8 @@ import type {
   SystemProfileResponse,
   TimelineResponse,
   LiveSourceResponse,
+  LiveIngestStatusResponse,
+  UploadVideoResponse,
 } from '../types/runtime'
 
 const baseUrl = (import.meta.env.VITE_RUNTIME_BASE_URL ?? '').replace(/\/$/, '')
@@ -44,6 +46,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const runtimeApi = {
+  mediaUrl: (path: string) => buildUrl(path),
   health: () => request<HealthResponse>('/health'),
   meta: () => request<MetaResponse>('/meta'),
   state: () => request<RuntimeStateResponse>('/state'),
@@ -53,9 +56,28 @@ export const runtimeApi = {
   systemProfile: () => request<SystemProfileResponse>('/system-profile'),
   sessionReport: () => request<SessionReport>('/session-report'),
   liveSource: () => request<LiveSourceResponse>('/live-source'),
+  liveIngestStatus: () => request<LiveIngestStatusResponse>('/live-ingest'),
+  startLiveIngest: (payload: { source: string; sourceLabel?: string }) =>
+    request<LiveIngestStatusResponse>('/live-ingest/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source: payload.source,
+        source_label: payload.sourceLabel,
+      }),
+    }),
+  stopLiveIngest: () => request<LiveIngestStatusResponse>('/live-ingest/stop', { method: 'POST' }),
   demoVideos: () => request<DemoVideosResponse>('/demo-videos'),
   demoSession: (filename: string) =>
     request<DemoSessionResponse>(`/demo-sessions/${encodeURIComponent(filename)}`),
+  uploadVideo: async (file: File) => {
+    const body = new FormData()
+    body.set('video', file)
+    return request<UploadVideoResponse>('/uploaded-videos', {
+      method: 'POST',
+      body,
+    })
+  },
   archives: (params: { limit?: number; dominantState?: string; incidentsOnly?: boolean }) => {
     const search = new URLSearchParams()
     search.set('limit', String(params.limit ?? 16))

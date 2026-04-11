@@ -138,6 +138,7 @@ def test_build_window_manifest_applies_interval_label_overrides(tmp_path: Path) 
                         "start_time": 1.5,
                         "end_time": 3.0,
                         "source": "review_queue:sample_b",
+                        "sample_weight": 3.5,
                     }
                 ]
             },
@@ -159,3 +160,4 @@ def test_build_window_manifest_applies_interval_label_overrides(tmp_path: Path) 
     overridden = [row for row in window_rows if row["internal_label"] == "near_fall"]
     assert overridden
     assert overridden[0]["label_source"] == "review_queue:sample_b"
+    assert overridden[0]["sample_weight"] == 3.5

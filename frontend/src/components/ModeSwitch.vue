@@ -59,7 +59,7 @@ function setMode(mode: ViewMode) {
 }
 
 .mode-button.active {
-  background: linear-gradient(135deg, rgba(67, 215, 255, 0.2), rgba(47, 114, 255, 0.2));
+  background: rgba(67, 215, 255, 0.16);
   color: #f8fbff;
 }
 </style>

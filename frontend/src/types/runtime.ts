@@ -71,9 +71,12 @@ export interface SummaryResponse {
 
 export interface TimelineItem {
   timestamp: number
+  ready?: boolean
   predicted_state: GuardState
+  state_probs?: Record<string, number>
   risk_score: number
   confidence: number
+  incidents?: Incident[]
 }
 
 export interface TimelineResponse {
@@ -137,7 +140,14 @@ export interface DemoVideoItem {
   filename: string
   size_bytes: number
   url: string
+  poster_url?: string | null
   has_session_report: boolean
+  source_kind?: 'demo' | 'upload' | string
+  processing_status?: 'ready' | 'processing' | 'failed' | string
+  original_name?: string | null
+  error_message?: string | null
+  processed_frames?: number | null
+  total_frames?: number | null
 }
 
 export interface DemoVideosResponse {
@@ -153,6 +163,12 @@ export interface DemoSessionResponse {
   timeline: TimelineResponse
 }
 
+export interface UploadVideoResponse {
+  status: string
+  item: DemoVideoItem
+  metadata: Record<string, unknown>
+}
+
 export interface LiveSourceResponse {
   available: boolean
   source: string | null
@@ -162,6 +178,21 @@ export interface LiveSourceResponse {
   frame_height: number | null
   annotated: boolean
   updated_at: number | null
+}
+
+export interface LiveIngestStatusResponse {
+  status: 'idle' | 'starting' | 'running' | 'stopping' | 'stopped' | 'completed' | 'failed' | string
+  active: boolean
+  source: string | null
+  source_label: string | null
+  rtmo_device: string | null
+  frame_stride: number | null
+  preview_stride: number | null
+  loop: boolean
+  processed_frames: number
+  started_at: number | null
+  finished_at: number | null
+  error_message: string | null
 }
 
 export interface DetectableState {

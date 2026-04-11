@@ -23,6 +23,7 @@ def test_check_public_plus_ur_ready_reports_missing_and_command(tmp_path: Path) 
         python_bin="python",
         run_name="public_plus_ur_v1",
         clip_focal_gamma=1.5,
+        quality_loss_weight=0.05,
     )
 
     assert summary["ready"] is False
@@ -31,6 +32,8 @@ def test_check_public_plus_ur_ready_reports_missing_and_command(tmp_path: Path) 
     assert "--kinematic-feature-set" in summary["recommended_command"]
     assert "--clip-focal-gamma" in summary["recommended_command"]
     assert "1.5" in summary["recommended_command"]
+    assert "--quality-loss-weight" in summary["recommended_command"]
+    assert "0.05" in summary["recommended_command"]
     assert "--resume" in summary["recommended_command"]
     assert "train_public_plus_ur" in summary["expected_step_outputs"]
     assert "public_plus_ur_v1_completion.json" in build_markdown(summary)

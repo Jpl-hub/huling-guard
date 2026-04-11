@@ -10,6 +10,16 @@ def _load_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _load_optional_json(path: Path | None) -> Any | None:
+    if path is None:
+        return None
+    resolved = path.resolve()
+    if not resolved.is_file():
+        print(f"[skip-missing] optional summary not found: {resolved}", flush=True)
+        return None
+    return _load_json(resolved)
+
+
 def _delta(candidate: float, baseline: float) -> float:
     return candidate - baseline
 
@@ -383,12 +393,8 @@ def main() -> None:
     payload = build_comparison_payload(
         baseline_train_summary=_load_json(args.baseline_train_summary.resolve()),
         candidate_train_summary=_load_json(args.candidate_train_summary.resolve()),
-        baseline_event_summary=_load_json(args.baseline_event_summary.resolve())
-        if args.baseline_event_summary is not None
-        else None,
-        candidate_event_summary=_load_json(args.candidate_event_summary.resolve())
-        if args.candidate_event_summary is not None
-        else None,
+        baseline_event_summary=_load_optional_json(args.baseline_event_summary),
+        candidate_event_summary=_load_optional_json(args.candidate_event_summary),
         baseline_sample_summary=_load_json(args.baseline_sample_summary.resolve())
         if args.baseline_sample_summary is not None
         else None,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 import json
 from pathlib import Path
@@ -35,6 +36,7 @@ def run_video_inference_with_runtime(
     output_report_json: Path | None = None,
     output_report_markdown: Path | None = None,
     score_threshold: float = 0.2,
+    progress_callback: Callable[[int], None] | None = None,
 ) -> int:
     capture = cv2.VideoCapture(str(input_path))
     if not capture.isOpened():
@@ -82,6 +84,7 @@ def run_video_inference_with_runtime(
 
             if jsonl_handle is not None:
                 jsonl_handle.write(json.dumps(snapshot_payload, ensure_ascii=True) + "\n")
+                jsonl_handle.flush()
             if collect_report:
                 session_snapshots.append(snapshot_payload)
 
@@ -94,6 +97,8 @@ def run_video_inference_with_runtime(
 
             processed += 1
             frame_index += 1
+            if progress_callback is not None and (processed == 1 or processed % 15 == 0):
+                progress_callback(processed)
             if processed % 30 == 0:
                 print(
                     f"[video-inference] processed_frames={processed} timestamp={timestamp:.2f}",
@@ -117,6 +122,9 @@ def run_video_inference_with_runtime(
             output_json=output_report_json,
             output_markdown=output_report_markdown,
         )
+
+    if progress_callback is not None:
+        progress_callback(processed)
 
     return processed
 

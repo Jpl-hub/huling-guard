@@ -23,6 +23,7 @@ class IntervalLabel:
     start_time: float
     end_time: float
     source: str = "manual_review"
+    sample_weight: float = 1.0
 
 
 def load_interval_labels(path: str | Path) -> dict[str, list[IntervalLabel]]:
@@ -49,6 +50,7 @@ def load_interval_labels(path: str | Path) -> dict[str, list[IntervalLabel]]:
             start_time=float(start_time),
             end_time=float(end_time),
             source=str(item.get("source") or "manual_review"),
+            sample_weight=max(1.0, float(item.get("sample_weight") or item.get("weight") or 1.0)),
         )
         by_sample.setdefault(sample_id, []).append(interval)
     return by_sample
@@ -77,13 +79,13 @@ def _resolve_window_override(
     interval_labels: dict[str, list[IntervalLabel]] | None,
     min_overlap_ratio: float,
     timestamp_cache: dict[str, np.ndarray],
-) -> tuple[str, str | None]:
+) -> tuple[str, str | None, float]:
     if interval_labels is None:
-        return str(entry["internal_label"]), None
+        return str(entry["internal_label"]), None, 1.0
     sample_id = str(entry["sample_id"])
     sample_intervals = interval_labels.get(sample_id)
     if not sample_intervals:
-        return str(entry["internal_label"]), None
+        return str(entry["internal_label"]), None, 1.0
 
     timestamps = timestamp_cache.get(sample_id)
     if timestamps is None:
@@ -97,7 +99,7 @@ def _resolve_window_override(
 
     window_timestamps = timestamps[start:end]
     if window_timestamps.size == 0:
-        return str(entry["internal_label"]), None
+        return str(entry["internal_label"]), None, 1.0
 
     best_interval: IntervalLabel | None = None
     best_overlap_ratio = 0.0
@@ -114,8 +116,8 @@ def _resolve_window_override(
             best_interval = interval
 
     if best_interval is None or best_overlap_ratio < min_overlap_ratio:
-        return str(entry["internal_label"]), None
-    return best_interval.label, best_interval.source
+        return str(entry["internal_label"]), None, 1.0
+    return best_interval.label, best_interval.source, best_interval.sample_weight
 
 
 def build_window_manifest(
@@ -138,7 +140,7 @@ def build_window_manifest(
             entry = json.loads(line)
             num_frames = int(entry["num_frames"])
             for start, end in iter_window_slices(num_frames, spec):
-                internal_label, label_source = _resolve_window_override(
+                internal_label, label_source, sample_weight = _resolve_window_override(
                     entry=entry,
                     start=start,
                     end=end,
@@ -160,6 +162,8 @@ def build_window_manifest(
                 }
                 if label_source is not None:
                     payload["label_source"] = label_source
+                if sample_weight != 1.0:
+                    payload["sample_weight"] = sample_weight
                 writer.write(json.dumps(payload, ensure_ascii=True) + "\n")
                 written += 1
     return written

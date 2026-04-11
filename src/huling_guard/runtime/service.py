@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 
 import torch
 import uvicorn
@@ -37,6 +38,37 @@ class RuntimeResources:
     device: str
 
 
+def build_runtime_pipeline_factory(
+    resources: RuntimeResources,
+    *,
+    scene_prior_path: Path | None = None,
+) -> Callable[[], RealtimePipeline]:
+    def _factory() -> RealtimePipeline:
+        return build_runtime_pipeline_from_resources(
+            resources,
+            scene_prior_path=scene_prior_path,
+        )
+
+    return _factory
+
+
+def _infer_quality_dim_from_checkpoint(settings: AppSettings, state_dict: dict[str, torch.Tensor]) -> int:
+    if settings.model is None:
+        raise ValueError("train config must contain model settings")
+    fusion_weight = state_dict.get("fusion.weight")
+    if fusion_weight is None or fusion_weight.ndim != 2:
+        return settings.model.quality_dim
+    joint_hidden = settings.model.hidden_dim // 2
+    base_dim = joint_hidden + settings.model.kinematic_dim + settings.model.scene_dim
+    inferred = int(fusion_weight.shape[1] - base_dim)
+    if inferred < 0:
+        raise ValueError(
+            "checkpoint fusion width is smaller than expected base feature width "
+            f"({fusion_weight.shape[1]} < {base_dim})"
+        )
+    return inferred
+
+
 def _build_model(settings: AppSettings, checkpoint_path: Path, device: str) -> ScenePoseTemporalNet:
     if settings.data is None or settings.model is None:
         raise ValueError("train config must contain data and model sections")
@@ -46,17 +78,19 @@ def _build_model(settings: AppSettings, checkpoint_path: Path, device: str) -> S
             "model.kinematic_dim does not match model.kinematic_feature_set "
             f"({settings.model.kinematic_dim} != {expected_kinematic_dim})"
         )
+    state_dict = torch.load(checkpoint_path, map_location="cpu")
+    quality_dim = _infer_quality_dim_from_checkpoint(settings, state_dict)
     model = ScenePoseTemporalNet(
         num_joints=settings.data.num_joints,
         pose_dim=settings.model.pose_dim,
         kinematic_dim=settings.model.kinematic_dim,
         scene_dim=settings.model.scene_dim,
+        quality_dim=quality_dim,
         hidden_dim=settings.model.hidden_dim,
         num_heads=settings.model.num_heads,
         depth=settings.model.depth,
         dropout=settings.model.dropout,
     )
-    state_dict = torch.load(checkpoint_path, map_location="cpu")
     model.load_state_dict(state_dict)
     model.to(device)
     model.eval()
@@ -72,9 +106,19 @@ def _load_scene_prior(runtime_settings: AppSettings, explicit_path: Path | None)
     return ScenePrior.load(scene_prior_path)
 
 
+def _resolve_runtime_config_relative_paths(runtime_settings: AppSettings, runtime_config_path: Path) -> None:
+    if runtime_settings.room is None:
+        return
+    prior_path = runtime_settings.room.prior_path
+    if prior_path.is_absolute():
+        return
+    runtime_settings.room.prior_path = (runtime_config_path.parent / prior_path).resolve()
+
+
 def load_runtime_resources(config: RuntimeLaunchConfig) -> RuntimeResources:
     train_settings = load_settings(config.train_config_path)
     runtime_settings = load_settings(config.runtime_config_path)
+    _resolve_runtime_config_relative_paths(runtime_settings, Path(config.runtime_config_path).resolve())
     if train_settings.data is None or runtime_settings.runtime is None:
         raise ValueError("train config must have data settings and runtime config must have runtime settings")
     if runtime_settings.runtime.window_size != train_settings.data.window_size:
@@ -133,11 +177,21 @@ def build_runtime_pipeline(config: RuntimeLaunchConfig) -> RealtimePipeline:
 
 
 def serve_runtime(config: RuntimeLaunchConfig) -> None:
-    pipeline = build_runtime_pipeline(config)
+    resources = load_runtime_resources(config)
+    pipeline = build_runtime_pipeline_from_resources(
+        resources,
+        scene_prior_path=config.scene_prior_path,
+    )
     app = create_runtime_app(
         pipeline,
         archive_root=config.archive_root,
         demo_video_root=config.demo_video_root,
         frontend_dist_root=config.frontend_dist_root,
+        upload_pipeline_factory=build_runtime_pipeline_factory(
+            resources,
+            scene_prior_path=config.scene_prior_path,
+        ),
+        upload_rtmo_device=config.device,
+        ingest_runtime_url=f"http://127.0.0.1:{config.port}",
     )
     uvicorn.run(app, host=config.host, port=config.port, log_level="info")

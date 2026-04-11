@@ -32,6 +32,7 @@ def build_refined_experiment_plan(
     seed: int,
     kinematic_feature_set: str,
     clip_focal_gamma: float,
+    quality_loss_weight: float,
     train_interval_labels: Path,
     eval_interval_labels: Path | None,
     interval_min_overlap: float,
@@ -73,6 +74,8 @@ def build_refined_experiment_plan(
             kinematic_feature_set,
             "--clip-focal-gamma",
             str(clip_focal_gamma),
+            "--quality-loss-weight",
+            str(quality_loss_weight),
             "--train-interval-labels",
             str(train_interval_labels),
             "--interval-min-overlap",
@@ -389,6 +392,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=2026)
     parser.add_argument("--kinematic-feature-set", default="v2")
     parser.add_argument("--clip-focal-gamma", type=float, default=0.0)
+    parser.add_argument("--quality-loss-weight", type=float, default=0.15)
     parser.add_argument("--train-interval-labels", type=Path, required=True)
     parser.add_argument("--eval-interval-labels", type=Path)
     parser.add_argument("--interval-min-overlap", type=float, default=0.5)
@@ -442,6 +446,7 @@ def main() -> None:
         seed=args.seed,
         kinematic_feature_set=args.kinematic_feature_set,
         clip_focal_gamma=args.clip_focal_gamma,
+        quality_loss_weight=args.quality_loss_weight,
         train_interval_labels=train_interval_labels,
         eval_interval_labels=eval_interval_labels,
         interval_min_overlap=args.interval_min_overlap,

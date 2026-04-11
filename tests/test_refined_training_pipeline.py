@@ -17,7 +17,8 @@ def test_merge_interval_labels_dedupes_and_sorts(tmp_path: Path) -> None:
       "label": "near_fall",
       "start_time": 1.0,
       "end_time": 2.0,
-      "source": "queue_a"
+      "source": "queue_a",
+      "sample_weight": 2.0
     },
     {
       "sample_id": "sample_a",
@@ -40,7 +41,8 @@ def test_merge_interval_labels_dedupes_and_sorts(tmp_path: Path) -> None:
       "label": "near_fall",
       "start_time": 1.0,
       "end_time": 2.0,
-      "source": "queue_a"
+      "source": "queue_a",
+      "sample_weight": 4.0
     },
     {
       "sample_id": "sample_b",
@@ -59,4 +61,5 @@ def test_merge_interval_labels_dedupes_and_sorts(tmp_path: Path) -> None:
 
     assert len(merged["intervals"]) == 3
     assert merged["intervals"][0]["sample_id"] == "sample_a"
+    assert merged["intervals"][1]["sample_weight"] == 4.0
     assert merged["intervals"][-1]["label"] == "fall"

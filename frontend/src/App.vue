@@ -10,8 +10,13 @@ const store = useRuntimeStore()
 const route = useRoute()
 
 const pageTitle = computed(() => String(route.meta.title ?? '实时值守'))
-const pageSubtitle = computed(() => String(route.meta.subtitle ?? ''))
-
+const pageHint = computed(() =>
+  route.path === '/records'
+    ? '先筛出需要复核的过程，再定位关键时刻。'
+    : route.path === '/system'
+      ? '了解这套系统怎么接入、怎么判断、怎么留档。'
+      : '只看当前状态、最近变化和处理建议。',
+)
 const modeModel = computed({
   get: () => store.state.mode,
   set: (value) => store.setMode(value),
@@ -31,16 +36,16 @@ onBeforeUnmount(() => {
     <AppTopNav />
 
     <div class="main">
-      <header class="page-head">
-        <div class="page-copy">
-          <h1>{{ pageTitle }}</h1>
-          <p v-if="pageSubtitle">{{ pageSubtitle }}</p>
+      <header class="context-bar">
+        <div class="context-copy">
+          <span class="context-label">{{ pageTitle }}</span>
+          <p>{{ pageHint }}</p>
         </div>
 
         <div class="page-actions">
           <ModeSwitch v-model="modeModel" />
           <div class="service-pill" :data-ok="store.state.health?.status === 'ok'">
-            <strong>{{ store.state.health?.status === 'ok' ? '服务在线' : '等待连接' }}</strong>
+            <strong>{{ store.state.health?.status === 'ok' ? '运行正常' : '等待连接' }}</strong>
             <span>{{ store.state.lastUpdatedAt || '尚未同步' }}</span>
           </div>
         </div>
@@ -58,44 +63,42 @@ onBeforeUnmount(() => {
 <style scoped>
 .shell {
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgba(53, 124, 255, 0.2), transparent 22%),
-    radial-gradient(circle at right, rgba(67, 215, 255, 0.1), transparent 28%),
-    #050b13;
+  background: #050b13;
 }
 
 .main {
-  width: min(100%, 1520px);
+  width: min(100%, 1600px);
   margin: 0 auto;
-  padding: 28px 28px 40px;
+  padding: 18px 24px 40px;
 }
 
-.page-head {
+.context-bar {
   display: flex;
   justify-content: space-between;
   gap: 24px;
-  align-items: end;
-  margin-bottom: 24px;
+  align-items: center;
+  margin-bottom: 22px;
 }
 
-.page-copy h1 {
-  margin: 0 0 8px;
-  font-size: clamp(30px, 4vw, 44px);
-  line-height: 0.98;
-  letter-spacing: -0.05em;
+.context-label {
+  display: block;
+  color: rgba(241, 247, 252, 0.94);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
 }
 
-.page-copy p {
-  margin: 0;
-  color: rgba(199, 214, 231, 0.72);
+.context-copy p {
+  margin: 6px 0 0;
+  color: rgba(205, 219, 235, 0.66);
   font-size: 13px;
-  line-height: 1.5;
 }
 
 .page-actions {
-  display: grid;
-  gap: 10px;
-  justify-items: end;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .service-pill {
@@ -103,8 +106,7 @@ onBeforeUnmount(() => {
   gap: 4px;
   min-width: 152px;
   padding: 10px 14px;
-  border-radius: 20px;
-  border: 1px solid rgba(120, 146, 176, 0.18);
+  border-radius: 18px;
   background: rgba(255, 255, 255, 0.03);
 }
 
@@ -118,7 +120,6 @@ onBeforeUnmount(() => {
 }
 
 .service-pill[data-ok='true'] {
-  border-color: rgba(54, 211, 153, 0.24);
   background: rgba(54, 211, 153, 0.08);
 }
 
@@ -137,14 +138,31 @@ onBeforeUnmount(() => {
     padding: 20px 20px 32px;
   }
 
-  .page-head {
+  .context-bar {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .main {
+    padding: 14px 14px 24px;
+  }
+
+  .context-label {
+    font-size: 20px;
+  }
+
+  .context-copy p {
+    font-size: 12px;
   }
 
   .page-actions {
     width: 100%;
-    justify-items: start;
+  }
+
+  .service-pill {
+    width: 100%;
   }
 }
 </style>

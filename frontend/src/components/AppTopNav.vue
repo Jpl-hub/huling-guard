@@ -16,7 +16,7 @@ const items = [
       <span class="brand-mark">HG</span>
       <div>
         <strong>护龄智守</strong>
-        <p>单房间固定摄像头安全值守系统</p>
+        <p>固定机位安全值守</p>
       </div>
     </div>
 
@@ -43,11 +43,8 @@ const items = [
   justify-content: space-between;
   gap: 24px;
   align-items: center;
-  padding: 18px 28px;
-  border-bottom: 1px solid rgba(112, 144, 181, 0.14);
-  background:
-    linear-gradient(180deg, rgba(4, 11, 19, 0.96), rgba(4, 11, 19, 0.88)),
-    #050b13;
+  padding: 18px 28px 16px;
+  background: rgba(4, 11, 19, 0.94);
   backdrop-filter: blur(18px);
 }
 
@@ -64,7 +61,7 @@ const items = [
   width: 48px;
   height: 48px;
   border-radius: 16px;
-  background: linear-gradient(135deg, #43d7ff, #2f72ff);
+  background: rgba(67, 215, 255, 0.86);
   color: #04111d;
   font-size: 16px;
   font-weight: 800;
@@ -86,26 +83,44 @@ const items = [
 
 .nav {
   display: flex;
-  gap: 10px;
+  gap: 6px;
   align-items: center;
   flex-wrap: wrap;
 }
 
 .nav-link {
-  padding: 10px 16px;
-  border-radius: 999px;
-  color: rgba(221, 233, 246, 0.78);
+  position: relative;
+  padding: 12px 12px 10px;
+  color: rgba(221, 233, 246, 0.76);
   text-decoration: none;
   font-size: 14px;
   font-weight: 700;
-  transition: background-color 180ms ease, color 180ms ease, transform 180ms ease;
+  transition: color 180ms ease, transform 180ms ease;
+}
+
+.nav-link::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 2px;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(67, 215, 255, 0.9);
+  opacity: 0;
+  transform: scaleX(0.5);
+  transition: opacity 180ms ease, transform 180ms ease;
 }
 
 .nav-link:hover,
 .nav-link.active {
-  transform: translateY(-1px);
-  background: rgba(67, 215, 255, 0.1);
   color: #f8fbff;
+}
+
+.nav-link:hover::after,
+.nav-link.active::after {
+  opacity: 1;
+  transform: scaleX(1);
 }
 
 @media (max-width: 920px) {

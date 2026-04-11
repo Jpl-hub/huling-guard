@@ -12,7 +12,7 @@ def _load_json(path: Path) -> Any:
 
 def merge_interval_labels(input_paths: list[Path]) -> dict[str, Any]:
     merged: list[dict[str, Any]] = []
-    seen: set[tuple[str, str, float, float, str]] = set()
+    by_key: dict[tuple[str, str, float, float, str], dict[str, Any]] = {}
     sources: list[str] = []
 
     for input_path in input_paths:
@@ -26,19 +26,20 @@ def merge_interval_labels(input_paths: list[Path]) -> dict[str, Any]:
                 float(item["end_time"]),
                 str(item.get("source") or ""),
             )
-            if key in seen:
-                continue
-            seen.add(key)
-            merged.append(
-                {
+            sample_weight = max(1.0, float(item.get("sample_weight") or item.get("weight") or 1.0))
+            if key not in by_key:
+                by_key[key] = {
                     "sample_id": key[0],
                     "label": key[1],
                     "start_time": key[2],
                     "end_time": key[3],
                     "source": key[4],
+                    "sample_weight": sample_weight,
                 }
-            )
+            else:
+                by_key[key]["sample_weight"] = max(float(by_key[key]["sample_weight"]), sample_weight)
 
+    merged = list(by_key.values())
     merged.sort(key=lambda item: (item["sample_id"], item["start_time"], item["end_time"], item["label"]))
     return {
         "sources": sources,
