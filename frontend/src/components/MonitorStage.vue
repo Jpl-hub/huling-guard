@@ -128,9 +128,9 @@ const sourceStatus = computed(() => {
     return { label: '分析状态', value: '分析完成', tone: 'healthy' as const }
   }
   if (mainVideoError.value) {
-    return { label: '演示源状态', value: '加载失败', tone: 'alert' as const }
+    return { label: '监看源状态', value: '加载失败', tone: 'alert' as const }
   }
-  return { label: '演示源状态', value: isVideoPlaying.value ? '正在播放' : '点击播放', tone: 'healthy' as const }
+  return { label: '监看源状态', value: isVideoPlaying.value ? '正在播放' : '点击播放', tone: 'healthy' as const }
 })
 
 const sourcePathLabel = computed(() =>
@@ -151,7 +151,7 @@ const sourceIngressLabel = computed(() =>
       ? '实时接入管理'
       : selectedVideo.value?.source_kind === 'upload'
         ? '上传后异步分析'
-        : '按实时节奏回放视频流',
+        : '模拟监看流回放',
 )
 const videoProgress = computed(() =>
   videoDuration.value > 0 ? Math.min(100, Math.max(0, (videoCurrent.value / videoDuration.value) * 100)) : 0,
@@ -161,7 +161,7 @@ const videoTimeLabel = computed(() =>
     ? `${formatSeconds(videoCurrent.value)} / ${formatSeconds(videoDuration.value)}`
     : '等待画面',
 )
-const playbackActionLabel = computed(() => (isVideoPlaying.value ? '暂停画面' : '播放视频'))
+const playbackActionLabel = computed(() => (isVideoPlaying.value ? '暂停画面' : '播放并开始判断'))
 const analysisCopy = computed(() => {
   if (selectedVideo.value?.processing_status === 'failed') {
     return selectedVideo.value.error_message || '这段上传视频分析失败，请更换视频后重试。'
@@ -203,7 +203,7 @@ const focusStageText = computed(() => {
     }
     return '正在播放上传视频回放'
   }
-  return '正在播放固定机位样例流'
+  return '正在播放固定机位监看流'
 })
 
 const uploadProgressRatio = computed(() => {
@@ -251,26 +251,12 @@ function markMainVideoLoaded() {
   syncVideoState()
 }
 
-async function playMainVideoIfPossible() {
-  const video = mainVideoRef.value
-  if (!video || hasLiveSource.value) {
-    return
-  }
-  try {
-    video.muted = true
-    await video.play()
-  } catch {
-    syncVideoState()
-  }
-}
-
 function markMainVideoReady() {
   markMainVideoLoaded()
-  void playMainVideoIfPossible()
 }
 
 function markMainVideoFailed() {
-  mainVideoError.value = '这段演示流暂时没有加载出来，可以先点“刷新状态”再试一次。'
+  mainVideoError.value = '这段监看流暂时没有加载出来，可以先点“刷新状态”再试一次。'
 }
 
 function syncVideoState() {
@@ -340,7 +326,7 @@ watch(() => props.selectedDemoFilename, () => {
   playbackStarted.value = false
   emit('playbackUpdate', { currentTime: 0, duration: 0, started: false })
   window.setTimeout(() => {
-    void playMainVideoIfPossible()
+    syncVideoState()
   }, 0)
 })
 
@@ -432,9 +418,7 @@ onBeforeUnmount(() => {
         class="video"
         :src="selectedVideo.url"
         :poster="selectedVideo.poster_url || undefined"
-        autoplay
         muted
-        loop
         playsinline
         preload="auto"
         @click="togglePlayback"
@@ -446,7 +430,7 @@ onBeforeUnmount(() => {
         @pause="syncVideoState"
         @error="markMainVideoFailed"
       >
-        当前浏览器无法播放这段演示流。
+        当前浏览器无法播放这段监看流。
       </video>
       <div v-else class="video-empty">当前没有可播放的监看源。</div>
       <div v-if="!hasLiveSource && selectedVideo" class="playback-panel">
@@ -541,7 +525,7 @@ onBeforeUnmount(() => {
             @loadeddata="markFeedVideoLoaded(item.filename)"
             @error="markFeedVideoFailed(item.filename)"
           >
-            当前浏览器无法播放缩略演示流。
+            当前浏览器无法播放缩略监看流。
           </video>
           <div v-if="feedVideoErrors[item.filename]" class="feed-error">源不可用</div>
           <div class="feed-meta">

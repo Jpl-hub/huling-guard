@@ -76,7 +76,7 @@ const inputModes = computed(() => [
   },
   {
     title: '模拟监看',
-    body: '用固定机位样例流完整复现实时值守链路，用于演示和封闭环境测试。',
+    body: '用固定机位样例流完整复现实时值守链路，用于封闭环境测试与现场复现。',
   },
   {
     title: '上传视频复核',
@@ -105,7 +105,7 @@ const inputModes = computed(() => [
     <section class="system-layout">
       <article class="panel section">
         <header>
-          <h3>适合谁来用</h3>
+          <h3>适用场景</h3>
           <p>面向日常值守与照护使用。</p>
         </header>
         <ul class="goal-list">
@@ -115,7 +115,7 @@ const inputModes = computed(() => [
 
       <article class="panel section">
         <header>
-          <h3>使用顺序</h3>
+          <h3>使用流程</h3>
           <p>接入画面后即可开始值守。</p>
         </header>
         <div class="pipeline">
@@ -132,7 +132,7 @@ const inputModes = computed(() => [
 
       <article class="panel section">
         <header>
-          <h3>当前已经支持的入口</h3>
+          <h3>输入入口</h3>
           <p>三种入口都已接到真实运行链路。</p>
         </header>
         <div class="input-grid">
@@ -145,7 +145,7 @@ const inputModes = computed(() => [
 
       <article class="panel section">
         <header>
-          <h3>系统会关注哪些状态</h3>
+          <h3>状态覆盖</h3>
           <p>不是只识别跌倒，而是识别完整动作过程。</p>
         </header>
         <div class="state-grid">
@@ -162,7 +162,7 @@ const inputModes = computed(() => [
 
       <article class="panel section">
         <header>
-          <h3>什么时候可以信它</h3>
+          <h3>可信运行约束</h3>
           <p>这些约束用于控制误报和误触发。</p>
         </header>
         <ul class="goal-list">
@@ -172,7 +172,7 @@ const inputModes = computed(() => [
 
       <article class="panel section full-span">
         <header>
-          <h3>当前主链</h3>
+          <h3>运行主链</h3>
           <p>这里只保留会影响运行结果的关键模块和参数。</p>
         </header>
         <div class="pipeline compact-pipeline">
