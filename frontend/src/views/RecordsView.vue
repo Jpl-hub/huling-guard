@@ -5,7 +5,7 @@ import ArchivePreviewCard from '../components/ArchivePreviewCard.vue'
 import { useRuntimeStore } from '../composables/useRuntimeStore'
 import type { GuardState } from '../types/runtime'
 import { matchDemoVideo } from '../utils/media'
-import { archiveDisplayName, formatArchiveTime, formatRisk, formatSeconds, formatTimestamp, stateLabel } from '../utils/presenters'
+import { archiveDisplayName, formatArchiveTime, formatRisk, formatSeconds, stateLabel } from '../utils/presenters'
 
 const store = useRuntimeStore()
 
@@ -59,19 +59,17 @@ const selectedGuide = computed(() => {
   if (!report) {
     return {
       title: '选择一段过程',
-      detail: '左侧列表选择后查看回放。',
+      detail: '左侧选中后立即回放。',
     }
   }
   if (report.incident_total > 0) {
     return {
-      title: report.peak_risk
-        ? `定位到 ${formatTimestamp(report.peak_risk.timestamp)}`
-        : '查看最近一次提醒',
-      detail: '从最高风险时刻开始复核。',
+      title: report.peak_risk ? '先看最高风险时刻' : '先看最近一次提醒',
+      detail: '再切到状态切片和风险页签复核。',
     }
   }
   return {
-    title: '这段过程没有提醒',
+    title: '这段过程没有正式提醒',
     detail: '可作为正常活动对照。',
   }
 })
@@ -268,10 +266,8 @@ const emptyStateText = computed(() => {
 
 .records-layout {
   display: grid;
-  grid-template-columns: minmax(360px, 0.84fr) minmax(0, 1.16fr);
+  grid-template-columns: minmax(340px, 0.82fr) minmax(0, 1.18fr);
   gap: var(--space-5);
-  height: calc(100vh - 220px);
-  min-height: 560px;
   align-items: start;
 }
 
@@ -281,19 +277,19 @@ const emptyStateText = computed(() => {
 }
 
 .records-list {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  height: 100%;
-  min-height: 0;
-}
-
-.preview-panel {
   position: sticky;
   top: 96px;
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: calc(100vh - 140px);
+  max-height: calc(100vh - 140px);
+  min-height: 560px;
+}
+
+.preview-panel {
+  display: grid;
   gap: var(--space-4);
-  max-height: calc(100vh - 220px);
-  overflow-y: auto;
+  align-self: start;
 }
 
 .preview-guide {
@@ -350,7 +346,7 @@ const emptyStateText = computed(() => {
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  padding-right: 4px;
+  padding-right: var(--space-2);
   overscroll-behavior: contain;
 }
 
@@ -462,22 +458,15 @@ const emptyStateText = computed(() => {
     grid-template-columns: 1fr;
   }
 
-  .records-layout {
-    height: auto;
-    min-height: 0;
-  }
-
   .records-list {
+    position: static;
     height: auto;
+    max-height: none;
+    min-height: 0;
   }
 
   .archive-list {
     max-height: 70vh;
-  }
-
-  .preview-panel {
-    position: static;
-    max-height: none;
   }
 }
 
