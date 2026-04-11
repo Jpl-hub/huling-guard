@@ -227,8 +227,18 @@ async function loadArchive(sessionId: string): Promise<void> {
 }
 
 async function archiveSession(): Promise<void> {
-  await runtimeApi.archiveSession()
-  Message.success('当前这段已保存到历史回看')
+  const demoItem = selectedDemoItem.value
+  if (!useLiveRuntime.value && demoItem) {
+    if (demoItem.source_kind === 'upload' && demoItem.processing_status === 'processing') {
+      Message.warning('这段上传视频还在分析，完成后再保存到历史回看')
+      return
+    }
+    await runtimeApi.archiveSession({ demoFilename: demoItem.filename })
+    Message.success('当前所看过程已保存到历史回看')
+  } else {
+    await runtimeApi.archiveSession()
+    Message.success('当前这段已保存到历史回看')
+  }
   await refresh()
 }
 
