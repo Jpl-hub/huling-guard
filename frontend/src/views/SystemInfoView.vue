@@ -7,17 +7,103 @@ import { formatRisk } from '../utils/presenters'
 const store = useRuntimeStore()
 
 const capabilityNotes: Record<string, string> = {
-  normal: '系统持续确认当前是否安全。',
-  near_fall: '发现明显失衡趋势，会先提醒尽快查看。',
-  fall: '检测到跌倒，会直接进入高优先级提醒。',
-  recovery: '确认人已经重新起身，用于判断是否恢复。',
-  prolonged_lying: '长时间卧倒后单独升级，避免漏掉长卧风险。',
+  normal: '持续确认当前是否安全，避免把日常活动都当成异常。',
+  near_fall: '捕捉明显失衡趋势，用于提前提醒尽快查看。',
+  fall: '检测到跌倒后直接进入高优先级风险处理。',
+  recovery: '识别已经重新起身的过程，区分异常后恢复。',
+  prolonged_lying: '对持续卧倒单独升级，避免漏掉长卧风险。',
 }
+
+const heroStats = computed(() => {
+  const detectableCount = store.state.systemProfile?.detectable_states?.length ?? 5
+  const archiveTotal = store.state.archiveSummary?.archive_total ?? 0
+  const incidentSessions = store.state.archiveSummary?.sessions_with_incidents ?? 0
+
+  return [
+    {
+      label: '输入入口',
+      value: '3 种',
+      detail: '实时接入、模拟监看、上传复核',
+    },
+    {
+      label: '连续状态',
+      value: `${detectableCount} 类`,
+      detail: '不是只看跌倒，而是识别完整过程。',
+    },
+    {
+      label: '过程留档',
+      value: archiveTotal > 0 ? `${archiveTotal} 段` : '随时可留档',
+      detail: incidentSessions > 0 ? `其中 ${incidentSessions} 段含提醒记录。` : '用于回看、复核和后续优化。',
+    },
+  ]
+})
+
+const storyCards = computed(() => [
+  {
+    title: '当前是否安全',
+    body: '持续判断当前状态和风险变化，不把值守工作变成反复盯屏。',
+  },
+  {
+    title: '是否需要马上过去',
+    body: '把提醒和建议动作分开给出，先帮助值守者做出处理决定。',
+  },
+  {
+    title: '最近到底发生了什么',
+    body: '把连续视频转成可回放的过程记录，而不是零散截图。',
+  },
+])
+
+const trustCards = computed(() => [
+  {
+    title: '连续过程判断',
+    body: '系统先建立连续时间窗，再输出状态和提醒，不按单帧乱判。',
+  },
+  {
+    title: '低质量骨架保守处理',
+    body: '关键点质量偏低时先降权，不把遮挡、低光和抖动直接抬成高风险。',
+  },
+  {
+    title: '房间先验辅助',
+    body: '结合房间语义先验区分床上躺卧与地面卧倒，减少正常躺卧误报。',
+  },
+  {
+    title: '事件稳定化输出',
+    body: '最终提醒经过 EventEngine 稳定，不把短时波动直接当成事件。',
+  },
+])
+
+const boundaryGroups = computed(() => [
+  {
+    title: '适合的场景',
+    items: [
+      '单房间、固定机位、持续值守。',
+      '关注老人是否安全、是否需要立即查看。',
+      '需要过程留档和后续复核，而不是只看单帧结果。',
+    ],
+  },
+  {
+    title: '当前可接入',
+    items: [
+      '本机摄像头或系统可见的视频设备。',
+      'RTSP 视频流。',
+      '本地视频文件，用于上传复核和模拟监看。',
+    ],
+  },
+  {
+    title: '当前不主打',
+    items: [
+      '多路摄像头集中调度。',
+      '频繁变焦、移动机位或大范围漫游。',
+      '纯云端封闭、拿不到流地址的消费级摄像头。',
+    ],
+  },
+])
 
 const runtimeFacts = computed(() => {
   const meta = store.state.meta
   const profile = store.state.systemProfile?.runtime_profile
   const thresholds = store.state.systemProfile?.thresholds
+
   return [
     { label: '运行设备', value: meta?.device ?? profile?.device ?? '-' },
     { label: '时间窗', value: String(meta?.window_size ?? profile?.window_size ?? '-') },
@@ -25,64 +111,21 @@ const runtimeFacts = computed(() => {
     { label: '特征集', value: meta?.kinematic_feature_set ?? profile?.kinematic_feature_set ?? '-' },
     { label: '跌倒阈值', value: formatRisk(thresholds?.fall) },
     { label: '长卧阈值', value: formatRisk(thresholds?.prolonged_lying) },
-  ]
-})
-
-const topFacts = computed(() => {
-  const meta = store.state.meta
-  const profile = store.state.systemProfile?.runtime_profile
-  return [
     {
-      label: '接入方式',
-      value: '实时接入 / 模拟监看 / 上传复核',
-      detail: '三种入口都可直接使用。',
+      label: '场景先验',
+      value: meta?.scene_prior_loaded || profile?.scene_prior_loaded ? '已加载' : '未加载',
     },
     {
-      label: '判断方式',
-      value: `${meta?.window_size ?? profile?.window_size ?? '-'} 帧连续判断`,
-      detail: '按连续过程输出结论。',
-    },
-    {
-      label: '留档方式',
+      label: '历史归档',
       value: meta?.archive_enabled || profile?.archive_enabled ? '已开启' : '未开启',
-      detail: '已保存过程可直接回看。',
     },
   ]
 })
 
-const usageSteps = computed(() => [
-  {
-    title: '接入画面',
-    body: '可以直接接实时输入，也可以用模拟监看流或上传新视频进入同一条分析链。',
-  },
-  {
-    title: '形成结论',
-    body: '系统先建立连续时序窗口，再给出当前状态、建议动作和最近提醒。',
-  },
-  {
-    title: '回看复核',
-    body: '把已发生的过程保存下来，回看关键时刻，再决定是否作为误报或难例样本继续训练。',
-  },
-])
-
-const trustPoints = computed(() => (store.state.systemProfile?.quality_controls ?? []).slice(0, 4))
-
+const moduleCards = computed(() => store.state.systemProfile?.system_modules ?? [])
+const stateCards = computed(() => store.state.systemProfile?.detectable_states ?? [])
 const targetUsers = computed(() => (store.state.systemProfile?.target_users ?? []).slice(0, 4))
-
-const inputModes = computed(() => [
-  {
-    title: '实时视频接入',
-    body: '接收连续视频帧，持续输出当前状态、提醒和时间线。',
-  },
-  {
-    title: '模拟监看',
-    body: '用固定机位样例流完整复现实时值守链路，用于封闭环境测试与现场复现。',
-  },
-  {
-    title: '上传视频复核',
-    body: '上传一段新视频，离线分析后生成完整过程、关键时刻和提醒记录。',
-  },
-])
+const qualityControls = computed(() => (store.state.systemProfile?.quality_controls ?? []).slice(0, 4))
 </script>
 
 <template>
@@ -90,11 +133,14 @@ const inputModes = computed(() => [
     <section class="hero panel">
       <div class="hero-copy">
         <small>{{ store.state.systemProfile?.product_name || '护龄智守' }}</small>
-        <h2>接入、判断、留档</h2>
-        <p>{{ store.state.systemProfile?.product_tagline || '单房间固定机位安全值守系统' }}</p>
+        <h2>把连续视频转成可处置的照护过程</h2>
+        <p>
+          不是只看有没有倒地，而是持续判断当前状态、风险变化、是否需要立即查看，并保留可复核的过程记录。
+        </p>
       </div>
-      <dl class="hero-facts">
-        <div v-for="item in topFacts" :key="item.label">
+
+      <dl class="hero-stats">
+        <div v-for="item in heroStats" :key="item.label" class="stat-card">
           <dt>{{ item.label }}</dt>
           <dd>{{ item.value }}</dd>
           <span>{{ item.detail }}</span>
@@ -102,95 +148,129 @@ const inputModes = computed(() => [
       </dl>
     </section>
 
+    <section class="panel section intro-section">
+      <header class="section-head">
+        <div>
+          <h3>系统先回答三件事</h3>
+          <p>页面先给结果，再给依据，不让用户在参数和图表里自己猜。</p>
+        </div>
+      </header>
+
+      <div class="story-grid">
+        <article v-for="item in storyCards" :key="item.title" class="story-card">
+          <strong>{{ item.title }}</strong>
+          <p>{{ item.body }}</p>
+        </article>
+      </div>
+    </section>
+
     <section class="system-layout">
       <article class="panel section">
-        <header>
-          <h3>适用场景</h3>
-          <p>面向日常值守与照护使用。</p>
+        <header class="section-head">
+          <div>
+            <h3>适用对象</h3>
+            <p>这套系统优先服务固定房间照护和值守场景。</p>
+          </div>
         </header>
-        <ul class="goal-list">
-          <li v-for="goal in targetUsers" :key="goal">{{ goal }}</li>
+        <ul class="bullet-list">
+          <li v-for="user in targetUsers" :key="user">{{ user }}</li>
         </ul>
       </article>
 
       <article class="panel section">
-        <header>
-          <h3>使用流程</h3>
-          <p>接入画面后即可开始值守。</p>
-        </header>
-        <div class="pipeline">
-          <div
-            v-for="step in usageSteps"
-            :key="step.title"
-            class="pipeline-step"
-          >
-            <strong>{{ step.title }}</strong>
-            <p>{{ step.body }}</p>
+        <header class="section-head">
+          <div>
+            <h3>为什么可信</h3>
+            <p>先讲系统如何减少误报，再讲底层模型和参数。</p>
           </div>
-        </div>
-      </article>
-
-      <article class="panel section">
-        <header>
-          <h3>输入入口</h3>
-          <p>三种入口都已接到真实运行链路。</p>
         </header>
-        <div class="input-grid">
-          <div v-for="item in inputModes" :key="item.title" class="state-card">
+        <div class="trust-grid">
+          <article v-for="item in trustCards" :key="item.title" class="soft-card trust-card">
             <strong>{{ item.title }}</strong>
-            <span>{{ item.body }}</span>
-          </div>
+            <p>{{ item.body }}</p>
+          </article>
         </div>
-      </article>
-
-      <article class="panel section">
-        <header>
-          <h3>状态覆盖</h3>
-          <p>不是只识别跌倒，而是识别完整动作过程。</p>
-        </header>
-        <div class="state-grid">
-          <div
-            v-for="item in store.state.systemProfile?.detectable_states ?? []"
-            :key="item.code"
-            class="state-card"
-          >
-            <strong>{{ item.label }}</strong>
-            <span>{{ capabilityNotes[item.code] || '系统会把这一类状态纳入连续判断。' }}</span>
-          </div>
-        </div>
-      </article>
-
-      <article class="panel section">
-        <header>
-          <h3>可信运行约束</h3>
-          <p>这些约束用于控制误报和误触发。</p>
-        </header>
-        <ul class="goal-list">
-          <li v-for="item in trustPoints" :key="item">{{ item }}</li>
-        </ul>
       </article>
 
       <article class="panel section full-span">
-        <header>
-          <h3>运行主链</h3>
-          <p>这里只保留会影响运行结果的关键模块和参数。</p>
-        </header>
-        <div class="pipeline compact-pipeline">
-          <div
-            v-for="module in store.state.systemProfile?.system_modules ?? []"
-            :key="module.name"
-            class="pipeline-step"
-          >
-            <strong>{{ module.name }}</strong>
-            <p>{{ module.summary }}</p>
+        <header class="section-head">
+          <div>
+            <h3>适用边界</h3>
+            <p>把边界写清楚，不靠模糊表达制造可信感。</p>
           </div>
-        </div>
-        <div class="facts-grid">
-          <article v-for="item in runtimeFacts" :key="item.label" class="fact-item">
-            <small>{{ item.label }}</small>
-            <strong>{{ item.value }}</strong>
+        </header>
+        <div class="boundary-grid">
+          <article v-for="group in boundaryGroups" :key="group.title" class="soft-card boundary-card">
+            <strong>{{ group.title }}</strong>
+            <ul class="bullet-list compact-list">
+              <li v-for="item in group.items" :key="item">{{ item }}</li>
+            </ul>
           </article>
         </div>
+      </article>
+
+      <article class="panel section">
+        <header class="section-head">
+          <div>
+            <h3>状态覆盖</h3>
+            <p>不是只识别跌倒，而是识别完整动作过程。</p>
+          </div>
+        </header>
+        <div class="state-grid">
+          <article v-for="item in stateCards" :key="item.code" class="soft-card state-card">
+            <strong>{{ item.label }}</strong>
+            <p>{{ capabilityNotes[item.code] || '系统会把这一类状态纳入连续判断。' }}</p>
+          </article>
+        </div>
+      </article>
+
+      <article class="panel section">
+        <header class="section-head">
+          <div>
+            <h3>运行约束</h3>
+            <p>这些约束直接影响误报控制和解释能力。</p>
+          </div>
+        </header>
+        <ul class="bullet-list">
+          <li v-for="item in qualityControls" :key="item">{{ item }}</li>
+        </ul>
+      </article>
+
+      <article class="panel section full-span tech-section">
+        <header class="section-head">
+          <div>
+            <h3>系统如何工作</h3>
+            <p>主链保持清楚，技术细节放到第二层，不把系统说明页做成文档搬运页。</p>
+          </div>
+        </header>
+
+        <div class="module-grid">
+          <article v-for="module in moduleCards" :key="module.name" class="soft-card module-card">
+            <strong>{{ module.name }}</strong>
+            <p>{{ module.summary }}</p>
+          </article>
+        </div>
+
+        <details class="tech-drawer">
+          <summary>展开运行规格与版本口径</summary>
+          <div class="facts-grid">
+            <article v-for="item in runtimeFacts" :key="item.label" class="soft-card fact-card">
+              <small>{{ item.label }}</small>
+              <strong>{{ item.value }}</strong>
+            </article>
+          </div>
+
+          <div class="tech-notes">
+            <article class="soft-card note-card">
+              <strong>当前运行口径</strong>
+              <p>运行主干以稳定性优先，不因为某一轮实验分数更高就直接替换线上版本。</p>
+            </article>
+            <article class="soft-card note-card">
+              <strong>评估方式</strong>
+              <p>模型和系统同时看窗口级、样本级和应用级结果，避免只追单一指标。</p>
+            </article>
+          </div>
+        </details>
       </article>
     </section>
   </section>
@@ -203,72 +283,158 @@ const inputModes = computed(() => [
 }
 
 .panel {
-  border-radius: 30px;
-  background: rgba(8, 17, 30, 0.76);
-  backdrop-filter: blur(16px);
+  border-radius: 28px;
+  background: rgba(8, 16, 28, 0.82);
+  box-shadow: inset 0 0 0 1px rgba(126, 149, 178, 0.08);
 }
 
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
   gap: 24px;
   padding: 28px;
 }
 
+.hero-copy {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
 .hero-copy small {
-  display: block;
-  margin-bottom: 12px;
-  color: rgba(199, 214, 231, 0.58);
+  color: rgba(193, 209, 226, 0.62);
   font-size: 12px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
 }
 
 .hero-copy h2 {
-  margin: 0 0 12px;
-  font-size: clamp(34px, 4vw, 48px);
-  line-height: 0.96;
-  letter-spacing: -0.05em;
+  margin: 0;
+  font-size: clamp(34px, 4vw, 50px);
+  line-height: 0.95;
+  letter-spacing: -0.06em;
 }
 
 .hero-copy p {
   margin: 0;
-  color: rgba(199, 214, 231, 0.76);
+  max-width: 54ch;
+  color: rgba(214, 226, 238, 0.78);
   font-size: 15px;
+  line-height: 1.7;
 }
 
-.hero-facts {
+.hero-stats,
+.story-grid,
+.boundary-grid,
+.module-grid,
+.state-grid,
+.trust-grid,
+.facts-grid,
+.tech-notes {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
+}
+
+.hero-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   margin: 0;
 }
 
-.hero-facts div {
-  display: grid;
-  gap: 8px;
-  padding-left: 14px;
-  border-left: 1px solid rgba(120, 146, 176, 0.14);
+.stat-card,
+.soft-card {
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.03);
 }
 
-.hero-facts dt,
-.fact-item small {
-  color: rgba(199, 214, 231, 0.58);
+.stat-card {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+}
+
+.stat-card dt,
+.fact-card small {
+  color: rgba(193, 209, 226, 0.58);
   font-size: 12px;
   letter-spacing: 0.04em;
 }
 
-.hero-facts dd,
-.fact-item strong {
+.stat-card dd,
+.fact-card strong {
   margin: 0;
-  font-size: 20px;
-  line-height: 1.2;
+  font-size: 24px;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+}
+
+.stat-card span {
+  color: rgba(214, 226, 238, 0.72);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.section {
+  padding: 24px;
+}
+
+.intro-section {
+  padding-top: 22px;
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+.section-head h3 {
+  margin: 0;
+  font-size: 24px;
+  letter-spacing: -0.04em;
+}
+
+.section-head p {
+  margin: 8px 0 0;
+  color: rgba(193, 209, 226, 0.7);
+  font-size: 13px;
+}
+
+.story-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.story-card,
+.boundary-card,
+.module-card,
+.state-card,
+.trust-card,
+.fact-card,
+.note-card {
+  padding: 18px;
+}
+
+.story-card strong,
+.boundary-card strong,
+.module-card strong,
+.state-card strong,
+.trust-card strong,
+.note-card strong {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 18px;
   letter-spacing: -0.03em;
 }
 
-.hero-facts span {
-  color: rgba(199, 214, 231, 0.72);
-  font-size: 12px;
-  line-height: 1.5;
+.story-card p,
+.module-card p,
+.state-card p,
+.trust-card p,
+.note-card p {
+  margin: 0;
+  color: rgba(214, 226, 238, 0.76);
+  font-size: 14px;
+  line-height: 1.7;
 }
 
 .system-layout {
@@ -277,91 +443,80 @@ const inputModes = computed(() => [
   gap: 18px;
 }
 
-.section {
-  padding: 22px;
-}
-
 .full-span {
   grid-column: 1 / -1;
 }
 
-.section header {
-  margin-bottom: 16px;
-}
-
-.section h3 {
-  margin: 0;
-  font-size: 20px;
-  letter-spacing: -0.03em;
-}
-
-.section p {
-  margin: 8px 0 0;
-  color: rgba(199, 214, 231, 0.68);
-  font-size: 13px;
-}
-
-.goal-list {
+.bullet-list {
   display: grid;
   gap: 10px;
   margin: 0;
   padding-left: 18px;
-  color: rgba(225, 235, 246, 0.86);
-  line-height: 1.65;
+  color: rgba(228, 237, 246, 0.9);
+  line-height: 1.7;
 }
 
-.pipeline {
-  display: grid;
-  gap: 12px;
+.compact-list {
+  gap: 8px;
 }
 
-.pipeline-step,
-.state-card,
-.fact-item {
-  padding: 16px 18px;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.02);
+.boundary-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.compact-pipeline {
-  margin-bottom: 12px;
-}
-
-.pipeline-step strong,
-.state-card strong {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 16px;
-}
-
-.pipeline-step p,
-.state-card span {
-  margin: 0;
-  color: rgba(199, 214, 231, 0.72);
-  font-size: 13px;
-  line-height: 1.55;
-}
-
+.trust-grid,
 .state-grid,
-.input-grid,
-.facts-grid {
-  display: grid;
+.facts-grid,
+.tech-notes {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
 }
 
-@media (max-width: 1080px) {
+.module-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 14px;
+}
+
+.tech-drawer {
+  display: grid;
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.tech-drawer summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(231, 239, 246, 0.92);
+  font-weight: 700;
+}
+
+.tech-drawer summary::-webkit-details-marker {
+  display: none;
+}
+
+.fact-card {
+  display: grid;
+  gap: 8px;
+}
+
+@media (max-width: 1180px) {
   .hero,
-  .hero-facts,
-  .system-layout {
+  .hero-stats,
+  .story-grid,
+  .system-layout,
+  .boundary-grid,
+  .module-grid {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
+  .trust-grid,
   .state-grid,
-  .input-grid,
-  .facts-grid {
+  .facts-grid,
+  .tech-notes {
     grid-template-columns: 1fr;
   }
 }
@@ -374,11 +529,16 @@ const inputModes = computed(() => [
   }
 
   .hero-copy h2 {
-    font-size: 28px;
+    font-size: 30px;
   }
 
-  .hero-facts {
-    grid-template-columns: 1fr;
+  .section-head h3 {
+    font-size: 20px;
+  }
+
+  .stat-card dd,
+  .fact-card strong {
+    font-size: 20px;
   }
 }
 </style>
