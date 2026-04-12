@@ -249,6 +249,30 @@ def _write_upload_metadata(demo_root: Path, stem: str, payload: dict[str, object
     return payload
 
 
+def _delete_upload_artifacts(demo_root: Path, stem: str) -> list[Path]:
+    if not stem.startswith("upload_"):
+        raise ValueError("only uploaded videos can be deleted")
+
+    removed: list[Path] = []
+    candidates = [
+        demo_root / f"{stem}.mp4",
+        _annotated_videos_root(demo_root) / f"{stem}.mp4",
+        demo_root.parent / "predictions" / f"{stem}.jsonl",
+        demo_root.parent / "reports" / "sessions" / f"{stem}.json",
+        demo_root.parent / "reports" / "markdown" / f"{stem}.md",
+        demo_root.parent / "posters" / f"{stem}.jpg",
+        _upload_metadata_path(demo_root, stem),
+    ]
+    for path in candidates:
+        try:
+            if path.exists():
+                path.unlink()
+                removed.append(path)
+        except Exception:
+            continue
+    return removed
+
+
 def _sanitize_upload_name(filename: str) -> str:
     stem = Path(filename).stem.strip().lower()
     stem = re.sub(r"[^a-z0-9]+", "_", stem).strip("_")
@@ -708,6 +732,10 @@ def create_runtime_app(
     def dashboard() -> HTMLResponse:
         return HTMLResponse(dashboard_html)
 
+    @app.get("/", response_class=HTMLResponse)
+    def dashboard_root() -> HTMLResponse:
+        return HTMLResponse(dashboard_html)
+
     @app.get("/demo-videos")
     def demo_videos() -> dict[str, object]:
         if resolved_demo_video_root is not None:
@@ -757,6 +785,39 @@ def create_runtime_app(
             "item": _build_upload_response(stem),
             "metadata": metadata,
         }
+
+    @app.delete("/demo-videos/{filename}")
+    def delete_demo_video(filename: str) -> dict[str, object]:
+        if resolved_demo_video_root is None:
+            raise HTTPException(status_code=404, detail="demo video root is not enabled")
+        normalized = Path(filename).name
+        if normalized != filename:
+            raise HTTPException(status_code=400, detail="invalid demo video filename")
+
+        stem = Path(normalized).stem
+        metadata = _load_upload_metadata(resolved_demo_video_root, stem)
+        if str(metadata.get("source_kind") or "") != "upload":
+            raise HTTPException(status_code=400, detail="only uploaded videos can be deleted")
+
+        if archive_store is not None:
+            archive_count = archive_store.count_archives_by_session_name(stem)
+            if archive_count > 0:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"该上传视频已被 {archive_count} 条历史留档引用，请先清理对应留档",
+                )
+
+        with active_upload_jobs_lock:
+            if stem in active_upload_jobs or str(metadata.get("processing_status") or "") == "processing":
+                raise HTTPException(status_code=409, detail="upload is still processing")
+            active_upload_jobs.discard(stem)
+
+        removed = _delete_upload_artifacts(resolved_demo_video_root, stem)
+        if not removed:
+            raise HTTPException(status_code=404, detail="upload artifacts not found")
+
+        return {"status": "deleted", "removed": [str(path) for path in removed]}
+
 
     @app.get("/demo-videos/{filename}")
     def demo_video_file(filename: str) -> FileResponse:
@@ -993,7 +1054,7 @@ def create_runtime_app(
 
     @app.get("/archives")
     def list_archives(
-        limit: int = Query(default=20, ge=1, le=200),
+        limit: int = Query(default=20, ge=1, le=500),
         dominant_state: str | None = Query(default=None),
         incidents_only: bool = Query(default=False),
     ) -> dict[str, object]:
@@ -1011,6 +1072,17 @@ def create_runtime_app(
         if archive_store is None:
             raise HTTPException(status_code=503, detail="archive is not enabled")
         return archive_store.summarize_archives()
+
+    @app.delete("/archives/{session_id}")
+    def delete_archive(session_id: str) -> dict[str, object]:
+        if archive_store is None:
+            raise HTTPException(status_code=503, detail="archive is not enabled")
+        try:
+            record = archive_store.delete_archive(session_id)
+        except FileNotFoundError as error:
+            raise HTTPException(status_code=404, detail=f"archive not found: {session_id}") from error
+        return {"status": "deleted", "record": record}
+
 
     @app.get("/archives/{session_id}")
     def get_archive(session_id: str) -> dict[str, object]:

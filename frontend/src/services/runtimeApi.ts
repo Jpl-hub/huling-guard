@@ -1,5 +1,6 @@
 import type {
   ArchiveListResponse,
+  ArchiveRecord,
   ArchiveSummaryResponse,
   DemoSessionResponse,
   DemoVideosResponse,
@@ -78,9 +79,15 @@ export const runtimeApi = {
       body,
     })
   },
+  deleteDemoVideo: (filename: string) =>
+    request<{ status: string; removed: string[] }>(`/demo-videos/${encodeURIComponent(filename)}`, {
+      method: 'DELETE',
+    }),
+
   archives: (params: { limit?: number; dominantState?: string; incidentsOnly?: boolean }) => {
     const search = new URLSearchParams()
-    search.set('limit', String(params.limit ?? 16))
+    const limit = Math.min(Math.max(Number(params.limit ?? 16), 1), 500)
+    search.set('limit', String(limit))
     if (params.dominantState) {
       search.set('dominant_state', params.dominantState)
     }
@@ -97,5 +104,10 @@ export const runtimeApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ demo_filename: payload?.demoFilename ?? null }),
     }),
+  deleteArchive: (sessionId: string) =>
+    request<{ status: string; record: ArchiveRecord }>(`/archives/${encodeURIComponent(sessionId)}`, {
+      method: 'DELETE',
+    }),
+
   reset: () => request<{ status: string }>('/reset', { method: 'POST' }),
 }

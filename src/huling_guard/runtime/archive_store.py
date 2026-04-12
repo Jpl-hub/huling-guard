@@ -344,3 +344,30 @@ class RuntimeArchiveStore:
         if row is None:
             raise FileNotFoundError(session_id)
         return str(row["report_markdown"])
+
+    def count_archives_by_session_name(self, session_name: str | None) -> int:
+        if not session_name:
+            return 0
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT COUNT(*) AS count FROM sessions WHERE session_name = ?",
+                (session_name,),
+            ).fetchone()
+        return int(row["count"] or 0) if row is not None else 0
+
+    def delete_archive(self, session_id: str) -> dict[str, Any]:
+        record = self._select_record(session_id)
+        json_path = Path(record["json_path"]).resolve()
+        markdown_path = Path(record["markdown_path"]).resolve()
+
+        for path in (json_path, markdown_path):
+            try:
+                path.unlink(missing_ok=True)
+            except Exception:
+                pass
+
+        with self._connect() as connection:
+            connection.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
+            connection.commit()
+
+        return record

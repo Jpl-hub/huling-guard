@@ -34,6 +34,25 @@ const stateFilterOptions = computed(() => {
   }))
 })
 
+const archiveSearchTerm = computed(() => store.state.archiveSearchQuery.trim().toLowerCase())
+
+function inArchiveDateRange(archivedAt: string | null | undefined): boolean {
+  if (!archivedAt || store.state.archiveDateRange.length !== 2) {
+    return true
+  }
+  const [start, end] = store.state.archiveDateRange
+  if (!start || !end) {
+    return true
+  }
+  const current = new Date(archivedAt).getTime()
+  const startAt = new Date(`${start}T00:00:00`).getTime()
+  const endAt = new Date(`${end}T23:59:59.999`).getTime()
+  if (!Number.isFinite(current) || !Number.isFinite(startAt) || !Number.isFinite(endAt)) {
+    return true
+  }
+  return current >= startAt && current <= endAt
+}
+
 const overviewCards = computed(() => [
   {
     label: '已留档过程',
@@ -47,64 +66,104 @@ const overviewCards = computed(() => [
   },
   {
     label: '当前选中',
-    value: stateLabel(store.state.selectedArchiveReport?.dominant_state ?? store.state.archiveSummary?.latest_archive?.dominant_state ?? null),
-    detail: store.state.selectedArchiveReport
-      ? `本段时长 ${formatSeconds(store.state.selectedArchiveReport.duration_seconds)}`
+    value: stateLabel(activeReport.value?.dominant_state ?? store.state.archiveSummary?.latest_archive?.dominant_state ?? null),
+    detail: activeReport.value
+      ? `本段时长 ${formatSeconds(activeReport.value.duration_seconds)}`
       : formatArchiveTime(store.state.archiveSummary?.latest_archive?.archived_at ?? null),
   },
 ])
 
 const selectedGuide = computed(() => {
-  const report = store.state.selectedArchiveReport
+  const report = activeReport.value
   if (!report) {
     return {
       title: '选择一段过程',
-      detail: '左侧选中后立即回放。',
+      detail: '左侧选中后回放',
     }
   }
   if (report.incident_total > 0) {
     return {
       title: report.peak_risk ? '先看最高风险时刻' : '先看最近一次提醒',
-      detail: '再切到状态切片和风险页签复核。',
+      detail: '复核状态切片和风险页签',
     }
   }
   return {
-    title: '这段过程没有正式提醒',
-    detail: '可作为正常活动对照。',
+    title: '无正式提醒',
+    detail: '正常活动对照',
   }
 })
 
 const archiveEntries = computed(() =>
-  (store.state.archives?.items ?? []).map((item) => {
-    const demoVideo = matchDemoVideo(store.state.demoVideos, [item.session_name, item.session_id])
-    return {
-      item,
-      demoVideo,
-      title: archiveDisplayName(
+  (store.state.archives?.items ?? [])
+    .map((item) => {
+      const demoVideo = matchDemoVideo(store.state.demoVideos, [item.session_name, item.session_id])
+      const title = archiveDisplayName(
         item.session_name,
         item.archived_at,
         demoVideo?.original_name || demoVideo?.name || null,
-      ),
-    }
-  }),
+      )
+      return {
+        item,
+        demoVideo,
+        title,
+      }
+    })
+    .filter((entry) => {
+      if (!inArchiveDateRange(entry.item.archived_at)) {
+        return false
+      }
+      if (!archiveSearchTerm.value) {
+        return true
+      }
+      const searchField = [
+        entry.title,
+        entry.item.session_name ?? '',
+        entry.item.session_id,
+        stateLabel(entry.item.dominant_state),
+        formatArchiveTime(entry.item.archived_at),
+        entry.item.archived_at ?? '',
+        entry.demoVideo?.original_name ?? '',
+        entry.demoVideo?.name ?? '',
+      ]
+        .join(' ')
+        .toLowerCase()
+      return searchField.includes(archiveSearchTerm.value)
+    }),
 )
+
+const selectedArchiveVisible = computed(() =>
+  archiveEntries.value.some((entry) => entry.item.session_id === store.state.selectedArchiveId),
+)
+
+const activeReport = computed(() => (selectedArchiveVisible.value ? store.state.selectedArchiveReport : null))
 
 const emptyStateText = computed(() => {
   const selected = stateFilterOptions.value.find((item) => item.value === store.state.archiveFilterState)
   if (!(store.state.archiveSummary?.archive_total ?? 0)) {
-    return '暂无历史记录。请先在实时值守页保存当前过程。'
+    return '暂无历史记录'
   }
   if (store.state.archiveFilterState) {
     if ((selected?.count ?? 0) <= 0) {
-      return `这里还没有“${selected?.label || '该状态'}”记录。`
+      return `暂无“${selected?.label || '该状态'}”记录`
     }
-    return `没有可显示的“${selected?.label || '该状态'}”记录。`
+    return `没有可显示的“${selected?.label || '该状态'}”记录`
   }
   if (store.state.archiveIncidentsOnly) {
-    return '当前没有带提醒的记录。'
+    return '当前没有带提醒的记录'
   }
-  return '没有可展示的回看记录。'
+  if (store.state.archiveSearchQuery || store.state.archiveDateRange.length) {
+    return '当前筛选条件下没有匹配记录'
+  }
+  return '没有可展示的回看记录'
 })
+
+function handleDeleteArchive(sessionId: string) {
+  if (!window.confirm("确定要删除这条历史留档吗？")) {
+    return
+  }
+  void store.deleteArchive(sessionId)
+}
+
 </script>
 
 <template>
@@ -126,14 +185,33 @@ const emptyStateText = computed(() => {
     <section class="records-layout">
       <section class="records-list">
         <header class="records-head">
-          <div>
+          <div class="records-head-copy">
             <h2>已保存过程</h2>
           </div>
           <div class="filters">
+            <a-input-search
+              :model-value="store.state.archiveSearchQuery"
+              size="large"
+              allow-clear
+              placeholder="搜索状态、日期或视频名称"
+              class="filter-control"
+              @input="store.setArchiveSearchQuery(String($event ?? ''))"
+              @clear="store.setArchiveSearchQuery('')"
+            />
+            <a-range-picker
+              :model-value="store.state.archiveDateRange"
+              size="large"
+              value-format="YYYY-MM-DD"
+              allow-clear
+              class="filter-control"
+              @change="store.setArchiveDateRange(Array.isArray($event) ? $event.map(String) : [])"
+              @clear="store.setArchiveDateRange([])"
+            />
             <a-select
               :model-value="store.state.archiveFilterState"
               size="large"
               placeholder="全部状态"
+              class="filter-control"
               @change="store.setArchiveFilterState(String($event))"
             >
               <a-option
@@ -154,14 +232,18 @@ const emptyStateText = computed(() => {
           </div>
         </header>
 
-        <div class="archive-list">
-          <button
+        <transition-group name="stack-fade" tag="div" class="archive-list">
+          <article
             v-for="entry in archiveEntries"
             :key="entry.item.session_id"
-            type="button"
             class="archive-item"
             :class="{ active: entry.item.session_id === store.state.selectedArchiveId }"
+            role="button"
+            tabindex="0"
+            :aria-pressed="entry.item.session_id === store.state.selectedArchiveId"
             @click="store.loadArchive(entry.item.session_id)"
+            @keydown.enter.prevent="store.loadArchive(entry.item.session_id)"
+            @keydown.space.prevent="store.loadArchive(entry.item.session_id)"
           >
             <div class="archive-row">
               <div v-if="entry.demoVideo?.poster_url" class="archive-thumb">
@@ -171,9 +253,18 @@ const emptyStateText = computed(() => {
                 <div class="title-row">
                   <div>
                     <strong>{{ entry.title }}</strong>
-                    <p>{{ formatArchiveTime(entry.item.archived_at) }}</p>
+                    <span class="archive-time">{{ formatArchiveTime(entry.item.archived_at) }}</span>
                   </div>
-                  <span class="state-pill">{{ stateLabel(entry.item.dominant_state) }}</span>
+                  <div class="archive-actions">
+                    <span class="state-pill">{{ stateLabel(entry.item.dominant_state) }}</span>
+                    <button
+                      type="button"
+                      class="archive-delete"
+                      @click.stop="handleDeleteArchive(entry.item.session_id)"
+                    >
+                      删除留档
+                    </button>
+                  </div>
                 </div>
                 <div class="meta-row">
                   <span>时长 {{ formatSeconds(entry.item.duration_seconds) }}</span>
@@ -182,15 +273,15 @@ const emptyStateText = computed(() => {
                 </div>
               </div>
             </div>
-          </button>
-          <div v-if="!(store.state.archives?.items?.length)" class="empty">
+          </article>
+          <div v-if="!archiveEntries.length" class="empty">
             <a-empty>
               <template #description>
                 <span>{{ emptyStateText }}</span>
               </template>
             </a-empty>
           </div>
-        </div>
+        </transition-group>
       </section>
 
       <section class="preview-panel">
@@ -199,7 +290,7 @@ const emptyStateText = computed(() => {
           <span>{{ selectedGuide.detail }}</span>
         </div>
         <ArchivePreviewCard
-          :report="store.state.selectedArchiveReport"
+          :report="activeReport"
           :demo-videos="store.state.demoVideos"
         />
       </section>
@@ -225,7 +316,7 @@ const emptyStateText = computed(() => {
 
 .overview-copy h2 {
   margin: 0;
-  font-size: 34px;
+  font-size: 28px;
   line-height: 0.96;
   letter-spacing: -0.05em;
 }
@@ -315,11 +406,13 @@ const emptyStateText = computed(() => {
 }
 
 .records-head {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-5);
-  align-items: flex-start;
+  display: grid;
+  gap: var(--space-4);
   margin-bottom: var(--space-5);
+}
+
+.records-head-copy {
+  display: grid;
 }
 
 .records-head h2 {
@@ -329,16 +422,29 @@ const emptyStateText = computed(() => {
 }
 
 .filters {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr;
   gap: var(--space-3);
-  align-items: center;
-  flex-wrap: wrap;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+}
+
+.filter-control,
+.filters :deep(.arco-picker),
+.filters :deep(.arco-select),
+.filters :deep(.arco-input-wrapper) {
+  width: 100%;
+  min-width: 0;
 }
 
 .switch-line {
-  display: inline-flex;
+  display: flex;
+  justify-content: space-between;
   gap: 10px;
   align-items: center;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-line-soft);
   color: var(--color-text-primary);
   font-size: 13px;
 }
@@ -361,11 +467,10 @@ const emptyStateText = computed(() => {
   text-align: left;
   padding: 18px 18px 18px 22px;
   border-radius: var(--radius-md);
-  border: 0;
   background: var(--color-surface-soft);
   color: inherit;
   cursor: pointer;
-  transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+  transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease, opacity 180ms ease;
 }
 
 .archive-item::before {
@@ -386,6 +491,45 @@ const emptyStateText = computed(() => {
 
 .archive-item.active::before {
   background: var(--color-accent);
+}
+
+.archive-item:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--color-accent), 0 0 0 2px rgba(121, 212, 231, 0.14);
+}
+
+.stack-fade-enter-active,
+.stack-fade-leave-active,
+.stack-fade-move {
+  transition: transform 220ms ease, opacity 220ms ease;
+}
+
+.stack-fade-enter-from,
+.stack-fade-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.stack-fade-leave-active {
+  pointer-events: none;
+}
+
+
+.archive-delete {
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  border: 0;
+  background: var(--color-alert-soft);
+  color: var(--color-text-alert);
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+.archive-delete:hover {
+  background: rgba(255, 140, 144, 0.22);
+  color: var(--color-text-primary);
 }
 
 .archive-row {
@@ -422,13 +566,20 @@ const emptyStateText = computed(() => {
   flex-wrap: wrap;
 }
 
+.archive-actions {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .title-row strong {
   display: block;
   margin-bottom: 6px;
   font-size: 16px;
 }
 
-.title-row p {
+.archive-time {
   margin: 0;
   color: var(--color-text-tertiary);
   font-size: 12px;
@@ -491,10 +642,6 @@ const emptyStateText = computed(() => {
   .preview-panel {
     padding: var(--space-4);
     border-radius: var(--radius-sm);
-  }
-
-  .records-head {
-    flex-direction: column;
   }
 
   .archive-row {

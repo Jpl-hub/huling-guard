@@ -85,14 +85,14 @@ function seekTo(timestamp: number | null | undefined) {
       <header class="preview-head">
         <div>
           <h2>{{ displayTitle }}</h2>
-          <p>{{ formatArchiveTime(report.archived_at) }}</p>
+          <span class="archive-time">{{ formatArchiveTime(report.archived_at) }}</span>
         </div>
         <span class="state-pill">{{ stateLabel(report.dominant_state) }}</span>
       </header>
 
       <div class="topline">
         <article class="stat emphasis">
-          <small>这段过程结论</small>
+          <small>过程结论</small>
           <strong>{{ stateLabel(report.dominant_state) }}</strong>
         </article>
         <article class="stat">
@@ -110,7 +110,7 @@ function seekTo(timestamp: number | null | undefined) {
       </div>
 
       <div class="lead-copy">
-        <strong>{{ report.incident_total > 0 ? '先看监控回放，再核对风险与提醒。' : '先看监控回放，再核对状态切片。' }}</strong>
+        <strong>{{ report.incident_total > 0 ? '监控回放 / 风险提醒' : '监控回放 / 状态切片' }}</strong>
       </div>
 
       <a-tabs
@@ -137,7 +137,7 @@ function seekTo(timestamp: number | null | undefined) {
                   muted
                   playsinline
                 >
-                  当前浏览器无法播放这段回看视频。
+                  当前浏览器无法播放回看视频
                 </video>
                 <div v-if="jumpTargets.length" class="jump-row">
                   <button
@@ -153,7 +153,7 @@ function seekTo(timestamp: number | null | undefined) {
               </div>
             </div>
             <div v-else class="empty-inline">
-              当前记录没有可回放的视频源。
+              无回放视频源
             </div>
           </section>
         </a-tab-pane>
@@ -182,7 +182,7 @@ function seekTo(timestamp: number | null | undefined) {
               </article>
             </div>
             <div v-else class="empty-inline">
-              当前记录没有可展示的状态切片。
+              无状态切片
             </div>
           </section>
         </a-tab-pane>
@@ -211,7 +211,7 @@ function seekTo(timestamp: number | null | undefined) {
                 </article>
               </div>
               <div v-else class="empty-inline">
-                当前记录没有高风险时刻。
+                无高风险时刻
               </div>
             </div>
 
@@ -236,7 +236,7 @@ function seekTo(timestamp: number | null | undefined) {
                 </article>
               </div>
               <div v-else class="empty-inline">
-                这条记录没有正式提醒。
+                无正式提醒
               </div>
             </div>
           </section>
@@ -245,7 +245,7 @@ function seekTo(timestamp: number | null | undefined) {
     </template>
 
     <div v-else class="empty">
-      选择一条回看记录后，这里会显示完整过程和关键时刻。
+      选择一条回看记录
     </div>
   </section>
 </template>
@@ -269,7 +269,7 @@ function seekTo(timestamp: number | null | undefined) {
   letter-spacing: -0.04em;
 }
 
-.preview-head p {
+.archive-time {
   margin: 0;
   color: var(--color-text-secondary);
   font-size: 13px;

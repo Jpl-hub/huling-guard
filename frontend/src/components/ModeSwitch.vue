@@ -22,7 +22,7 @@ function setMode(mode: ViewMode) {
       :class="{ active: props.modelValue === 'care' }"
       @click="setMode('care')"
     >
-      值守视图
+      标准画面
     </button>
     <button
       type="button"
@@ -30,7 +30,7 @@ function setMode(mode: ViewMode) {
       :class="{ active: props.modelValue === 'xray' }"
       @click="setMode('xray')"
     >
-      引擎透视
+      算法分析层
     </button>
   </div>
 </template>

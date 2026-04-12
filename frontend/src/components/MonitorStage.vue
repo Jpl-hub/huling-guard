@@ -30,6 +30,7 @@ const emit = defineEmits<{
   uploadVideo: [value: File]
   startLiveIngest: [value: { source: string; sourceLabel?: string }]
   stopLiveIngest: []
+  deleteDemo: [value: string]
   playbackUpdate: [value: { currentTime: number; duration: number; started: boolean }]
 }>()
 const clock = ref('')
@@ -38,6 +39,8 @@ const ingestSource = ref('')
 const ingestSourceLabel = ref('')
 const mainVideoError = ref('')
 const mainVideoRef = ref<HTMLVideoElement | null>(null)
+const preferRawPlayback = ref(false)
+const overlayRequested = ref(false)
 const uploadInputRef = ref<HTMLInputElement | null>(null)
 const isVideoPlaying = ref(false)
 const videoCurrent = ref(0)
@@ -77,12 +80,19 @@ const selectedFeedIndex = computed(() =>
   Math.max(0, props.demoVideos.findIndex((item) => item.filename === props.selectedDemoFilename)),
 )
 
-const hasAnnotatedPlayback = computed(() =>
+const showAnnotatedPlayback = computed(() => props.viewMode === 'xray' || overlayRequested.value)
+const canToggleOverlay = computed(() =>
   Boolean(
     !hasLiveSource.value
       && selectedVideo.value?.processing_status === 'ready'
-      && selectedVideo.value?.annotated_url
-      && (props.viewMode === 'xray' || selectedVideo.value?.source_kind === 'upload'),
+      && selectedVideo.value?.annotated_url,
+  ),
+)
+const hasAnnotatedPlayback = computed(() =>
+  Boolean(
+    !preferRawPlayback.value
+      && canToggleOverlay.value
+      && showAnnotatedPlayback.value,
   ),
 )
 const selectedPlaybackUrl = computed(() =>
@@ -179,17 +189,17 @@ const videoTimeLabel = computed(() =>
 const playbackActionLabel = computed(() => (isVideoPlaying.value ? '暂停画面' : '播放并开始判断'))
 const analysisCopy = computed(() => {
   if (selectedVideo.value?.processing_status === 'failed') {
-    return selectedVideo.value.error_message || '这段上传视频分析失败，请更换视频后重试。'
+    return selectedVideo.value.error_message || '上传视频分析失败'
   }
   if (selectedVideo.value?.processing_status === 'processing') {
     const processed = Number(selectedVideo.value?.processed_frames ?? 0)
     if (processed <= 0) {
-      return '视频已经接入，系统正在读取画面并准备启动逐帧推理。'
+      return '视频接入中'
     }
     if (props.displayState.ready || (props.report?.ready_frames ?? 0) > 0) {
-      return '系统已经进入分析阶段，正在继续补全这段视频的状态时间线。'
+      return '状态时间线补全中'
     }
-    return '系统已经开始逐帧提取骨架，正在建立第一段连续时序判断。'
+    return '骨架提取中'
   }
   return ''
 })
@@ -243,7 +253,7 @@ const uploadProgressText = computed(() => {
 })
 
 const liveIngestHint = computed(() =>
-  props.liveIngest?.error_message || '支持 RTSP 地址、设备编号 0，或容器内可访问的视频路径。',
+  props.liveIngest?.error_message || 'RTSP / 设备编号 / 视频路径',
 )
 
 function submitLiveIngest() {
@@ -261,6 +271,14 @@ function requestStopLiveIngest() {
   emit('stopLiveIngest')
 }
 
+function handleOverlayToggle(value: boolean) {
+  overlayRequested.value = value
+  if (value) {
+    preferRawPlayback.value = false
+    mainVideoError.value = ''
+  }
+}
+
 function markMainVideoLoaded() {
   mainVideoError.value = ''
   syncVideoState()
@@ -271,7 +289,15 @@ function markMainVideoReady() {
 }
 
 function markMainVideoFailed() {
-  mainVideoError.value = '这段监看流暂时没有加载出来，可以先点“刷新状态”再试一次。'
+  if (hasAnnotatedPlayback.value && !preferRawPlayback.value && selectedVideo.value?.url) {
+    preferRawPlayback.value = true
+    mainVideoError.value = ''
+    window.setTimeout(() => {
+      syncVideoState()
+    }, 0)
+    return
+  }
+  mainVideoError.value = '监看流加载失败'
 }
 
 function syncVideoState() {
@@ -333,7 +359,11 @@ function updateClock() {
   clock.value = new Date().toLocaleString('zh-CN', { hour12: false })
 }
 
-watch(() => props.selectedDemoFilename, () => {
+watch(() => [props.selectedDemoFilename, props.viewMode] as const, () => {
+  preferRawPlayback.value = false
+  if (props.viewMode !== 'xray') {
+    overlayRequested.value = false
+  }
   mainVideoError.value = ''
   isVideoPlaying.value = false
   videoCurrent.value = 0
@@ -365,10 +395,19 @@ onBeforeUnmount(() => {
     <header class="stage-head">
       <div>
         <h2>当前画面</h2>
-        <p>{{ sourceModeLabel }} · {{ sourceLabel }}</p>
+        <span class="source-line">{{ sourceModeLabel }} · {{ sourceLabel }}</span>
       </div>
       <div class="stage-controls">
         <span class="mode-pill">{{ cameraCode }}</span>
+        <label v-if="canToggleOverlay" class="overlay-toggle">
+          <span>算法标绘</span>
+          <a-switch
+            size="small"
+            :model-value="showAnnotatedPlayback"
+            :disabled="viewMode === 'xray'"
+            @change="handleOverlayToggle(Boolean($event))"
+          />
+        </label>
         <a-button size="large" @click="ingestPanelOpen = !ingestPanelOpen">实时接入</a-button>
         <a-button size="large" :loading="uploading" @click="openUploadPicker">上传视频分析</a-button>
         <a-button size="large" @click="emit('reload')">刷新状态</a-button>
@@ -385,7 +424,6 @@ onBeforeUnmount(() => {
     <section v-if="ingestPanelOpen || hasRunningIngest || liveIngest?.status === 'failed'" class="ingest-panel">
       <div class="ingest-copy">
         <h3>实时接入</h3>
-        <p>接入摄像头、RTSP 或视频文件后，系统将切换到该输入源进行连续分析。</p>
       </div>
 
       <div class="ingest-form">
@@ -445,9 +483,9 @@ onBeforeUnmount(() => {
         @pause="syncVideoState"
         @error="markMainVideoFailed"
       >
-        当前浏览器无法播放这段监看流。
+        当前浏览器无法播放监看流
       </video>
-      <div v-else class="video-empty">当前没有可播放的监看源。</div>
+      <div v-else class="video-empty">当前没有可播放的监看源</div>
       <div v-if="!hasLiveSource && selectedVideo" class="playback-panel">
         <button type="button" class="playback-button" @click.stop="togglePlayback">
           {{ playbackActionLabel }}
@@ -519,14 +557,18 @@ onBeforeUnmount(() => {
         <span>{{ monitorFeeds.length }} 路</span>
       </div>
 
-      <div class="feed-strip">
-        <button
+      <transition-group name="feed-fade" tag="div" class="feed-strip">
+        <article
           v-for="(item, index) in monitorFeeds"
           :key="item.filename"
-          type="button"
           class="feed-card"
           :class="{ active: item.filename === selectedDemoFilename }"
+          role="button"
+          tabindex="0"
+          :aria-pressed="item.filename === selectedDemoFilename"
           @click="emit('selectDemo', item.filename)"
+          @keydown.enter.prevent="emit('selectDemo', item.filename)"
+          @keydown.space.prevent="emit('selectDemo', item.filename)"
         >
           <video
             :key="item.filename"
@@ -541,8 +583,17 @@ onBeforeUnmount(() => {
             @loadeddata="markFeedVideoLoaded(item.filename)"
             @error="markFeedVideoFailed(item.filename)"
           >
-            当前浏览器无法播放缩略监看流。
+            当前浏览器无法播放缩略监看流
           </video>
+
+          <button
+            v-if="item.source_kind === 'upload'"
+            type="button"
+            class="feed-delete"
+            @click.stop="emit('deleteDemo', item.filename)"
+          >
+            移除上传源
+          </button>
           <div v-if="feedVideoErrors[item.filename]" class="feed-error">源不可用</div>
           <div class="feed-meta">
             <div class="feed-meta-row">
@@ -557,8 +608,8 @@ onBeforeUnmount(() => {
             </div>
             <span>{{ item.original_name || item.name }}</span>
           </div>
-        </button>
-      </div>
+        </article>
+      </transition-group>
     </section>
   </section>
 </template>
@@ -600,6 +651,19 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   gap: var(--space-3);
   align-items: center;
+}
+
+.overlay-toggle {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: var(--color-surface-soft);
+  box-shadow: inset 0 0 0 1px var(--color-line-soft);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .ingest-panel {
@@ -1009,14 +1073,13 @@ onBeforeUnmount(() => {
   display: grid;
   gap: var(--space-2);
   padding: var(--space-2);
-  border: 0;
   border-radius: var(--radius-md);
   background: transparent;
   box-shadow: inset 0 0 0 1px var(--color-line-soft);
   color: inherit;
   text-align: left;
   cursor: pointer;
-  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease, opacity 180ms ease;
 }
 
 .feed-card:hover,
@@ -1026,12 +1089,57 @@ onBeforeUnmount(() => {
   box-shadow: inset 0 0 0 1px var(--color-line-strong);
 }
 
+.feed-card:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--color-accent), 0 0 0 2px rgba(121, 212, 231, 0.14);
+}
+
+.feed-fade-enter-active,
+.feed-fade-leave-active,
+.feed-fade-move {
+  transition: transform 220ms ease, opacity 220ms ease;
+}
+
+.feed-fade-enter-from,
+.feed-fade-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.feed-fade-leave-active {
+  pointer-events: none;
+}
+
+
 .feed-video {
   width: 100%;
   aspect-ratio: 16 / 10;
   border-radius: var(--radius-sm);
   object-fit: cover;
   background: var(--color-bg-strong);
+}
+
+
+.feed-delete {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: 3;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(10, 18, 30, 0.72);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 1;
+  cursor: pointer;
+  transition: opacity 180ms ease, transform 180ms ease, color 180ms ease;
+}
+
+.feed-delete:hover {
+  color: var(--color-text-primary);
+  transform: translateY(-1px);
 }
 
 .feed-error {

@@ -38,17 +38,17 @@ const durationText = computed(() => {
 
 const emptyText = computed(() => {
   if (!props.report) {
-    return '当前还没有可展示的过程片段。'
+    return '等待过程片段'
   }
   if (!props.displayState.ready) {
     if (props.report.ready_frames > 0) {
-      return `已形成 ${props.report.ready_frames} 帧连续判断，正在等待更稳定的过程片段。`
+      return `已形成 ${props.report.ready_frames} 帧连续判断`
     }
     if (props.report.total_frames > 0) {
-      return `已读取 ${props.report.total_frames} 帧，正在建立连续时序窗口。`
+      return `已读取 ${props.report.total_frames} 帧`
     }
   }
-  return '还没有形成稳定过程片段。'
+  return '等待稳定片段'
 })
 </script>
 
@@ -56,8 +56,7 @@ const emptyText = computed(() => {
   <section class="session-panel">
     <header class="head">
       <div>
-        <h2>这段过程</h2>
-        <p>状态持续与风险高点。</p>
+        <h2>过程摘要</h2>
       </div>
     </header>
 
@@ -114,12 +113,6 @@ const emptyText = computed(() => {
   letter-spacing: -0.03em;
 }
 
-.head p {
-  margin: var(--space-2) 0 0;
-  color: var(--color-text-secondary);
-  font-size: 13px;
-}
-
 .summary-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -141,8 +134,8 @@ const emptyText = computed(() => {
 .summary-strip dd {
   margin: 0;
   color: var(--color-text-primary);
-  font-size: 22px;
-  font-weight: 700;
+  font-size: 19px;
+  font-weight: 650;
   line-height: 1.04;
   letter-spacing: -0.04em;
 }

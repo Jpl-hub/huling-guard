@@ -59,7 +59,11 @@ interface RuntimeStoreState {
   selectedArchiveReport: SessionReport | null
   archiveFilterState: string
   archiveIncidentsOnly: boolean
+  archiveSearchQuery: string
+  archiveDateRange: string[]
   archiveSaving: boolean
+  bulkRemovingSources: boolean
+  bulkRemovingArchives: boolean
   lastUpdatedAt: string
   mode: ViewMode
 }
@@ -91,7 +95,11 @@ const state = reactive<RuntimeStoreState>({
   selectedArchiveReport: null,
   archiveFilterState: '',
   archiveIncidentsOnly: false,
+  archiveSearchQuery: '',
+  archiveDateRange: [],
   archiveSaving: false,
+  bulkRemovingSources: false,
+  bulkRemovingArchives: false,
   lastUpdatedAt: '',
   mode: 'care',
 })
@@ -123,7 +131,7 @@ async function refreshArchives(): Promise<void> {
 
   const [archivesPayload, archiveSummaryPayload] = await Promise.all([
     runtimeApi.archives({
-      limit: 16,
+      limit: 120,
       dominantState: state.archiveFilterState || undefined,
       incidentsOnly: state.archiveIncidentsOnly,
     }),
@@ -263,6 +271,26 @@ async function archiveSession(): Promise<void> {
   }
 }
 
+async function deleteArchive(sessionId: string): Promise<void> {
+  if (!sessionId) {
+    return
+  }
+  if (!state.meta?.archive_enabled) {
+    Message.warning('当前未启用历史归档')
+    return
+  }
+  state.errorMessage = ''
+  try {
+    await runtimeApi.deleteArchive(sessionId)
+    Message.success('已删除该条历史留档')
+    await refreshArchives()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '删除失败'
+    state.errorMessage = message
+    Message.error(message)
+  }
+}
+
 async function resetRuntime(): Promise<void> {
   await runtimeApi.reset()
   Message.success('已重新开始判断')
@@ -310,6 +338,122 @@ async function uploadVideo(file: File): Promise<void> {
   }
 }
 
+async function deleteDemoVideo(filename: string): Promise<void> {
+  const item = state.demoVideos.find((entry) => entry.filename === filename)
+  if (!item) {
+    return
+  }
+  if (item.source_kind !== 'upload') {
+    Message.warning('仅可移除上传的视频源')
+    return
+  }
+  if (item.processing_status === 'processing') {
+    Message.warning('该视频仍在分析中，请稍后再试')
+    return
+  }
+  state.errorMessage = ''
+  try {
+    await runtimeApi.deleteDemoVideo(filename)
+    state.demoVideos = state.demoVideos.filter((entry) => entry.filename !== filename)
+    if (state.selectedDemoFilename === filename) {
+      state.selectedDemoFilename = preferredDemoFilename(state.demoVideos)
+      await selectDemo(state.selectedDemoFilename)
+    }
+    Message.success('已移除该上传视频')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '移除失败'
+    state.errorMessage = message
+    Message.error(message)
+  }
+}
+
+async function clearRemovableUploadSources(): Promise<void> {
+  if (state.bulkRemovingSources) {
+    return
+  }
+  const targets = state.demoVideos.filter(
+    (item) => item.source_kind === 'upload' && item.processing_status !== 'processing',
+  )
+  if (!targets.length) {
+    Message.info('当前没有可清理的上传源')
+    return
+  }
+
+  state.bulkRemovingSources = true
+  state.errorMessage = ''
+  let removed = 0
+  let blocked = 0
+
+  try {
+    for (const item of targets) {
+      try {
+        await runtimeApi.deleteDemoVideo(item.filename)
+        removed += 1
+      } catch {
+        blocked += 1
+      }
+    }
+    await refreshDemos()
+    const currentExists = state.demoVideos.some((item) => item.filename === state.selectedDemoFilename)
+    if (!currentExists) {
+      state.selectedDemoFilename = preferredDemoFilename(state.demoVideos)
+      await selectDemo(state.selectedDemoFilename)
+    }
+    if (removed > 0 && blocked > 0) {
+      Message.success(`已清理 ${removed} 路上传源，另有 ${blocked} 路因被留档引用或状态受限未移除`)
+      return
+    }
+    if (removed > 0) {
+      Message.success(`已清理 ${removed} 路上传源`)
+      return
+    }
+    Message.info('没有可直接移除的上传源')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '批量清理失败'
+    state.errorMessage = message
+    Message.error(message)
+  } finally {
+    state.bulkRemovingSources = false
+  }
+}
+
+async function clearQuietArchives(): Promise<void> {
+  if (state.bulkRemovingArchives) {
+    return
+  }
+  if (!state.meta?.archive_enabled) {
+    Message.warning('当前未启用历史归档')
+    return
+  }
+
+  state.bulkRemovingArchives = true
+  state.errorMessage = ''
+  let removed = 0
+
+  try {
+    const archiveLimit = Math.min(Math.max(Number(state.archiveSummary?.archive_total ?? 32), 32), 500)
+    const payload = await runtimeApi.archives({ limit: archiveLimit })
+    const targets = payload.items.filter((item) => Number(item.incident_total ?? 0) <= 0)
+    if (!targets.length) {
+      Message.info('当前没有可清理的普通留档')
+      return
+    }
+
+    for (const item of targets) {
+      await runtimeApi.deleteArchive(item.session_id)
+      removed += 1
+    }
+    await refreshArchives()
+    Message.success(`已清理 ${removed} 条无提醒留档`)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '批量清理失败'
+    state.errorMessage = message
+    Message.error(message)
+  } finally {
+    state.bulkRemovingArchives = false
+  }
+}
+
 async function startLiveIngest(payload: { source: string; sourceLabel?: string }): Promise<void> {
   const source = payload.source.trim()
   if (!source) {
@@ -350,6 +494,14 @@ function setArchiveFilterState(next: string): void {
 function setArchiveIncidentsOnly(next: boolean): void {
   state.archiveIncidentsOnly = next
   void refreshArchives()
+}
+
+function setArchiveSearchQuery(next: string): void {
+  state.archiveSearchQuery = next
+}
+
+function setArchiveDateRange(next: string[]): void {
+  state.archiveDateRange = next.filter(Boolean).slice(0, 2)
 }
 
 const useLiveRuntime = computed(() => Boolean(state.liveSource?.available))
@@ -528,15 +680,21 @@ export function useRuntimeStore() {
     refresh,
     selectDemo,
     uploadVideo,
+    deleteDemoVideo,
+    clearRemovableUploadSources,
+    clearQuietArchives,
     startLiveIngest,
     stopLiveIngest,
     loadArchive,
     archiveSession,
+    deleteArchive,
     resetRuntime,
     updateDemoPlayback,
     setMode,
     setArchiveFilterState,
     setArchiveIncidentsOnly,
+    setArchiveSearchQuery,
+    setArchiveDateRange,
     startPolling,
     stopPolling,
   }
