@@ -1054,7 +1054,7 @@ def create_runtime_app(
 
     @app.get("/archives")
     def list_archives(
-        limit: int = Query(default=20, ge=1, le=200),
+        limit: int = Query(default=20, ge=1, le=500),
         dominant_state: str | None = Query(default=None),
         incidents_only: bool = Query(default=False),
     ) -> dict[str, object]:

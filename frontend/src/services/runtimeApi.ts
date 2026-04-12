@@ -86,7 +86,7 @@ export const runtimeApi = {
 
   archives: (params: { limit?: number; dominantState?: string; incidentsOnly?: boolean }) => {
     const search = new URLSearchParams()
-    const limit = Math.min(Math.max(Number(params.limit ?? 16), 1), 200)
+    const limit = Math.min(Math.max(Number(params.limit ?? 16), 1), 500)
     search.set('limit', String(limit))
     if (params.dominantState) {
       search.set('dominant_state', params.dominantState)
