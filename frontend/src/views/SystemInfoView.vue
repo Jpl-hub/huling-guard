@@ -199,7 +199,6 @@ const boundaryGroups = computed(() => [
           <small class="eyebrow">{{ store.state.systemProfile?.product_name || '护龄智守' }}</small>
           <h2>运行主链与场景感知</h2>
         </div>
-        <p>固定机位视频先经 RTMO 提取骨架，再进入时序网络和事件引擎，输出连续状态、风险等级与可复核过程。</p>
         <ul class="page-points">
           <li>RTMO 负责骨架提取与输入质量门控。</li>
           <li>时序网络负责连续动作状态判断。</li>
@@ -241,6 +240,7 @@ const boundaryGroups = computed(() => [
             </div>
 
             <div class="scene-plane layer-events">
+              <span class="scanner-line" />
               <span class="event-lane lane-a" />
               <span class="event-lane lane-b" />
               <span class="event-lane lane-c" />
@@ -279,7 +279,6 @@ const boundaryGroups = computed(() => [
     <section class="section-block">
       <header class="section-head">
         <h3>运行链路</h3>
-        <p>实时展示系统当前的处理管线与节点流转状态。</p>
       </header>
       <div class="pipeline-track" :data-ready="runtimeReady">
         <div v-for="(node, index) in pipelineNodes" :key="node.title" class="pipeline-node" :data-tone="node.tone">
@@ -294,7 +293,6 @@ const boundaryGroups = computed(() => [
     <section class="section-block state-block">
       <header class="section-head">
         <h3>识别状态</h3>
-        <p>展示系统支持的状态类型与对应的处置语义。</p>
       </header>
       <div class="state-list state-grid">
         <article v-for="item in stateCards" :key="item.code" class="line-row">
@@ -308,7 +306,6 @@ const boundaryGroups = computed(() => [
       <section class="section-block">
         <header class="section-head">
           <h3>当前质量面板</h3>
-          <p>展示当前骨架输入质量，用于辅助判断结果可信度。</p>
         </header>
         <div class="quality-list">
           <article v-for="item in qualityMeters" :key="item.label" class="quality-item">
@@ -327,7 +324,6 @@ const boundaryGroups = computed(() => [
       <section class="section-block">
         <header class="section-head">
           <h3>运行阈值雷达</h3>
-          <p>系统依据预设的安全基线触发自动预警。</p>
         </header>
         <div class="radar-shell">
           <VChart :option="thresholdRadarOption" autoresize class="radar-chart" />
@@ -344,7 +340,6 @@ const boundaryGroups = computed(() => [
     <section class="section-block boundary-block">
       <header class="section-head">
         <h3>质量控制与边界</h3>
-        <p>展示当前适用场景、接入方式与运行边界。</p>
       </header>
       <div class="boundary-grid">
         <section v-for="group in boundaryGroups" :key="group.title" class="boundary-group">
@@ -387,10 +382,6 @@ const boundaryGroups = computed(() => [
   display: grid;
   align-content: start;
   gap: var(--space-4);
-}
-
-.page-copy p {
-  max-width: 40ch;
 }
 
 .page-points {
@@ -569,8 +560,27 @@ const boundaryGroups = computed(() => [
 .right-leg { left: 58%; top: 58%; width: 86px; transform: rotate(66deg); }
 
 .layer-events {
+  overflow: hidden;
   transform: translateZ(108px);
   pointer-events: none;
+}
+
+.scanner-line {
+  position: absolute;
+  inset: -16% auto -16% 12%;
+  width: 58px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(245, 251, 255, 0.46), rgba(121, 212, 231, 0.78), transparent);
+  filter: blur(8px);
+  mix-blend-mode: screen;
+  opacity: 0.74;
+  transform: skewX(-18deg);
+  animation: scanner-pass 3.4s ease-in-out infinite;
+}
+
+.scene-shell[data-ready='false'] .scanner-line {
+  animation: none;
+  opacity: 0.12;
 }
 
 .event-lane {
@@ -639,7 +649,6 @@ const boundaryGroups = computed(() => [
 }
 
 .page-head p,
-.section-head p,
 .line-row p,
 .boundary-group li,
 .quality-item p {
@@ -673,7 +682,7 @@ const boundaryGroups = computed(() => [
 }
 
 .telemetry-value {
-  font-family: 'Consolas', 'SFMono-Regular', 'Menlo', monospace;
+  font-family: var(--font-mono);
   font-size: 22px;
   line-height: 1.05;
   letter-spacing: -0.04em;
@@ -728,8 +737,9 @@ const boundaryGroups = computed(() => [
 }
 
 .section-head {
-  display: grid;
-  gap: var(--space-1);
+  display: flex;
+  align-items: center;
+  min-height: 28px;
 }
 
 .section-head h3 {
@@ -924,6 +934,12 @@ const boundaryGroups = computed(() => [
   100% { background-position: -220% 0; opacity: 0.28; }
 }
 
+@keyframes scanner-pass {
+  0%, 20% { transform: translateX(-80px) skewX(-18deg); opacity: 0; }
+  42% { opacity: 0.78; }
+  78%, 100% { transform: translateX(520px) skewX(-18deg); opacity: 0; }
+}
+
 @keyframes flow {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
@@ -1014,6 +1030,7 @@ const boundaryGroups = computed(() => [
 @media (prefers-reduced-motion: reduce) {
   .scene-stack,
   .event-lane,
+  .scanner-line,
   .pipeline-track[data-ready='true'] .pipeline-node:not(:last-child)::after,
   .status-dot {
     animation: none;

@@ -16,7 +16,9 @@ const pageHint = computed(() =>
     ? '查看监视器、输入状态和风险分布。'
     : route.path === '/records'
       ? '检索、筛选并回看已保存过程。'
-      : route.path === '/system'
+      : route.path === '/brief'
+        ? '汇总留档、提醒和重点复核记录。'
+        : route.path === '/system'
         ? '查看处理管线、阈值和质量控制。'
         : '查看当前状态、最近变化和处理建议。',
 )
@@ -128,6 +130,10 @@ function openLive(): void {
 
 function openRecords(): void {
   void router.push('/records')
+}
+
+function openBrief(): void {
+  void router.push('/brief')
 }
 
 function openMatrix(): void {
@@ -288,6 +294,7 @@ onBeforeUnmount(() => {
           <div class="drawer-actions">
             <a-button size="large" type="primary" @click="openLive">进入实时值守</a-button>
             <a-button size="large" @click="openRecords">查看历史回看</a-button>
+            <a-button size="large" @click="openBrief">生成交接班简报</a-button>
             <a-button size="large" @click="openMatrix">返回监视器总览</a-button>
             <a-button size="large" @click="triggerRefresh">刷新全部状态</a-button>
           </div>

@@ -1,5 +1,7 @@
 :root {
-  font-family: "Aptos", "Segoe UI Variable", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  --font-ui: "SF Pro Display", "Aptos", "Segoe UI Variable", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "SFMono-Regular", "Cascadia Mono", "Consolas", "Menlo", monospace;
+  font-family: var(--font-ui);
   line-height: 1.5;
   font-weight: 400;
   color: #eef6ff;

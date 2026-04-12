@@ -7,6 +7,7 @@ const items = [
   { path: '/matrix', label: '监视器总览' },
   { path: '/live', label: '实时值守' },
   { path: '/records', label: '历史回看' },
+  { path: '/brief', label: '交接班' },
   { path: '/system', label: '运行引擎' },
 ]
 </script>

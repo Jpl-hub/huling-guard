@@ -32,6 +32,14 @@ const router = createRouter({
       },
     },
     {
+      path: '/brief',
+      component: () => import('../views/ShiftBriefView.vue'),
+      meta: {
+        title: '交接班简报',
+        subtitle: '',
+      },
+    },
+    {
       path: '/system',
       component: () => import('../views/SystemInfoView.vue'),
       meta: {

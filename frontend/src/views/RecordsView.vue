@@ -144,7 +144,7 @@ const emptyStateText = computed(() => {
   }
   if (store.state.archiveFilterState) {
     if ((selected?.count ?? 0) <= 0) {
-      return `这里还没有“${selected?.label || '该状态'}”记录。`
+      return `暂无“${selected?.label || '该状态'}”记录。`
     }
     return `没有可显示的“${selected?.label || '该状态'}”记录。`
   }
@@ -187,7 +187,6 @@ function handleDeleteArchive(sessionId: string) {
         <header class="records-head">
           <div class="records-head-copy">
             <h2>已保存过程</h2>
-            <p>按状态、关键词和日期筛选。</p>
           </div>
           <div class="filters">
             <a-input-search
@@ -414,19 +413,12 @@ function handleDeleteArchive(sessionId: string) {
 
 .records-head-copy {
   display: grid;
-  gap: var(--space-2);
 }
 
 .records-head h2 {
   margin: 0;
   font-size: 24px;
   letter-spacing: -0.04em;
-}
-
-.records-head-copy p {
-  margin: 0;
-  color: var(--color-text-secondary);
-  font-size: 13px;
 }
 
 .filters {
