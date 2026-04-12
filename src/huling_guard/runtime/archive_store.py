@@ -344,3 +344,20 @@ class RuntimeArchiveStore:
         if row is None:
             raise FileNotFoundError(session_id)
         return str(row["report_markdown"])
+
+    def delete_archive(self, session_id: str) -> dict[str, Any]:
+        record = self._select_record(session_id)
+        json_path = Path(record["json_path"]).resolve()
+        markdown_path = Path(record["markdown_path"]).resolve()
+
+        for path in (json_path, markdown_path):
+            try:
+                path.unlink(missing_ok=True)
+            except Exception:
+                pass
+
+        with self._connect() as connection:
+            connection.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
+            connection.commit()
+
+        return record

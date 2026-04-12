@@ -263,6 +263,26 @@ async function archiveSession(): Promise<void> {
   }
 }
 
+async function deleteArchive(sessionId: string): Promise<void> {
+  if (!sessionId) {
+    return
+  }
+  if (!state.meta?.archive_enabled) {
+    Message.warning('当前未启用历史归档')
+    return
+  }
+  state.errorMessage = ''
+  try {
+    await runtimeApi.deleteArchive(sessionId)
+    Message.success('已删除该条历史留档')
+    await refreshArchives()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '删除失败'
+    state.errorMessage = message
+    Message.error(message)
+  }
+}
+
 async function resetRuntime(): Promise<void> {
   await runtimeApi.reset()
   Message.success('已重新开始判断')
@@ -307,6 +327,35 @@ async function uploadVideo(file: File): Promise<void> {
     Message.error(message)
   } finally {
     state.uploadingVideo = false
+  }
+}
+
+async function deleteDemoVideo(filename: string): Promise<void> {
+  const item = state.demoVideos.find((entry) => entry.filename === filename)
+  if (!item) {
+    return
+  }
+  if (item.source_kind !== 'upload') {
+    Message.warning('仅可移除上传的视频源')
+    return
+  }
+  if (item.processing_status === 'processing') {
+    Message.warning('该视频仍在分析中，请稍后再试')
+    return
+  }
+  state.errorMessage = ''
+  try {
+    await runtimeApi.deleteDemoVideo(filename)
+    state.demoVideos = state.demoVideos.filter((entry) => entry.filename !== filename)
+    if (state.selectedDemoFilename === filename) {
+      state.selectedDemoFilename = preferredDemoFilename(state.demoVideos)
+      await selectDemo(state.selectedDemoFilename)
+    }
+    Message.success('已移除该上传视频')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '移除失败'
+    state.errorMessage = message
+    Message.error(message)
   }
 }
 
@@ -528,10 +577,12 @@ export function useRuntimeStore() {
     refresh,
     selectDemo,
     uploadVideo,
+    deleteDemoVideo,
     startLiveIngest,
     stopLiveIngest,
     loadArchive,
     archiveSession,
+    deleteArchive,
     resetRuntime,
     updateDemoPlayback,
     setMode,

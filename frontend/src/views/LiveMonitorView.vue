@@ -29,6 +29,17 @@ const probabilityEntries = computed(() =>
 const quality = computed(() => store.currentDataQuality.value)
 const pageTone = computed(() => stateTone(store.displayState.value.predictedState, store.displayState.value.riskScore))
 const report = computed(() => store.displayReport.value)
+const riskPercent = computed(() => formatPercent(store.displayState.value.riskScore, 1))
+const riskLabel = computed(() => {
+  const risk = Number(store.displayState.value.riskScore ?? 0)
+  if (!store.displayState.value.ready) {
+    return "等待判断"
+  }
+  if (risk >= 0.9) return "极高"
+  if (risk >= 0.7) return "较高"
+  if (risk >= 0.5) return "升高"
+  return "稳定"
+})
 const currentDurationText = computed(() =>
   report.value ? formatSeconds(report.value.duration_seconds) : '-',
 )
@@ -105,6 +116,14 @@ const flowDescription = computed(() =>
     ? '按时间顺序查看状态变化。'
     : '查看状态分布、骨架质量和运行参数。',
 )
+
+function handleDeleteDemo(filename: string) {
+  if (!window.confirm("确定要移除该上传视频吗？")) {
+    return
+  }
+  void store.deleteDemoVideo(filename)
+}
+
 </script>
 
 <template>
@@ -145,6 +164,7 @@ const flowDescription = computed(() =>
           @upload-video="store.uploadVideo"
           @start-live-ingest="store.startLiveIngest"
           @stop-live-ingest="store.stopLiveIngest"
+          @delete-demo="handleDeleteDemo"
           @playback-update="store.updateDemoPlayback"
         />
 
@@ -180,9 +200,13 @@ const flowDescription = computed(() =>
           </div>
 
           <div class="decision-inline">
-            <article>
+            <article class="risk-block">
               <span>当前风险</span>
-              <strong>{{ formatRisk(store.displayState.value.riskScore) }}</strong>
+              <strong>{{ riskPercent }}</strong>
+              <em class="risk-label">{{ riskLabel }}</em>
+              <div class="risk-meter" :data-tone="pageTone" aria-hidden="true">
+                <span :style="{ width: `${Math.min(100, store.displayState.value.riskScore * 100)}%` }" />
+              </div>
             </article>
             <article>
               <span>最近提醒</span>

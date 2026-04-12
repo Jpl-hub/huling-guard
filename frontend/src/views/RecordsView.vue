@@ -105,6 +105,14 @@ const emptyStateText = computed(() => {
   }
   return '没有可展示的回看记录。'
 })
+
+function handleDeleteArchive(sessionId: string) {
+  if (!window.confirm("确定要删除这条历史留档吗？")) {
+    return
+  }
+  void store.deleteArchive(sessionId)
+}
+
 </script>
 
 <template>
@@ -168,6 +176,14 @@ const emptyStateText = computed(() => {
                 <img :src="entry.demoVideo.poster_url" :alt="entry.item.session_name || entry.item.session_id" />
               </div>
               <div class="archive-body">
+
+          <button
+            type="button"
+            class="archive-delete"
+            @click.stop="handleDeleteArchive(entry.item.session_id)"
+          >
+            删除
+          </button>
                 <div class="title-row">
                   <div>
                     <strong>{{ entry.title }}</strong>
@@ -386,6 +402,30 @@ const emptyStateText = computed(() => {
 
 .archive-item.active::before {
   background: var(--color-accent);
+}
+
+.archive-delete {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(10, 18, 30, 0.75);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 180ms ease, color 180ms ease;
+}
+
+.archive-item:hover .archive-delete {
+  opacity: 1;
+}
+
+.archive-delete:hover {
+  color: var(--color-text-primary);
 }
 
 .archive-row {

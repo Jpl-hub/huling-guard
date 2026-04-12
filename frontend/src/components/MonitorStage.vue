@@ -30,6 +30,7 @@ const emit = defineEmits<{
   uploadVideo: [value: File]
   startLiveIngest: [value: { source: string; sourceLabel?: string }]
   stopLiveIngest: []
+  deleteDemo: [value: string]
   playbackUpdate: [value: { currentTime: number; duration: number; started: boolean }]
 }>()
 const clock = ref('')
@@ -568,6 +569,15 @@ onBeforeUnmount(() => {
           >
             当前浏览器无法播放缩略监看流。
           </video>
+
+          <button
+            v-if="item.source_kind === 'upload'"
+            type="button"
+            class="feed-delete"
+            @click.stop="emit('deleteDemo', item.filename)"
+          >
+            移除
+          </button>
           <div v-if="feedVideoErrors[item.filename]" class="feed-error">源不可用</div>
           <div class="feed-meta">
             <div class="feed-meta-row">
@@ -1070,6 +1080,33 @@ onBeforeUnmount(() => {
   border-radius: var(--radius-sm);
   object-fit: cover;
   background: var(--color-bg-strong);
+}
+
+
+.feed-delete {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: 3;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(10, 18, 30, 0.72);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 180ms ease, transform 180ms ease, color 180ms ease;
+}
+
+.feed-card:hover .feed-delete {
+  opacity: 1;
+}
+
+.feed-delete:hover {
+  color: var(--color-text-primary);
+  transform: translateY(-1px);
 }
 
 .feed-error {
