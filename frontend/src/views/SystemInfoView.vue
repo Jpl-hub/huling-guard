@@ -63,7 +63,7 @@ const telemetryItems = computed(() => [
   { label: '时序记忆', value: `${windowSizeLabel.value} 帧`, detail: windowSpanLabel.value, tone: 'neutral' },
   { label: '更新步长', value: `${strideLabel.value} 帧`, detail: '按连续时间窗更新', tone: 'neutral' },
   { label: '特征口径', value: featureSetLabel.value, detail: '骨架、运动学、场景关系联合输入', tone: 'neutral' },
-  { label: '房间先验', value: runtimeMeta.value?.scene_prior_loaded || runtimeProfile.value?.scene_prior_loaded ? '已加载' : '未加载', detail: '用于区分床上躺卧与地面卧倒', tone: runtimeMeta.value?.scene_prior_loaded || runtimeProfile.value?.scene_prior_loaded ? 'ok' : 'watch' },
+  { label: '房间先验', value: runtimeMeta.value?.scene_prior_loaded || runtimeProfile.value?.scene_prior_loaded ? '已加载' : '未加载', detail: '床面 / 地面区分', tone: runtimeMeta.value?.scene_prior_loaded || runtimeProfile.value?.scene_prior_loaded ? 'ok' : 'watch' },
   { label: '历史归档', value: runtimeMeta.value?.archive_enabled || runtimeProfile.value?.archive_enabled ? '已开启' : '未开启', detail: '过程可保存、可复看、可复核', tone: runtimeMeta.value?.archive_enabled || runtimeProfile.value?.archive_enabled ? 'ok' : 'watch' },
 ])
 
@@ -164,29 +164,29 @@ const stateCards = computed(() => (store.state.systemProfile?.detectable_states 
   ...item,
   note:
     item.code === 'normal'
-      ? '建立正常活动基线，降低日常动作误报。'
+      ? '日常动作基线'
       : item.code === 'near_fall'
-        ? '识别明显失衡趋势，用于提前提示。'
+        ? '失衡趋势提示'
         : item.code === 'fall'
-          ? '识别跌倒过程并触发高优先级提醒。'
+          ? '高优先级提醒'
           : item.code === 'recovery'
-            ? '识别异常后的起身恢复过程。'
-            : '识别持续低位停留并升级长卧风险。',
+            ? '恢复过程'
+            : '低位停留升级',
 })))
 
 const qualityControls = computed(() => store.state.systemProfile?.quality_controls ?? [])
 const boundaryGroups = computed(() => [
   {
     title: '适合的场景',
-    items: ['单房间、固定机位、连续值守。', '重点判断是否安全、是否需要立即查看。', '需要过程留档和后续复核。'],
+    items: ['单房间固定机位', '安全状态与到场判断', '过程留档与复核'],
   },
   {
     title: '接入方式',
-    items: ['本机摄像头或系统可见的视频设备。', 'RTSP 视频流。', '本地视频文件。'],
+    items: ['本机摄像头', 'RTSP 视频流', '本地视频文件'],
   },
   {
     title: '当前边界',
-    items: ['不主打多路集中调度。', '不主打移动机位和频繁变焦。', '不能直接接入封闭型纯云摄像头。'],
+    items: ['不主打多路调度', '不主打移动机位', '不接封闭云摄像头'],
   },
 ])
 </script>
@@ -197,12 +197,12 @@ const boundaryGroups = computed(() => [
       <div class="page-copy">
         <div>
           <small class="eyebrow">{{ store.state.systemProfile?.product_name || '护龄智守' }}</small>
-          <h2>运行主链与场景感知</h2>
+          <h2>运行引擎</h2>
         </div>
         <ul class="page-points">
-          <li>RTMO 负责骨架提取与输入质量门控。</li>
-          <li>时序网络负责连续动作状态判断。</li>
-          <li>事件引擎负责提醒升级、归档与复核。</li>
+          <li>RTMO 骨架</li>
+          <li>时序 Transformer</li>
+          <li>事件引擎</li>
         </ul>
       </div>
 
@@ -297,7 +297,7 @@ const boundaryGroups = computed(() => [
       <div class="state-list state-grid">
         <article v-for="item in stateCards" :key="item.code" class="line-row">
           <strong>{{ item.label }}</strong>
-          <p>{{ item.note }}</p>
+          <span>{{ item.note }}</span>
         </article>
       </div>
     </section>
@@ -316,7 +316,7 @@ const boundaryGroups = computed(() => [
             <div class="quality-bar" :data-empty="item.value === null" aria-hidden="true">
               <span :style="{ width: item.value === null ? '0%' : `${Math.max(0, Math.min(100, item.value * 100))}%` }" />
             </div>
-            <p>{{ item.detail }}</p>
+            <span class="quality-detail">{{ item.detail }}</span>
           </article>
         </div>
       </section>
@@ -373,9 +373,10 @@ const boundaryGroups = computed(() => [
 
 .page-head h2 {
   margin: var(--space-1) 0 0;
-  font-size: clamp(30px, 4vw, 46px);
-  line-height: 0.95;
-  letter-spacing: -0.06em;
+  font-size: clamp(26px, 2.8vw, 36px);
+  font-weight: 650;
+  line-height: 1.02;
+  letter-spacing: -0.045em;
 }
 
 .page-copy {
@@ -385,31 +386,22 @@ const boundaryGroups = computed(() => [
 }
 
 .page-points {
-  display: grid;
+  display: flex;
   gap: var(--space-2);
+  flex-wrap: wrap;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .page-points li {
-  position: relative;
-  padding-left: 16px;
-  color: var(--color-text-secondary);
-  font-size: 13px;
-  line-height: 1.7;
-}
-
-.page-points li::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 9px;
-  width: 6px;
-  height: 6px;
+  padding: 7px 10px;
+  border: 1px solid var(--color-line-soft);
   border-radius: 999px;
-  background: var(--color-accent);
-  box-shadow: 0 0 0 6px rgba(121, 212, 231, 0.08);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
 }
 
 .page-scene {
@@ -648,10 +640,9 @@ const boundaryGroups = computed(() => [
   max-width: 220px;
 }
 
-.page-head p,
-.line-row p,
+.line-row span,
 .boundary-group li,
-.quality-item p {
+.quality-detail {
   margin: 0;
   color: var(--color-text-secondary);
   font-size: 13px;
@@ -744,8 +735,9 @@ const boundaryGroups = computed(() => [
 
 .section-head h3 {
   margin: 0;
-  font-size: 22px;
-  letter-spacing: -0.04em;
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.035em;
 }
 
 .pipeline-track {
@@ -977,7 +969,7 @@ const boundaryGroups = computed(() => [
 
 @media (max-width: 640px) {
   .page-head h2 {
-    font-size: 28px;
+    font-size: 26px;
   }
 
   .telemetry-strip,

@@ -78,13 +78,13 @@ const evidenceItems = computed(() => {
     items.push({
       label: '最近变化',
       value: report.value?.ready_frames
-        ? `系统正在就绪 · ${report.value.ready_frames} 帧`
-        : '系统正在就绪。',
+        ? `就绪中 · ${report.value.ready_frames} 帧`
+        : '就绪中',
     })
   } else {
     items.push({
       label: '最近变化',
-      value: '暂无正式提醒。',
+      value: '无正式提醒',
     })
   }
 
@@ -116,12 +116,13 @@ const evidenceItems = computed(() => {
 })
 
 const nextSteps = computed(() => store.verdict.value.steps.slice(0, 2))
-const flowTitle = computed(() => (store.state.mode === 'care' ? '最近 10 秒过程' : '算法分析'))
-const flowDescription = computed(() =>
-  store.state.mode === 'care'
-    ? '按时间顺序查看状态变化。'
-    : '查看状态分布、骨架质量和运行参数。',
-)
+const flowTitle = computed(() => (store.state.mode === 'care' ? '状态流' : '算法分析'))
+const decisionFacts = computed(() => [
+  { label: '连续检视', value: currentDurationText.value },
+  { label: '当前风险', value: riskPercent.value, tone: pageTone.value },
+  { label: '风险等级', value: riskLabel.value },
+  { label: '最近提醒', value: store.displayIncidents.value.length ? `${store.displayIncidents.value.length} 条` : '无' },
+])
 
 function handleDeleteDemo(filename: string) {
   if (!window.confirm("确定要移除该上传视频吗？")) {
@@ -141,7 +142,6 @@ function handleDeleteDemo(filename: string) {
           <span class="banner-source">{{ store.displaySource.value.label }}</span>
         </div>
         <h1>{{ answerCards[0]?.value ?? store.verdict.value.title }}</h1>
-        <p>{{ store.verdict.value.detail }}</p>
       </div>
 
       <dl class="banner-strip">
@@ -178,7 +178,6 @@ function handleDeleteDemo(filename: string) {
           <header class="flow-head">
             <div>
               <h2>{{ flowTitle }}</h2>
-              <p>{{ flowDescription }}</p>
             </div>
             <div class="flow-tools">
               <span class="flow-chip">{{ store.state.mode === 'care' ? '过程视图' : '算法分析' }}</span>
@@ -205,26 +204,17 @@ function handleDeleteDemo(filename: string) {
           <div class="decision-copy">
             <small>当前结论</small>
             <h2>{{ store.verdict.value.action }}</h2>
-            <p>这段画面已连续判断 {{ currentDurationText }}。</p>
           </div>
 
-          <div class="decision-inline">
-            <article class="risk-block">
-              <span>当前风险</span>
-              <strong>{{ riskPercent }}</strong>
-              <em class="risk-label">{{ riskLabel }}</em>
-              <div class="risk-meter" :data-tone="pageTone" aria-hidden="true">
-                <span :style="{ width: `${Math.min(100, store.displayState.value.riskScore * 100)}%` }" />
-              </div>
-            </article>
-            <article>
-              <span>最近提醒</span>
-              <strong>{{ store.displayIncidents.value.length ? `${store.displayIncidents.value.length} 条` : '无' }}</strong>
-            </article>
-            <article>
-              <span>本段时长</span>
-              <strong>{{ currentDurationText }}</strong>
-            </article>
+          <dl class="decision-grid">
+            <div v-for="fact in decisionFacts" :key="fact.label" :data-tone="fact.tone || 'neutral'">
+              <dt>{{ fact.label }}</dt>
+              <dd>{{ fact.value }}</dd>
+            </div>
+          </dl>
+
+          <div class="risk-meter" :data-tone="pageTone" aria-hidden="true">
+            <span :style="{ width: `${Math.min(100, store.displayState.value.riskScore * 100)}%` }" />
           </div>
 
           <div class="evidence-block">
@@ -243,9 +233,9 @@ function handleDeleteDemo(filename: string) {
             <header>
               <h3>处置建议</h3>
             </header>
-            <ol>
-              <li v-for="step in nextSteps" :key="step">{{ step }}</li>
-            </ol>
+            <div class="action-chips">
+              <span v-for="step in nextSteps" :key="step">{{ step }}</span>
+            </div>
           </div>
 
           <div class="command-actions">
@@ -284,7 +274,6 @@ function handleDeleteDemo(filename: string) {
           <header class="xray-head">
             <div>
               <h2>算法分析</h2>
-              <p>状态分布、骨架质量与运行参数。</p>
             </div>
           </header>
 
@@ -316,7 +305,7 @@ function handleDeleteDemo(filename: string) {
               <strong>{{ formatRisk(Number(probability)) }}</strong>
             </article>
           </div>
-          <div v-else class="empty-inline">当前没有可展示的状态分布。</div>
+          <div v-else class="empty-inline">等待状态分布</div>
         </section>
       </aside>
     </section>
@@ -377,16 +366,9 @@ function handleDeleteDemo(filename: string) {
 .banner-main h1 {
   margin: 0;
   color: var(--color-text-primary);
-  font-size: clamp(28px, 3.4vw, 44px);
+  font-size: clamp(24px, 2.4vw, 34px);
   line-height: 0.96;
-  letter-spacing: -0.06em;
-}
-
-.banner-main p {
-  margin: 0;
-  max-width: 58ch;
-  color: var(--color-text-secondary);
-  font-size: 14px;
+  letter-spacing: -0.045em;
 }
 
 .banner-strip {
@@ -474,15 +456,6 @@ function handleDeleteDemo(filename: string) {
   letter-spacing: -0.03em;
 }
 
-.flow-head p,
-.xray-head p,
-.evidence-block p,
-.action-block p {
-  margin: var(--space-2) 0 0;
-  color: var(--color-text-secondary);
-  font-size: 13px;
-}
-
 .decision-panel {
   display: grid;
   gap: var(--space-5);
@@ -518,40 +491,68 @@ function handleDeleteDemo(filename: string) {
 .decision-copy h2 {
   margin: 0;
   color: var(--color-text-primary);
-  font-size: clamp(30px, 3.2vw, 42px);
+  font-size: clamp(24px, 2.5vw, 34px);
   line-height: 0.98;
   letter-spacing: -0.05em;
 }
 
-.decision-copy p {
-  margin: 10px 0 0;
-  color: var(--color-text-secondary);
-  font-size: 14px;
-}
-
-.decision-inline {
+.decision-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-4);
+  margin: 0;
 }
 
-.decision-inline article {
+.decision-grid div {
   padding-top: var(--space-3);
   border-top: 1px solid var(--color-line-soft);
 }
 
-.decision-inline span {
-  display: block;
+.decision-grid dt {
   margin-bottom: var(--space-2);
   color: var(--color-text-tertiary);
   font-size: 12px;
 }
 
-.decision-inline strong {
+.decision-grid dd {
+  margin: 0;
   color: var(--color-text-primary);
-  font-size: 22px;
+  font-size: 20px;
+  font-weight: 650;
   line-height: 1.05;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.035em;
+}
+
+.decision-grid div[data-tone='alert'] dd {
+  color: var(--color-text-alert);
+}
+
+.decision-grid div[data-tone='watch'] dd {
+  color: var(--color-text-watch);
+}
+
+.risk-meter {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-surface-soft);
+  overflow: hidden;
+}
+
+.risk-meter span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--color-accent);
+  transition: width 180ms ease;
+}
+
+.risk-meter[data-tone='watch'] span {
+  background: var(--color-watch);
+}
+
+.risk-meter[data-tone='alert'] span {
+  background: var(--color-alert);
 }
 
 .evidence-block,
@@ -560,8 +561,7 @@ function handleDeleteDemo(filename: string) {
   gap: var(--space-3);
 }
 
-.evidence-block ul,
-.action-block ol {
+.evidence-block ul {
   display: grid;
   gap: var(--space-3);
   margin: 0;
@@ -569,30 +569,39 @@ function handleDeleteDemo(filename: string) {
   list-style: none;
 }
 
-.evidence-block li,
-.action-block li {
+.evidence-block li {
   display: grid;
   gap: 6px;
-  padding: 14px 0;
+  padding: 12px 0;
   border-top: 1px solid var(--color-line-soft);
 }
 
-.evidence-block li span,
-.action-block li::marker {
+.evidence-block li span {
   color: var(--color-text-tertiary);
   font-size: 12px;
 }
 
-.evidence-block li strong,
-.action-block li {
+.evidence-block li strong {
   font-size: 14px;
-  line-height: 1.6;
+  font-weight: 550;
+  line-height: 1.45;
   color: var(--color-text-primary);
 }
 
-.action-block ol {
-  list-style: decimal;
-  padding-left: 18px;
+.action-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.action-chips span {
+  padding: 8px 11px;
+  border: 1px solid var(--color-line-soft);
+  border-radius: 999px;
+  color: var(--color-text-primary);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .command-actions {
@@ -701,7 +710,7 @@ function handleDeleteDemo(filename: string) {
 
 @media (max-width: 760px) {
   .banner-strip,
-  .decision-inline,
+  .decision-grid,
   .quality-grid,
   .command-column,
   .probability-row {

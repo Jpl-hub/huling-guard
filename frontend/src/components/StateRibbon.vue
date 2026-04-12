@@ -38,8 +38,7 @@ const markers = computed(() =>
   <section class="ribbon-panel">
     <header class="head">
       <div>
-        <h2>过程回看</h2>
-        <p>用一条连续色带看懂这段过程里状态是怎么变化的。</p>
+        <h2>状态色带</h2>
       </div>
       <span v-if="report" class="duration-chip">全程 {{ formatSeconds(report.duration_seconds) }}</span>
     </header>
@@ -72,7 +71,7 @@ const markers = computed(() =>
       </div>
     </div>
     <div v-else class="empty">
-      当前还没有足够的状态片段可供回看。
+      等待状态片段
     </div>
   </section>
 </template>
@@ -92,15 +91,8 @@ const markers = computed(() =>
 
 .head h2 {
   margin: 0 0 6px;
-  font-size: 20px;
+  font-size: 18px;
   letter-spacing: -0.03em;
-}
-
-.head p {
-  margin: 0;
-  color: rgba(201, 217, 235, 0.72);
-  font-size: 13px;
-  line-height: 1.55;
 }
 
 .duration-chip {

@@ -13,25 +13,13 @@ const props = defineProps<{
   viewMode: ViewMode
 }>()
 
-const helperText = computed(() => {
-  if (props.incidents.length) {
-    return '需要处理的关键时刻。'
-  }
-  if (!props.displayState.ready && (props.report?.total_frames ?? 0) > 0) {
-    return props.report?.ready_frames
-      ? '系统已形成部分连续判断，正在等待正式提醒。'
-      : '系统已进入分析，正在建立时序窗口。'
-  }
-  return '需要处理的关键时刻。'
-})
-
 const emptyText = computed(() => {
   if (!props.displayState.ready && (props.report?.total_frames ?? 0) > 0) {
     return props.report?.ready_frames
-      ? '已经开始形成连续判断，目前还没有正式提醒。'
-      : '已经开始分析这段视频，正在等待第一段连续结论。'
+      ? '连续判断中'
+      : '时序窗口建立中'
   }
-  return '暂无需要处理的变化。'
+  return '暂无需要处理的变化'
 })
 </script>
 
@@ -40,7 +28,6 @@ const emptyText = computed(() => {
     <header class="head">
       <div>
         <h2>最近变化</h2>
-        <p>{{ helperText }}</p>
       </div>
       <span>{{ incidents.length ? `${incidents.length} 条` : '无提醒' }}</span>
     </header>
@@ -57,7 +44,7 @@ const emptyText = computed(() => {
             <strong>{{ incidentLabel(incident.kind) }}</strong>
             <span class="action-pill">{{ incidentAction(incident.kind) }}</span>
           </div>
-          <p>
+          <div class="event-meta">
             {{ formatTimestamp(incident.timestamp) }}
             <template v-if="incident.payload?.predicted_state">
               · 当前判断 {{ stateLabel(String(incident.payload.predicted_state) as any) }}
@@ -65,7 +52,7 @@ const emptyText = computed(() => {
             <template v-if="viewMode === 'xray'">
               · 置信度 {{ formatRisk(incident.confidence) }}
             </template>
-          </p>
+          </div>
         </div>
       </article>
     </div>
@@ -92,12 +79,6 @@ const emptyText = computed(() => {
   margin: 0;
   font-size: 18px;
   letter-spacing: -0.03em;
-}
-
-.head p {
-  margin: var(--space-2) 0 0;
-  color: var(--color-text-secondary);
-  font-size: 13px;
 }
 
 .head span:last-child {
@@ -155,7 +136,7 @@ const emptyText = computed(() => {
   text-transform: uppercase;
 }
 
-.event-copy p {
+.event-meta {
   margin: 0;
   color: var(--color-text-secondary);
   font-size: 13px;

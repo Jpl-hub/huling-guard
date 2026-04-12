@@ -88,14 +88,6 @@ const option = computed(() => ({
     <header class="head">
       <div>
         <h2>风险时间线</h2>
-        <p>
-          <template v-if="peak">
-            最高风险出现在 {{ formatTimestamp(peak.timestamp) }}，状态 {{ stateLabel(peak.predicted_state) }}。
-          </template>
-          <template v-else>
-            当前还没有足够的时间线数据。
-          </template>
-        </p>
       </div>
       <span v-if="peak" class="peak-chip" :data-tone="stateTone(peak.predicted_state, peak.risk_score)">
         峰值 {{ formatRisk(peak.risk_score) }}
@@ -106,7 +98,7 @@ const option = computed(() => ({
       <VChart :option="option" autoresize class="chart" />
     </div>
     <div v-else class="empty">
-      暂无稳定时间线。系统完成热启动后，这里会显示风险变化轨迹。
+      等待风险时间线
     </div>
   </section>
 </template>
@@ -114,7 +106,7 @@ const option = computed(() => ({
 <style scoped>
 .timeline-panel {
   display: grid;
-  gap: 18px;
+  gap: 16px;
 }
 
 .head {

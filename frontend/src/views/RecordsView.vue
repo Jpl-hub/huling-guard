@@ -78,18 +78,18 @@ const selectedGuide = computed(() => {
   if (!report) {
     return {
       title: '选择一段过程',
-      detail: '左侧选中后立即回放。',
+      detail: '左侧选中后回放',
     }
   }
   if (report.incident_total > 0) {
     return {
       title: report.peak_risk ? '先看最高风险时刻' : '先看最近一次提醒',
-      detail: '再切到状态切片和风险页签复核。',
+      detail: '复核状态切片和风险页签',
     }
   }
   return {
-    title: '这段过程没有正式提醒',
-    detail: '可作为正常活动对照。',
+    title: '无正式提醒',
+    detail: '正常活动对照',
   }
 })
 
@@ -140,21 +140,21 @@ const activeReport = computed(() => (selectedArchiveVisible.value ? store.state.
 const emptyStateText = computed(() => {
   const selected = stateFilterOptions.value.find((item) => item.value === store.state.archiveFilterState)
   if (!(store.state.archiveSummary?.archive_total ?? 0)) {
-    return '暂无历史记录。请先在实时值守页保存当前过程。'
+    return '暂无历史记录'
   }
   if (store.state.archiveFilterState) {
     if ((selected?.count ?? 0) <= 0) {
-      return `暂无“${selected?.label || '该状态'}”记录。`
+      return `暂无“${selected?.label || '该状态'}”记录`
     }
-    return `没有可显示的“${selected?.label || '该状态'}”记录。`
+    return `没有可显示的“${selected?.label || '该状态'}”记录`
   }
   if (store.state.archiveIncidentsOnly) {
-    return '当前没有带提醒的记录。'
+    return '当前没有带提醒的记录'
   }
   if (store.state.archiveSearchQuery || store.state.archiveDateRange.length) {
-    return '当前筛选条件下没有匹配记录。'
+    return '当前筛选条件下没有匹配记录'
   }
-  return '没有可展示的回看记录。'
+  return '没有可展示的回看记录'
 })
 
 function handleDeleteArchive(sessionId: string) {
@@ -253,7 +253,7 @@ function handleDeleteArchive(sessionId: string) {
                 <div class="title-row">
                   <div>
                     <strong>{{ entry.title }}</strong>
-                    <p>{{ formatArchiveTime(entry.item.archived_at) }}</p>
+                    <span class="archive-time">{{ formatArchiveTime(entry.item.archived_at) }}</span>
                   </div>
                   <div class="archive-actions">
                     <span class="state-pill">{{ stateLabel(entry.item.dominant_state) }}</span>
@@ -316,7 +316,7 @@ function handleDeleteArchive(sessionId: string) {
 
 .overview-copy h2 {
   margin: 0;
-  font-size: 34px;
+  font-size: 28px;
   line-height: 0.96;
   letter-spacing: -0.05em;
 }
@@ -579,7 +579,7 @@ function handleDeleteArchive(sessionId: string) {
   font-size: 16px;
 }
 
-.title-row p {
+.archive-time {
   margin: 0;
   color: var(--color-text-tertiary);
   font-size: 12px;

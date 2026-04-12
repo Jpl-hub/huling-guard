@@ -80,7 +80,7 @@ const overviewStats = computed(() => [
   {
     label: '监看源',
     value: String(matrixItems.value.length + (store.state.liveSource?.available ? 1 : 0)),
-    detail: '可切换查看的输入源',
+    detail: '可切换输入源',
   },
   {
     label: '高风险源',
@@ -95,7 +95,7 @@ const overviewStats = computed(() => [
   {
     label: '历史留档',
     value: String(store.state.archiveSummary?.archive_total ?? 0),
-    detail: '已保存的可复核过程',
+    detail: '可复核过程',
   },
 ])
 
@@ -180,9 +180,8 @@ watch(
   <section class="matrix-page">
     <section class="matrix-hero">
       <div class="hero-copy">
-        <span class="eyebrow">监视器总览</span>
+        <span class="eyebrow">OVERVIEW</span>
         <h2>监视器总览</h2>
-        <p>用于快速查看当前可用监视器、分析状态和风险分布；单路详情在实时值守页展开。</p>
       </div>
 
       <div class="hero-stats">
@@ -278,10 +277,10 @@ watch(
 
 .matrix-hero {
   display: grid;
-  grid-template-columns: minmax(0, 0.78fr) minmax(520px, 1.22fr);
-  gap: var(--space-6);
+  grid-template-columns: minmax(0, 0.55fr) minmax(560px, 1.45fr);
+  gap: var(--space-7);
   align-items: end;
-  padding: var(--space-3) 2px var(--space-4);
+  padding: 0 2px var(--space-4);
   border-bottom: 1px solid var(--color-line-soft);
 }
 
@@ -299,17 +298,10 @@ watch(
 
 .hero-copy h2 {
   margin: 0;
-  font-size: clamp(34px, 5vw, 72px);
-  line-height: 0.96;
-  letter-spacing: -0.07em;
-}
-
-.hero-copy p {
-  max-width: 560px;
-  margin: 0;
-  color: var(--color-text-secondary);
-  font-size: 14px;
-  line-height: 1.75;
+  font-size: clamp(24px, 2.3vw, 32px);
+  font-weight: 650;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
 }
 
 .hero-stats {
@@ -319,11 +311,12 @@ watch(
 }
 
 .hero-stat {
-  min-height: 136px;
-  padding: var(--space-5);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-soft);
-  box-shadow: inset 0 0 0 1px var(--color-line-soft);
+  min-height: auto;
+  padding: var(--space-4) 0 0;
+  border-top: 1px solid var(--color-line-soft);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .hero-stat small,
@@ -337,10 +330,11 @@ watch(
 
 .hero-stat strong {
   display: block;
-  margin: var(--space-3) 0 var(--space-2);
-  font-size: 34px;
+  margin: var(--space-2) 0 var(--space-1);
+  font-size: 28px;
+  font-weight: 650;
   line-height: 1;
-  letter-spacing: -0.06em;
+  letter-spacing: -0.05em;
 }
 
 .hero-stat span,

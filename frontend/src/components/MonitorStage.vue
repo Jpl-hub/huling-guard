@@ -189,17 +189,17 @@ const videoTimeLabel = computed(() =>
 const playbackActionLabel = computed(() => (isVideoPlaying.value ? '暂停画面' : '播放并开始判断'))
 const analysisCopy = computed(() => {
   if (selectedVideo.value?.processing_status === 'failed') {
-    return selectedVideo.value.error_message || '这段上传视频分析失败，请更换视频后重试。'
+    return selectedVideo.value.error_message || '上传视频分析失败'
   }
   if (selectedVideo.value?.processing_status === 'processing') {
     const processed = Number(selectedVideo.value?.processed_frames ?? 0)
     if (processed <= 0) {
-      return '视频已经接入，系统正在读取画面并准备启动逐帧推理。'
+      return '视频接入中'
     }
     if (props.displayState.ready || (props.report?.ready_frames ?? 0) > 0) {
-      return '系统已经进入分析阶段，正在继续补全这段视频的状态时间线。'
+      return '状态时间线补全中'
     }
-    return '系统已经开始逐帧提取骨架，正在建立第一段连续时序判断。'
+    return '骨架提取中'
   }
   return ''
 })
@@ -253,7 +253,7 @@ const uploadProgressText = computed(() => {
 })
 
 const liveIngestHint = computed(() =>
-  props.liveIngest?.error_message || '支持 RTSP 地址、设备编号 0，或容器内可访问的视频路径。',
+  props.liveIngest?.error_message || 'RTSP / 设备编号 / 视频路径',
 )
 
 function submitLiveIngest() {
@@ -297,7 +297,7 @@ function markMainVideoFailed() {
     }, 0)
     return
   }
-  mainVideoError.value = '这段监看流暂时没有加载出来，可以先点“刷新状态”再试一次。'
+  mainVideoError.value = '监看流加载失败'
 }
 
 function syncVideoState() {
@@ -395,7 +395,7 @@ onBeforeUnmount(() => {
     <header class="stage-head">
       <div>
         <h2>当前画面</h2>
-        <p>{{ sourceModeLabel }} · {{ sourceLabel }}</p>
+        <span class="source-line">{{ sourceModeLabel }} · {{ sourceLabel }}</span>
       </div>
       <div class="stage-controls">
         <span class="mode-pill">{{ cameraCode }}</span>
@@ -424,7 +424,6 @@ onBeforeUnmount(() => {
     <section v-if="ingestPanelOpen || hasRunningIngest || liveIngest?.status === 'failed'" class="ingest-panel">
       <div class="ingest-copy">
         <h3>实时接入</h3>
-        <p>接入摄像头、RTSP 或视频文件后，系统将切换到该输入源进行连续分析。</p>
       </div>
 
       <div class="ingest-form">
@@ -484,9 +483,9 @@ onBeforeUnmount(() => {
         @pause="syncVideoState"
         @error="markMainVideoFailed"
       >
-        当前浏览器无法播放这段监看流。
+        当前浏览器无法播放监看流
       </video>
-      <div v-else class="video-empty">当前没有可播放的监看源。</div>
+      <div v-else class="video-empty">当前没有可播放的监看源</div>
       <div v-if="!hasLiveSource && selectedVideo" class="playback-panel">
         <button type="button" class="playback-button" @click.stop="togglePlayback">
           {{ playbackActionLabel }}
@@ -584,7 +583,7 @@ onBeforeUnmount(() => {
             @loadeddata="markFeedVideoLoaded(item.filename)"
             @error="markFeedVideoFailed(item.filename)"
           >
-            当前浏览器无法播放缩略监看流。
+            当前浏览器无法播放缩略监看流
           </video>
 
           <button

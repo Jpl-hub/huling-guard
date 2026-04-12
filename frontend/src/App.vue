@@ -11,17 +11,6 @@ const route = useRoute()
 const router = useRouter()
 
 const pageTitle = computed(() => String(route.meta.title ?? '实时值守'))
-const pageHint = computed(() =>
-  route.path === '/matrix'
-    ? '查看监视器、输入状态和风险分布。'
-    : route.path === '/records'
-      ? '检索、筛选并回看已保存过程。'
-      : route.path === '/brief'
-        ? '汇总留档、提醒和重点复核记录。'
-        : route.path === '/system'
-        ? '查看处理管线、阈值和质量控制。'
-        : '查看当前状态、最近变化和处理建议。',
-)
 const managementOpen = ref(false)
 const alertMuted = ref(false)
 const audioUnlocked = ref(false)
@@ -210,7 +199,6 @@ onBeforeUnmount(() => {
       <header class="context-bar">
         <div class="context-copy">
           <span class="context-label">{{ pageTitle }}</span>
-          <p>{{ pageHint }}</p>
         </div>
 
         <div class="page-actions">
@@ -280,7 +268,7 @@ onBeforeUnmount(() => {
           <label class="drawer-switch">
             <div>
               <strong>警报音提示</strong>
-              <span>检测到高风险事件时尝试播放提示音。</span>
+              <span>高风险事件提示音</span>
             </div>
             <a-switch :model-value="!alertMuted" @change="persistMute(!Boolean($event))" />
           </label>
@@ -342,9 +330,9 @@ onBeforeUnmount(() => {
             <strong>当前规则</strong>
           </header>
           <ul class="drawer-rules">
-            <li>已被历史留档引用的上传视频不可直接删除。</li>
-            <li>分析中的上传视频不可删除，避免任务和回放断裂。</li>
-            <li>高风险提醒会在任意页面持续显示，直到状态回落。</li>
+            <li>已被历史留档引用的视频不可直接删除</li>
+            <li>分析中的上传视频不可删除</li>
+            <li>高风险提醒跨页面持续显示</li>
           </ul>
         </section>
       </div>
