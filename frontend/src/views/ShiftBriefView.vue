@@ -15,7 +15,7 @@ async function loadBrief(): Promise<void> {
   loading.value = true
   try {
     const [archivesPayload, summaryPayload] = await Promise.all([
-      runtimeApi.archives({ limit: 300 }),
+      runtimeApi.archives({ limit: 200 }),
       runtimeApi.archiveSummary(),
     ])
     records.value = archivesPayload.items
