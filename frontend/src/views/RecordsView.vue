@@ -34,6 +34,25 @@ const stateFilterOptions = computed(() => {
   }))
 })
 
+const archiveSearchTerm = computed(() => store.state.archiveSearchQuery.trim().toLowerCase())
+
+function inArchiveDateRange(archivedAt: string | null | undefined): boolean {
+  if (!archivedAt || store.state.archiveDateRange.length !== 2) {
+    return true
+  }
+  const [start, end] = store.state.archiveDateRange
+  if (!start || !end) {
+    return true
+  }
+  const current = new Date(archivedAt).getTime()
+  const startAt = new Date(`${start}T00:00:00`).getTime()
+  const endAt = new Date(`${end}T23:59:59.999`).getTime()
+  if (!Number.isFinite(current) || !Number.isFinite(startAt) || !Number.isFinite(endAt)) {
+    return true
+  }
+  return current >= startAt && current <= endAt
+}
+
 const overviewCards = computed(() => [
   {
     label: '已留档过程',
@@ -47,15 +66,15 @@ const overviewCards = computed(() => [
   },
   {
     label: '当前选中',
-    value: stateLabel(store.state.selectedArchiveReport?.dominant_state ?? store.state.archiveSummary?.latest_archive?.dominant_state ?? null),
-    detail: store.state.selectedArchiveReport
-      ? `本段时长 ${formatSeconds(store.state.selectedArchiveReport.duration_seconds)}`
+    value: stateLabel(activeReport.value?.dominant_state ?? store.state.archiveSummary?.latest_archive?.dominant_state ?? null),
+    detail: activeReport.value
+      ? `本段时长 ${formatSeconds(activeReport.value.duration_seconds)}`
       : formatArchiveTime(store.state.archiveSummary?.latest_archive?.archived_at ?? null),
   },
 ])
 
 const selectedGuide = computed(() => {
-  const report = store.state.selectedArchiveReport
+  const report = activeReport.value
   if (!report) {
     return {
       title: '选择一段过程',
@@ -75,19 +94,48 @@ const selectedGuide = computed(() => {
 })
 
 const archiveEntries = computed(() =>
-  (store.state.archives?.items ?? []).map((item) => {
-    const demoVideo = matchDemoVideo(store.state.demoVideos, [item.session_name, item.session_id])
-    return {
-      item,
-      demoVideo,
-      title: archiveDisplayName(
+  (store.state.archives?.items ?? [])
+    .map((item) => {
+      const demoVideo = matchDemoVideo(store.state.demoVideos, [item.session_name, item.session_id])
+      const title = archiveDisplayName(
         item.session_name,
         item.archived_at,
         demoVideo?.original_name || demoVideo?.name || null,
-      ),
-    }
-  }),
+      )
+      return {
+        item,
+        demoVideo,
+        title,
+      }
+    })
+    .filter((entry) => {
+      if (!inArchiveDateRange(entry.item.archived_at)) {
+        return false
+      }
+      if (!archiveSearchTerm.value) {
+        return true
+      }
+      const searchField = [
+        entry.title,
+        entry.item.session_name ?? '',
+        entry.item.session_id,
+        stateLabel(entry.item.dominant_state),
+        formatArchiveTime(entry.item.archived_at),
+        entry.item.archived_at ?? '',
+        entry.demoVideo?.original_name ?? '',
+        entry.demoVideo?.name ?? '',
+      ]
+        .join(' ')
+        .toLowerCase()
+      return searchField.includes(archiveSearchTerm.value)
+    }),
 )
+
+const selectedArchiveVisible = computed(() =>
+  archiveEntries.value.some((entry) => entry.item.session_id === store.state.selectedArchiveId),
+)
+
+const activeReport = computed(() => (selectedArchiveVisible.value ? store.state.selectedArchiveReport : null))
 
 const emptyStateText = computed(() => {
   const selected = stateFilterOptions.value.find((item) => item.value === store.state.archiveFilterState)
@@ -102,6 +150,9 @@ const emptyStateText = computed(() => {
   }
   if (store.state.archiveIncidentsOnly) {
     return '当前没有带提醒的记录。'
+  }
+  if (store.state.archiveSearchQuery || store.state.archiveDateRange.length) {
+    return '当前筛选条件下没有匹配记录。'
   }
   return '没有可展示的回看记录。'
 })
@@ -134,10 +185,27 @@ function handleDeleteArchive(sessionId: string) {
     <section class="records-layout">
       <section class="records-list">
         <header class="records-head">
-          <div>
+          <div class="records-head-copy">
             <h2>已保存过程</h2>
+            <p>按状态、关键词和日期筛选。</p>
           </div>
           <div class="filters">
+            <a-input-search
+              :model-value="store.state.archiveSearchQuery"
+              size="large"
+              allow-clear
+              placeholder="搜索状态、日期或视频名称"
+              @input="store.setArchiveSearchQuery(String($event ?? ''))"
+              @clear="store.setArchiveSearchQuery('')"
+            />
+            <a-range-picker
+              :model-value="store.state.archiveDateRange"
+              size="large"
+              value-format="YYYY-MM-DD"
+              allow-clear
+              @change="store.setArchiveDateRange(Array.isArray($event) ? $event.map(String) : [])"
+              @clear="store.setArchiveDateRange([])"
+            />
             <a-select
               :model-value="store.state.archiveFilterState"
               size="large"
@@ -204,7 +272,7 @@ function handleDeleteArchive(sessionId: string) {
               </div>
             </div>
           </article>
-          <div v-if="!(store.state.archives?.items?.length)" class="empty">
+          <div v-if="!archiveEntries.length" class="empty">
             <a-empty>
               <template #description>
                 <span>{{ emptyStateText }}</span>
@@ -220,7 +288,7 @@ function handleDeleteArchive(sessionId: string) {
           <span>{{ selectedGuide.detail }}</span>
         </div>
         <ArchivePreviewCard
-          :report="store.state.selectedArchiveReport"
+          :report="activeReport"
           :demo-videos="store.state.demoVideos"
         />
       </section>
@@ -343,17 +411,28 @@ function handleDeleteArchive(sessionId: string) {
   margin-bottom: var(--space-5);
 }
 
+.records-head-copy {
+  display: grid;
+  gap: var(--space-2);
+}
+
 .records-head h2 {
   margin: 0;
   font-size: 24px;
   letter-spacing: -0.04em;
 }
 
+.records-head-copy p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
 .filters {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(220px, 1.1fr) minmax(220px, 0.9fr) minmax(160px, 0.7fr) auto;
   gap: var(--space-3);
   align-items: center;
-  flex-wrap: wrap;
 }
 
 .switch-line {
@@ -561,6 +640,11 @@ function handleDeleteArchive(sessionId: string) {
 
   .records-head {
     flex-direction: column;
+  }
+
+  .filters {
+    grid-template-columns: 1fr;
+    width: 100%;
   }
 
   .archive-row {

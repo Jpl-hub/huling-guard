@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 
 import EventFeed from '../components/EventFeed.vue'
+import ModeSwitch from '../components/ModeSwitch.vue'
 import MonitorStage from '../components/MonitorStage.vue'
 import RiskTimelineChart from '../components/RiskTimelineChart.vue'
 import SessionSummaryPanel from '../components/SessionSummaryPanel.vue'
@@ -18,6 +19,11 @@ import {
 } from '../utils/presenters'
 
 const store = useRuntimeStore()
+
+const modeModel = computed({
+  get: () => store.state.mode,
+  set: (value) => store.setMode(value),
+})
 
 const answerCards = computed(() => store.quickAnswers.value)
 const liveFrameUrl = computed(() => store.liveFrameUrl.value)
@@ -110,7 +116,7 @@ const evidenceItems = computed(() => {
 })
 
 const nextSteps = computed(() => store.verdict.value.steps.slice(0, 2))
-const flowTitle = computed(() => (store.state.mode === 'care' ? '最近 10 秒过程' : '算法透视'))
+const flowTitle = computed(() => (store.state.mode === 'care' ? '最近 10 秒过程' : '算法分析'))
 const flowDescription = computed(() =>
   store.state.mode === 'care'
     ? '按时间顺序查看状态变化。'
@@ -174,7 +180,10 @@ function handleDeleteDemo(filename: string) {
               <h2>{{ flowTitle }}</h2>
               <p>{{ flowDescription }}</p>
             </div>
-            <span class="flow-chip">{{ store.state.mode === 'care' ? '过程视图' : '引擎透视' }}</span>
+            <div class="flow-tools">
+              <span class="flow-chip">{{ store.state.mode === 'care' ? '过程视图' : '算法分析' }}</span>
+              <ModeSwitch v-model="modeModel" />
+            </div>
           </header>
 
           <StateRibbon
@@ -274,7 +283,7 @@ function handleDeleteDemo(filename: string) {
         <section v-if="store.state.mode === 'xray'" class="side-panel xray-panel">
           <header class="xray-head">
             <div>
-              <h2>算法透视</h2>
+              <h2>算法分析</h2>
               <p>状态分布、骨架质量与运行参数。</p>
             </div>
           </header>
@@ -446,6 +455,14 @@ function handleDeleteDemo(filename: string) {
   justify-content: space-between;
   gap: var(--space-4);
   align-items: flex-start;
+}
+
+.flow-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .flow-head h2,

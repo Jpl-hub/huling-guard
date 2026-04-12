@@ -4,7 +4,7 @@ import { RouterLink, useRoute } from 'vue-router'
 const route = useRoute()
 
 const items = [
-  { path: '/matrix', label: '态势总览' },
+  { path: '/matrix', label: '监视器总览' },
   { path: '/live', label: '实时值守' },
   { path: '/records', label: '历史回看' },
   { path: '/system', label: '运行引擎' },

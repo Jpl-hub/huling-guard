@@ -180,9 +180,9 @@ watch(
   <section class="matrix-page">
     <section class="matrix-hero">
       <div class="hero-copy">
-        <span class="eyebrow">监看源总览</span>
-        <h2>多路态势墙</h2>
-        <p>用于快速查看当前可用输入源、分析状态和风险分布；单路详情在实时值守页展开。</p>
+        <span class="eyebrow">监视器总览</span>
+        <h2>监视器总览</h2>
+        <p>用于快速查看当前可用监视器、分析状态和风险分布；单路详情在实时值守页展开。</p>
       </div>
 
       <div class="hero-stats">

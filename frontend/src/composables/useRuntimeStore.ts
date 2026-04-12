@@ -59,6 +59,8 @@ interface RuntimeStoreState {
   selectedArchiveReport: SessionReport | null
   archiveFilterState: string
   archiveIncidentsOnly: boolean
+  archiveSearchQuery: string
+  archiveDateRange: string[]
   archiveSaving: boolean
   bulkRemovingSources: boolean
   bulkRemovingArchives: boolean
@@ -93,6 +95,8 @@ const state = reactive<RuntimeStoreState>({
   selectedArchiveReport: null,
   archiveFilterState: '',
   archiveIncidentsOnly: false,
+  archiveSearchQuery: '',
+  archiveDateRange: [],
   archiveSaving: false,
   bulkRemovingSources: false,
   bulkRemovingArchives: false,
@@ -127,7 +131,7 @@ async function refreshArchives(): Promise<void> {
 
   const [archivesPayload, archiveSummaryPayload] = await Promise.all([
     runtimeApi.archives({
-      limit: 16,
+      limit: 120,
       dominantState: state.archiveFilterState || undefined,
       incidentsOnly: state.archiveIncidentsOnly,
     }),
@@ -492,6 +496,14 @@ function setArchiveIncidentsOnly(next: boolean): void {
   void refreshArchives()
 }
 
+function setArchiveSearchQuery(next: string): void {
+  state.archiveSearchQuery = next
+}
+
+function setArchiveDateRange(next: string[]): void {
+  state.archiveDateRange = next.filter(Boolean).slice(0, 2)
+}
+
 const useLiveRuntime = computed(() => Boolean(state.liveSource?.available))
 const selectedDemoItem = computed<DemoVideoItem | null>(() =>
   state.demoVideos.find((item) => item.filename === state.selectedDemoFilename) ?? null,
@@ -681,6 +693,8 @@ export function useRuntimeStore() {
     setMode,
     setArchiveFilterState,
     setArchiveIncidentsOnly,
+    setArchiveSearchQuery,
+    setArchiveDateRange,
     startPolling,
     stopPolling,
   }

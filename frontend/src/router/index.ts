@@ -11,7 +11,7 @@ const router = createRouter({
       path: '/matrix',
       component: () => import('../views/MatrixWallView.vue'),
       meta: {
-        title: '态势总览',
+        title: '监视器总览',
         subtitle: '',
       },
     },

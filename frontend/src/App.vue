@@ -3,7 +3,6 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 
 import AppTopNav from './components/AppTopNav.vue'
-import ModeSwitch from './components/ModeSwitch.vue'
 import { useRuntimeStore } from './composables/useRuntimeStore'
 import { formatPercent, formatTimestamp, incidentLabel, stateTone } from './utils/presenters'
 
@@ -14,18 +13,13 @@ const router = useRouter()
 const pageTitle = computed(() => String(route.meta.title ?? '实时值守'))
 const pageHint = computed(() =>
   route.path === '/matrix'
-    ? '总览监看源、输入状态和风险分布。'
+    ? '查看监视器、输入状态和风险分布。'
     : route.path === '/records'
-    ? '查看留档过程与关键时刻。'
-    : route.path === '/system'
-      ? '查看处理管线、阈值和质量控制。'
-      : '查看当前状态、最近变化和处理建议。',
+      ? '检索、筛选并回看已保存过程。'
+      : route.path === '/system'
+        ? '查看处理管线、阈值和质量控制。'
+        : '查看当前状态、最近变化和处理建议。',
 )
-const modeModel = computed({
-  get: () => store.state.mode,
-  set: (value) => store.setMode(value),
-})
-
 const managementOpen = ref(false)
 const alertMuted = ref(false)
 const audioUnlocked = ref(false)
@@ -214,7 +208,6 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="page-actions">
-          <ModeSwitch v-model="modeModel" />
           <a-button size="large" @click="managementOpen = true">运行管理</a-button>
           <div class="service-pill" :data-ok="store.state.health?.status === 'ok'">
             <strong>{{ store.state.health?.status === 'ok' ? '运行正常' : '等待连接' }}</strong>
@@ -295,7 +288,7 @@ onBeforeUnmount(() => {
           <div class="drawer-actions">
             <a-button size="large" type="primary" @click="openLive">进入实时值守</a-button>
             <a-button size="large" @click="openRecords">查看历史回看</a-button>
-            <a-button size="large" @click="openMatrix">返回态势总览</a-button>
+            <a-button size="large" @click="openMatrix">返回监视器总览</a-button>
             <a-button size="large" @click="triggerRefresh">刷新全部状态</a-button>
           </div>
         </section>
