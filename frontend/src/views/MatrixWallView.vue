@@ -12,11 +12,27 @@ const router = useRouter()
 
 const reportCache = reactive<Record<string, { loading: boolean; report: SessionReport | null }>>({})
 
-const matrixItems = computed(() =>
-  store.state.demoVideos
+const matrixItems = computed(() => {
+  const rank = (item: DemoVideoItem) => {
+    if (item.source_kind === 'upload') {
+      return item.processing_status === 'processing' ? 0 : 1
+    }
+    return 2
+  }
+  return [...store.state.demoVideos]
     .filter((item) => item.processing_status !== 'failed')
-    .slice(0, 12),
-)
+    .sort((a, b) => {
+      const diff = rank(a) - rank(b)
+      if (diff !== 0) {
+        return diff
+      }
+      if (a.source_kind === 'upload' && b.source_kind === 'upload') {
+        return b.filename.localeCompare(a.filename)
+      }
+      return a.filename.localeCompare(b.filename)
+    })
+    .slice(0, 12)
+})
 
 const highRiskItems = computed(() =>
   matrixItems.value.filter((item) => {

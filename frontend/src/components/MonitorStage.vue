@@ -81,12 +81,17 @@ const selectedFeedIndex = computed(() =>
 )
 
 const showAnnotatedPlayback = computed(() => props.viewMode === 'xray' || overlayRequested.value)
+const canToggleOverlay = computed(() =>
+  Boolean(
+    !hasLiveSource.value
+      && selectedVideo.value?.processing_status === 'ready'
+      && selectedVideo.value?.annotated_url,
+  ),
+)
 const hasAnnotatedPlayback = computed(() =>
   Boolean(
     !preferRawPlayback.value
-      && !hasLiveSource.value
-      && selectedVideo.value?.processing_status === 'ready'
-      && selectedVideo.value?.annotated_url
+      && canToggleOverlay.value
       && showAnnotatedPlayback.value,
   ),
 )
@@ -266,6 +271,14 @@ function requestStopLiveIngest() {
   emit('stopLiveIngest')
 }
 
+function handleOverlayToggle(value: boolean) {
+  overlayRequested.value = value
+  if (value) {
+    preferRawPlayback.value = false
+    mainVideoError.value = ''
+  }
+}
+
 function markMainVideoLoaded() {
   mainVideoError.value = ''
   syncVideoState()
@@ -386,13 +399,13 @@ onBeforeUnmount(() => {
       </div>
       <div class="stage-controls">
         <span class="mode-pill">{{ cameraCode }}</span>
-        <label v-if="!hasLiveSource && selectedVideo?.annotated_url" class="overlay-toggle">
+        <label v-if="canToggleOverlay" class="overlay-toggle">
           <span>算法标绘</span>
           <a-switch
             size="small"
             :model-value="showAnnotatedPlayback"
             :disabled="viewMode === 'xray'"
-            @change="overlayRequested = Boolean($event)"
+            @change="handleOverlayToggle(Boolean($event))"
           />
         </label>
         <a-button size="large" @click="ingestPanelOpen = !ingestPanelOpen">实时接入</a-button>
