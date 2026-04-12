@@ -195,6 +195,7 @@ function handleDeleteArchive(sessionId: string) {
               size="large"
               allow-clear
               placeholder="搜索状态、日期或视频名称"
+              class="filter-control"
               @input="store.setArchiveSearchQuery(String($event ?? ''))"
               @clear="store.setArchiveSearchQuery('')"
             />
@@ -203,6 +204,7 @@ function handleDeleteArchive(sessionId: string) {
               size="large"
               value-format="YYYY-MM-DD"
               allow-clear
+              class="filter-control"
               @change="store.setArchiveDateRange(Array.isArray($event) ? $event.map(String) : [])"
               @clear="store.setArchiveDateRange([])"
             />
@@ -210,6 +212,7 @@ function handleDeleteArchive(sessionId: string) {
               :model-value="store.state.archiveFilterState"
               size="large"
               placeholder="全部状态"
+              class="filter-control"
               @change="store.setArchiveFilterState(String($event))"
             >
               <a-option
@@ -404,10 +407,8 @@ function handleDeleteArchive(sessionId: string) {
 }
 
 .records-head {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-5);
-  align-items: flex-start;
+  display: grid;
+  gap: var(--space-4);
   margin-bottom: var(--space-5);
 }
 
@@ -430,15 +431,28 @@ function handleDeleteArchive(sessionId: string) {
 
 .filters {
   display: grid;
-  grid-template-columns: minmax(220px, 1.1fr) minmax(220px, 0.9fr) minmax(160px, 0.7fr) auto;
+  grid-template-columns: 1fr;
   gap: var(--space-3);
-  align-items: center;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+}
+
+.filter-control,
+.filters :deep(.arco-picker),
+.filters :deep(.arco-select),
+.filters :deep(.arco-input-wrapper) {
+  width: 100%;
+  min-width: 0;
 }
 
 .switch-line {
-  display: inline-flex;
+  display: flex;
+  justify-content: space-between;
   gap: 10px;
   align-items: center;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-line-soft);
   color: var(--color-text-primary);
   font-size: 13px;
 }
@@ -636,15 +650,6 @@ function handleDeleteArchive(sessionId: string) {
   .preview-panel {
     padding: var(--space-4);
     border-radius: var(--radius-sm);
-  }
-
-  .records-head {
-    flex-direction: column;
-  }
-
-  .filters {
-    grid-template-columns: 1fr;
-    width: 100%;
   }
 
   .archive-row {
