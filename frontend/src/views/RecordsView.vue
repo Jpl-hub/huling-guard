@@ -176,20 +176,21 @@ function handleDeleteArchive(sessionId: string) {
                 <img :src="entry.demoVideo.poster_url" :alt="entry.item.session_name || entry.item.session_id" />
               </div>
               <div class="archive-body">
-
-          <button
-            type="button"
-            class="archive-delete"
-            @click.stop="handleDeleteArchive(entry.item.session_id)"
-          >
-            删除
-          </button>
                 <div class="title-row">
                   <div>
                     <strong>{{ entry.title }}</strong>
                     <p>{{ formatArchiveTime(entry.item.archived_at) }}</p>
                   </div>
-                  <span class="state-pill">{{ stateLabel(entry.item.dominant_state) }}</span>
+                  <div class="archive-actions">
+                    <span class="state-pill">{{ stateLabel(entry.item.dominant_state) }}</span>
+                    <button
+                      type="button"
+                      class="archive-delete"
+                      @click.stop="handleDeleteArchive(entry.item.session_id)"
+                    >
+                      删除留档
+                    </button>
+                  </div>
                 </div>
                 <div class="meta-row">
                   <span>时长 {{ formatSeconds(entry.item.duration_seconds) }}</span>
@@ -405,26 +406,19 @@ function handleDeleteArchive(sessionId: string) {
 }
 
 .archive-delete {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  padding: 6px 10px;
-  border-radius: 999px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
   border: 0;
-  background: rgba(10, 18, 30, 0.75);
-  color: var(--color-text-secondary);
+  background: var(--color-alert-soft);
+  color: var(--color-text-alert);
   font-size: 11px;
-  font-weight: 700;
-  opacity: 0;
+  font-weight: 800;
   cursor: pointer;
-  transition: opacity 180ms ease, color 180ms ease;
-}
-
-.archive-item:hover .archive-delete {
-  opacity: 1;
+  transition: background-color 180ms ease, color 180ms ease;
 }
 
 .archive-delete:hover {
+  background: rgba(255, 140, 144, 0.22);
   color: var(--color-text-primary);
 }
 
@@ -459,6 +453,13 @@ function handleDeleteArchive(sessionId: string) {
   display: flex;
   justify-content: space-between;
   gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.archive-actions {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
   flex-wrap: wrap;
 }
 

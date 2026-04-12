@@ -132,6 +132,13 @@ async function openItem(item: DemoVideoItem): Promise<void> {
   await router.push('/live')
 }
 
+function handleDeleteDemo(item: DemoVideoItem): void {
+  if (!window.confirm('确定要移除该上传视频吗？')) {
+    return
+  }
+  void store.deleteDemoVideo(item.filename)
+}
+
 watch(
   () => matrixItems.value.map((item) => `${item.filename}:${item.processing_status}`).join('|'),
   () => {
@@ -181,10 +188,9 @@ watch(
     </section>
 
     <section class="source-grid">
-      <button
+      <article
         v-for="(item, index) in matrixItems"
         :key="item.filename"
-        type="button"
         class="source-tile"
         :data-tone="toneFor(item)"
         @click="openItem(item)"
@@ -227,7 +233,11 @@ watch(
             </div>
           </dl>
         </div>
-      </button>
+
+        <div v-if="item.source_kind === 'upload'" class="tile-actions">
+          <button type="button" class="tile-delete" @click.stop="handleDeleteDemo(item)">移除上传源</button>
+        </div>
+      </article>
 
       <div v-if="!matrixItems.length" class="empty-wall">
         <a-empty>
@@ -466,6 +476,26 @@ watch(
 .tile-metrics dd {
   margin: 0;
   font-weight: 700;
+}
+
+.tile-actions {
+  padding: 0 var(--space-5) var(--space-5);
+}
+
+.tile-delete {
+  width: 100%;
+  min-height: 36px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-alert-soft);
+  color: var(--color-text-alert);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.tile-delete:hover {
+  background: rgba(255, 140, 144, 0.22);
 }
 
 .empty-wall {

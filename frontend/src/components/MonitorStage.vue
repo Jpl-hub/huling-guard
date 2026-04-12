@@ -576,7 +576,7 @@ onBeforeUnmount(() => {
             class="feed-delete"
             @click.stop="emit('deleteDemo', item.filename)"
           >
-            移除
+            移除上传源
           </button>
           <div v-if="feedVideoErrors[item.filename]" class="feed-error">源不可用</div>
           <div class="feed-meta">
@@ -1095,13 +1095,9 @@ onBeforeUnmount(() => {
   color: var(--color-text-secondary);
   font-size: 11px;
   font-weight: 700;
-  opacity: 0;
+  opacity: 1;
   cursor: pointer;
   transition: opacity 180ms ease, transform 180ms ease, color 180ms ease;
-}
-
-.feed-card:hover .feed-delete {
-  opacity: 1;
 }
 
 .feed-delete:hover {
