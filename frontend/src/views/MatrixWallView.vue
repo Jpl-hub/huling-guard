@@ -187,13 +187,17 @@ watch(
       <a-button type="primary" size="large" @click="router.push('/live')">进入实时接入</a-button>
     </section>
 
-    <section class="source-grid">
+    <transition-group name="tile-fade" tag="section" class="source-grid">
       <article
         v-for="(item, index) in matrixItems"
         :key="item.filename"
         class="source-tile"
         :data-tone="toneFor(item)"
+        role="button"
+        tabindex="0"
         @click="openItem(item)"
+        @keydown.enter.prevent="openItem(item)"
+        @keydown.space.prevent="openItem(item)"
       >
         <div class="tile-video">
           <video
@@ -246,7 +250,7 @@ watch(
           </template>
         </a-empty>
       </div>
-    </section>
+    </transition-group>
   </section>
 </template>
 
@@ -370,7 +374,6 @@ watch(
   display: grid;
   gap: var(--space-4);
   padding: 0;
-  border: 0;
   border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--color-surface-soft);
@@ -378,7 +381,7 @@ watch(
   text-align: left;
   cursor: pointer;
   box-shadow: inset 0 0 0 1px var(--color-line-soft);
-  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease, opacity 180ms ease;
 }
 
 .source-tile:hover {
@@ -386,6 +389,28 @@ watch(
   background: rgba(255, 255, 255, 0.045);
   box-shadow: inset 0 0 0 1px var(--color-accent-soft), var(--shadow-soft);
 }
+
+.source-tile:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--color-accent), 0 0 0 2px rgba(121, 212, 231, 0.14);
+}
+
+.tile-fade-enter-active,
+.tile-fade-leave-active,
+.tile-fade-move {
+  transition: transform 220ms ease, opacity 220ms ease;
+}
+
+.tile-fade-enter-from,
+.tile-fade-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.tile-fade-leave-active {
+  pointer-events: none;
+}
+
 
 .source-tile[data-tone='alert'] {
   box-shadow: inset 0 0 0 1px var(--color-alert-line), var(--shadow-alert);

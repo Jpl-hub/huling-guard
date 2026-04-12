@@ -545,14 +545,18 @@ onBeforeUnmount(() => {
         <span>{{ monitorFeeds.length }} 路</span>
       </div>
 
-      <div class="feed-strip">
-        <button
+      <transition-group name="feed-fade" tag="div" class="feed-strip">
+        <article
           v-for="(item, index) in monitorFeeds"
           :key="item.filename"
-          type="button"
           class="feed-card"
           :class="{ active: item.filename === selectedDemoFilename }"
+          role="button"
+          tabindex="0"
+          :aria-pressed="item.filename === selectedDemoFilename"
           @click="emit('selectDemo', item.filename)"
+          @keydown.enter.prevent="emit('selectDemo', item.filename)"
+          @keydown.space.prevent="emit('selectDemo', item.filename)"
         >
           <video
             :key="item.filename"
@@ -592,8 +596,8 @@ onBeforeUnmount(() => {
             </div>
             <span>{{ item.original_name || item.name }}</span>
           </div>
-        </button>
-      </div>
+        </article>
+      </transition-group>
     </section>
   </section>
 </template>
@@ -1057,14 +1061,13 @@ onBeforeUnmount(() => {
   display: grid;
   gap: var(--space-2);
   padding: var(--space-2);
-  border: 0;
   border-radius: var(--radius-md);
   background: transparent;
   box-shadow: inset 0 0 0 1px var(--color-line-soft);
   color: inherit;
   text-align: left;
   cursor: pointer;
-  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease, opacity 180ms ease;
 }
 
 .feed-card:hover,
@@ -1073,6 +1076,28 @@ onBeforeUnmount(() => {
   background: var(--color-accent-soft);
   box-shadow: inset 0 0 0 1px var(--color-line-strong);
 }
+
+.feed-card:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--color-accent), 0 0 0 2px rgba(121, 212, 231, 0.14);
+}
+
+.feed-fade-enter-active,
+.feed-fade-leave-active,
+.feed-fade-move {
+  transition: transform 220ms ease, opacity 220ms ease;
+}
+
+.feed-fade-enter-from,
+.feed-fade-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.feed-fade-leave-active {
+  pointer-events: none;
+}
+
 
 .feed-video {
   width: 100%;

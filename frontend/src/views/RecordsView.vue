@@ -162,14 +162,18 @@ function handleDeleteArchive(sessionId: string) {
           </div>
         </header>
 
-        <div class="archive-list">
-          <button
+        <transition-group name="stack-fade" tag="div" class="archive-list">
+          <article
             v-for="entry in archiveEntries"
             :key="entry.item.session_id"
-            type="button"
             class="archive-item"
             :class="{ active: entry.item.session_id === store.state.selectedArchiveId }"
+            role="button"
+            tabindex="0"
+            :aria-pressed="entry.item.session_id === store.state.selectedArchiveId"
             @click="store.loadArchive(entry.item.session_id)"
+            @keydown.enter.prevent="store.loadArchive(entry.item.session_id)"
+            @keydown.space.prevent="store.loadArchive(entry.item.session_id)"
           >
             <div class="archive-row">
               <div v-if="entry.demoVideo?.poster_url" class="archive-thumb">
@@ -199,7 +203,7 @@ function handleDeleteArchive(sessionId: string) {
                 </div>
               </div>
             </div>
-          </button>
+          </article>
           <div v-if="!(store.state.archives?.items?.length)" class="empty">
             <a-empty>
               <template #description>
@@ -207,7 +211,7 @@ function handleDeleteArchive(sessionId: string) {
               </template>
             </a-empty>
           </div>
-        </div>
+        </transition-group>
       </section>
 
       <section class="preview-panel">
@@ -378,11 +382,10 @@ function handleDeleteArchive(sessionId: string) {
   text-align: left;
   padding: 18px 18px 18px 22px;
   border-radius: var(--radius-md);
-  border: 0;
   background: var(--color-surface-soft);
   color: inherit;
   cursor: pointer;
-  transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+  transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease, opacity 180ms ease;
 }
 
 .archive-item::before {
@@ -404,6 +407,28 @@ function handleDeleteArchive(sessionId: string) {
 .archive-item.active::before {
   background: var(--color-accent);
 }
+
+.archive-item:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--color-accent), 0 0 0 2px rgba(121, 212, 231, 0.14);
+}
+
+.stack-fade-enter-active,
+.stack-fade-leave-active,
+.stack-fade-move {
+  transition: transform 220ms ease, opacity 220ms ease;
+}
+
+.stack-fade-enter-from,
+.stack-fade-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.stack-fade-leave-active {
+  pointer-events: none;
+}
+
 
 .archive-delete {
   padding: 7px 10px;

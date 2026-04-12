@@ -158,11 +158,51 @@ const boundaryGroups = computed(() => [
 <template>
   <section class="system-page">
     <header class="page-head">
-      <div>
-        <small class="eyebrow">{{ store.state.systemProfile?.product_name || '护龄智守' }}</small>
-        <h2>技术遥测与运行链路</h2>
+      <div class="page-copy">
+        <div>
+          <small class="eyebrow">{{ store.state.systemProfile?.product_name || '护龄智守' }}</small>
+          <h2>运行主链与场景感知</h2>
+        </div>
+        <p>固定机位视频先经 RTMO 提取骨架，再进入时序网络和事件引擎，输出连续状态、风险等级与可复核过程。</p>
+        <ul class="page-points">
+          <li>RTMO 负责骨架提取与输入质量门控。</li>
+          <li>时序网络负责连续动作状态判断。</li>
+          <li>事件引擎负责提醒升级、归档与复核。</li>
+        </ul>
       </div>
-      <p>展示当前运行参数、状态流、阈值口径与处理链路。</p>
+
+      <div class="page-scene">
+        <div class="scene-shell" :data-ready="runtimeReady">
+          <svg class="scene-svg" viewBox="0 0 640 420" aria-hidden="true">
+            <path class="room-line" d="M200 95H440V245H200Z" />
+            <path class="room-line" d="M200 95L120 180H520L440 95" />
+            <path class="room-line" d="M200 245L120 330H520L440 245" />
+            <path class="room-line" d="M120 180V330" />
+            <path class="room-line" d="M520 180V330" />
+            <path class="room-line" d="M200 95L200 245" />
+            <path class="room-line" d="M440 95V245" />
+            <path class="zone-bed" d="M154 286L248 286L286 244L202 244Z" />
+            <path class="zone-floor" d="M272 280L388 280L430 244L314 244Z" />
+            <path class="flow-line" d="M48 212C120 212 174 214 248 242" />
+            <path class="flow-line" d="M392 242C468 214 522 198 600 198" />
+            <circle class="subject-ring" cx="320" cy="248" r="26" />
+            <circle class="subject-core" cx="320" cy="248" r="10" />
+          </svg>
+
+          <div class="scene-tag tag-input">
+            <strong>输入层</strong>
+            <span>摄像头 / RTSP / 视频文件</span>
+          </div>
+          <div class="scene-tag tag-pose">
+            <strong>姿态层</strong>
+            <span>RTMO 骨架与质量门控</span>
+          </div>
+          <div class="scene-tag tag-engine">
+            <strong>决策层</strong>
+            <span>时序网络 + 事件引擎</span>
+          </div>
+        </div>
+      </div>
     </header>
 
     <section class="telemetry-strip">
@@ -268,11 +308,11 @@ const boundaryGroups = computed(() => [
 }
 
 .page-head {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 0.86fr) minmax(420px, 0.94fr);
   gap: var(--space-6);
-  align-items: end;
-  padding-bottom: var(--space-5);
+  align-items: stretch;
+  padding-bottom: var(--space-6);
   border-bottom: 1px solid var(--color-line-soft);
 }
 
@@ -282,6 +322,171 @@ const boundaryGroups = computed(() => [
   line-height: 0.95;
   letter-spacing: -0.06em;
 }
+
+.page-copy {
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+}
+
+.page-copy p {
+  max-width: 40ch;
+}
+
+.page-points {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.page-points li {
+  position: relative;
+  padding-left: 16px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.page-points li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 9px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  box-shadow: 0 0 0 6px rgba(121, 212, 231, 0.08);
+}
+
+.page-scene {
+  display: flex;
+  align-items: stretch;
+}
+
+.scene-shell {
+  position: relative;
+  width: 100%;
+  min-height: 340px;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.02);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.scene-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 32px 32px;
+  opacity: 0.18;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.88), transparent 90%);
+}
+
+.scene-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.room-line,
+.flow-line,
+.zone-bed,
+.zone-floor,
+.subject-ring,
+.subject-core {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.room-line {
+  stroke: rgba(121, 212, 231, 0.34);
+  stroke-width: 1.6;
+}
+
+.flow-line {
+  stroke: rgba(121, 212, 231, 0.56);
+  stroke-width: 2;
+  stroke-dasharray: 10 12;
+  opacity: 0.42;
+}
+
+.scene-shell[data-ready='true'] .flow-line {
+  animation: dash-flow 3.2s linear infinite;
+  opacity: 0.92;
+}
+
+.zone-bed {
+  fill: rgba(121, 212, 231, 0.08);
+  stroke: rgba(121, 212, 231, 0.38);
+  stroke-width: 1.4;
+}
+
+.zone-floor {
+  fill: rgba(255, 172, 92, 0.08);
+  stroke: rgba(255, 172, 92, 0.42);
+  stroke-width: 1.4;
+}
+
+.subject-ring {
+  stroke: rgba(121, 212, 231, 0.56);
+  stroke-width: 1.6;
+  transform-origin: center;
+  animation: pulse-ring 2.4s ease-in-out infinite;
+}
+
+.subject-core {
+  fill: rgba(121, 212, 231, 0.95);
+  filter: drop-shadow(0 0 10px rgba(121, 212, 231, 0.4));
+}
+
+.scene-tag {
+  position: absolute;
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(5, 14, 24, 0.78);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(8px);
+}
+
+.scene-tag strong {
+  font-size: 13px;
+  letter-spacing: -0.02em;
+}
+
+.scene-tag span {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.tag-input {
+  top: 18px;
+  left: 18px;
+  max-width: 220px;
+}
+
+.tag-pose {
+  left: 46%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  min-width: 220px;
+}
+
+.tag-engine {
+  top: 52px;
+  right: 18px;
+  max-width: 220px;
+}
+
 
 .page-head p,
 .section-head p,
@@ -563,6 +768,16 @@ const boundaryGroups = computed(() => [
   50% { opacity: 1; transform: scale(1.05); }
 }
 
+@keyframes pulse-ring {
+  0%, 100% { opacity: 0.52; transform: scale(0.96); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+
+@keyframes dash-flow {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -44; }
+}
+
 @keyframes flow {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
@@ -583,6 +798,10 @@ const boundaryGroups = computed(() => [
     grid-template-columns: 1fr;
     display: grid;
     align-items: start;
+  }
+
+  .page-scene {
+    order: -1;
   }
 
   .telemetry-strip,

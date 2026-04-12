@@ -153,7 +153,7 @@ function seekTo(timestamp: number | null | undefined) {
               </div>
             </div>
             <div v-else class="empty-inline">
-              当前记录没有可回放的视频源。
+              当前记录没有可回放的视频源；如原视频已被清理，仍可继续查看状态切片与风险记录。
             </div>
           </section>
         </a-tab-pane>

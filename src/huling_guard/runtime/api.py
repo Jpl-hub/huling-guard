@@ -799,6 +799,14 @@ def create_runtime_app(
         if str(metadata.get("source_kind") or "") != "upload":
             raise HTTPException(status_code=400, detail="only uploaded videos can be deleted")
 
+        if archive_store is not None:
+            archive_count = archive_store.count_archives_by_session_name(stem)
+            if archive_count > 0:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"该上传视频已被 {archive_count} 条历史留档引用，请先清理对应留档",
+                )
+
         with active_upload_jobs_lock:
             if stem in active_upload_jobs or str(metadata.get("processing_status") or "") == "processing":
                 raise HTTPException(status_code=409, detail="upload is still processing")
