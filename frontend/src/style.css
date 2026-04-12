@@ -65,6 +65,14 @@ body,
   margin: 0;
 }
 
+.arco-btn {
+  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease, opacity 160ms ease;
+}
+
+.arco-btn:not(.arco-btn-disabled):active {
+  transform: scale(0.985);
+}
+
 body {
   min-width: 320px;
   color: var(--color-text-primary);

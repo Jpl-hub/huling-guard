@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import VChart from 'vue-echarts'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -34,6 +34,29 @@ const deviceTone = computed(() => {
   return 'neutral'
 })
 const runtimeReady = computed(() => Boolean(runtimeSummary.value?.ready))
+const sceneTiltX = ref(0)
+const sceneTiltY = ref(0)
+const sceneStyle = computed<Record<string, string>>(() => ({
+  '--scene-tilt-x': `${sceneTiltX.value.toFixed(2)}deg`,
+  '--scene-tilt-y': `${sceneTiltY.value.toFixed(2)}deg`,
+}))
+
+function handleScenePointerMove(event: PointerEvent): void {
+  const target = event.currentTarget as HTMLElement
+  const rect = target.getBoundingClientRect()
+  if (!rect.width || !rect.height) {
+    return
+  }
+  const offsetX = ((event.clientX - rect.left) / rect.width - 0.5) * 2
+  const offsetY = ((event.clientY - rect.top) / rect.height - 0.5) * 2
+  sceneTiltX.value = -offsetY * 4
+  sceneTiltY.value = offsetX * 5
+}
+
+function resetSceneTilt(): void {
+  sceneTiltX.value = 0
+  sceneTiltY.value = 0
+}
 
 const telemetryItems = computed(() => [
   { label: '推理设备', value: deviceLabel.value, detail: deviceTone.value === 'ok' ? '已检测到加速设备' : '当前以运行时配置为准', tone: deviceTone.value },
@@ -64,7 +87,8 @@ const qualityMeters = computed(() => {
 })
 
 const thresholdRadarOption = computed(() => ({
-  animation: false,
+  animation: true,
+  animationDuration: 900,
   tooltip: {
     trigger: 'item',
     borderWidth: 0,
@@ -75,10 +99,10 @@ const thresholdRadarOption = computed(() => ({
     center: ['50%', '54%'],
     radius: '68%',
     splitNumber: 4,
-    axisName: { color: 'rgba(214, 225, 237, 0.74)', fontSize: 12 },
-    splitLine: { lineStyle: { color: 'rgba(120, 146, 176, 0.16)' } },
-    splitArea: { areaStyle: { color: ['rgba(255,255,255,0.01)', 'rgba(255,255,255,0.02)'] } },
-    axisLine: { lineStyle: { color: 'rgba(120, 146, 176, 0.14)' } },
+    axisName: { color: 'rgba(214, 225, 237, 0.78)', fontSize: 12 },
+    splitLine: { lineStyle: { color: ['rgba(121, 212, 231, 0.08)', 'rgba(121, 212, 231, 0.14)'] } },
+    splitArea: { areaStyle: { color: ['rgba(121, 212, 231, 0.00)', 'rgba(121, 212, 231, 0.025)'] } },
+    axisLine: { lineStyle: { color: 'rgba(121, 212, 231, 0.06)' } },
     indicator: [
       { name: '失衡阈值', max: 1 },
       { name: '跌倒阈值', max: 1 },
@@ -91,9 +115,21 @@ const thresholdRadarOption = computed(() => ({
       type: 'radar',
       symbol: 'circle',
       symbolSize: 6,
-      lineStyle: { width: 2, color: '#79d4e7' },
-      itemStyle: { color: '#79d4e7' },
-      areaStyle: { color: 'rgba(121, 212, 231, 0.18)' },
+      lineStyle: { width: 2, color: '#79d4e7', shadowBlur: 12, shadowColor: 'rgba(121, 212, 231, 0.42)' },
+      itemStyle: { color: '#79d4e7', borderColor: 'rgba(245, 251, 255, 0.86)', borderWidth: 1 },
+      areaStyle: {
+        color: {
+          type: 'radial',
+          x: 0.5,
+          y: 0.5,
+          r: 0.72,
+          colorStops: [
+            { offset: 0, color: 'rgba(121, 212, 231, 0.30)' },
+            { offset: 0.7, color: 'rgba(121, 212, 231, 0.12)' },
+            { offset: 1, color: 'rgba(121, 212, 231, 0.02)' },
+          ],
+        },
+      },
       data: [
         {
           value: [
@@ -172,22 +208,46 @@ const boundaryGroups = computed(() => [
       </div>
 
       <div class="page-scene">
-        <div class="scene-shell" :data-ready="runtimeReady">
-          <svg class="scene-svg" viewBox="0 0 640 420" aria-hidden="true">
-            <path class="room-line" d="M200 95H440V245H200Z" />
-            <path class="room-line" d="M200 95L120 180H520L440 95" />
-            <path class="room-line" d="M200 245L120 330H520L440 245" />
-            <path class="room-line" d="M120 180V330" />
-            <path class="room-line" d="M520 180V330" />
-            <path class="room-line" d="M200 95L200 245" />
-            <path class="room-line" d="M440 95V245" />
-            <path class="zone-bed" d="M154 286L248 286L286 244L202 244Z" />
-            <path class="zone-floor" d="M272 280L388 280L430 244L314 244Z" />
-            <path class="flow-line" d="M48 212C120 212 174 214 248 242" />
-            <path class="flow-line" d="M392 242C468 214 522 198 600 198" />
-            <circle class="subject-ring" cx="320" cy="248" r="26" />
-            <circle class="subject-core" cx="320" cy="248" r="10" />
-          </svg>
+        <div
+          class="scene-shell"
+          :data-ready="runtimeReady"
+          :style="sceneStyle"
+          role="img"
+          aria-label="固定机位场景下的三层运行引擎示意"
+          @pointermove="handleScenePointerMove"
+          @pointerleave="resetSceneTilt"
+        >
+          <div class="scene-glow" aria-hidden="true" />
+          <div class="scene-stack" aria-hidden="true">
+            <div class="scene-plane layer-base">
+              <div class="room-grid">
+                <span class="zone zone-bed">床面区</span>
+                <span class="zone zone-floor">地面区</span>
+                <span class="zone zone-edge">边界区</span>
+              </div>
+            </div>
+
+            <div class="scene-plane layer-pose">
+              <span class="skeleton-line spine" />
+              <span class="skeleton-line shoulder" />
+              <span class="skeleton-line hip" />
+              <span class="skeleton-line left-leg" />
+              <span class="skeleton-line right-leg" />
+              <span class="joint head" />
+              <span class="joint chest" />
+              <span class="joint pelvis" />
+              <span class="joint left-knee" />
+              <span class="joint right-knee" />
+            </div>
+
+            <div class="scene-plane layer-events">
+              <span class="event-lane lane-a" />
+              <span class="event-lane lane-b" />
+              <span class="event-lane lane-c" />
+              <span class="event-node node-a" />
+              <span class="event-node node-b" />
+            </div>
+          </div>
 
           <div class="scene-tag tag-input">
             <strong>输入层</strong>
@@ -367,13 +427,21 @@ const boundaryGroups = computed(() => [
 }
 
 .scene-shell {
+  --scene-tilt-x: 0deg;
+  --scene-tilt-y: 0deg;
   position: relative;
   width: 100%;
-  min-height: 340px;
+  min-height: 360px;
   overflow: hidden;
   border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.02);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  background:
+    radial-gradient(circle at 50% 54%, rgba(121, 212, 231, 0.13), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.055),
+    0 26px 80px rgba(0, 0, 0, 0.24);
+  perspective: 920px;
+  transform-style: preserve-3d;
 }
 
 .scene-shell::before {
@@ -381,73 +449,156 @@ const boundaryGroups = computed(() => [
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-  background-size: 32px 32px;
-  opacity: 0.18;
-  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.88), transparent 90%);
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 34px 34px;
+  opacity: 0.15;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.9), transparent 86%);
 }
 
-.scene-svg {
+.scene-glow {
+  position: absolute;
+  inset: 16% 12% 12%;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(121, 212, 231, 0.16), transparent 66%);
+  filter: blur(18px);
+  opacity: 0.75;
+}
+
+.scene-stack {
+  position: absolute;
+  inset: 40px 54px 70px;
+  transform-style: preserve-3d;
+  transform: rotateX(calc(58deg + var(--scene-tilt-x))) rotateZ(calc(-38deg + var(--scene-tilt-y))) translateY(8px);
+  transition: transform 180ms ease-out;
+}
+
+.scene-plane {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
+  border-radius: 18px;
+  transform-style: preserve-3d;
 }
 
-.room-line,
-.flow-line,
-.zone-bed,
-.zone-floor,
-.subject-ring,
-.subject-core {
-  fill: none;
-  vector-effect: non-scaling-stroke;
+.layer-base {
+  transform: translateZ(0);
+  background:
+    linear-gradient(90deg, rgba(121, 212, 231, 0.10), transparent 1px),
+    linear-gradient(rgba(121, 212, 231, 0.08), transparent 1px),
+    rgba(4, 13, 22, 0.78);
+  background-size: 42px 42px;
+  box-shadow:
+    inset 0 0 0 1px rgba(121, 212, 231, 0.16),
+    0 24px 46px rgba(0, 0, 0, 0.22);
 }
 
-.room-line {
-  stroke: rgba(121, 212, 231, 0.34);
-  stroke-width: 1.6;
+.room-grid {
+  position: absolute;
+  inset: 16px;
+  border: 1px solid rgba(121, 212, 231, 0.20);
+  border-radius: 14px;
 }
 
-.flow-line {
-  stroke: rgba(121, 212, 231, 0.56);
-  stroke-width: 2;
-  stroke-dasharray: 10 12;
-  opacity: 0.42;
-}
-
-.scene-shell[data-ready='true'] .flow-line {
-  animation: dash-flow 3.2s linear infinite;
-  opacity: 0.92;
+.zone {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  min-width: 76px;
+  min-height: 44px;
+  border-radius: 12px;
+  color: rgba(245, 251, 255, 0.86);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  background: rgba(121, 212, 231, 0.055);
+  box-shadow: inset 0 0 0 1px rgba(121, 212, 231, 0.18);
+  transform: translateZ(8px);
 }
 
 .zone-bed {
-  fill: rgba(121, 212, 231, 0.08);
-  stroke: rgba(121, 212, 231, 0.38);
-  stroke-width: 1.4;
+  left: 10%;
+  bottom: 12%;
 }
 
 .zone-floor {
-  fill: rgba(255, 172, 92, 0.08);
-  stroke: rgba(255, 172, 92, 0.42);
-  stroke-width: 1.4;
+  left: 48%;
+  bottom: 20%;
+  background: rgba(255, 172, 92, 0.07);
+  box-shadow: inset 0 0 0 1px rgba(255, 172, 92, 0.2);
 }
 
-.subject-ring {
-  stroke: rgba(121, 212, 231, 0.56);
-  stroke-width: 1.6;
-  transform-origin: center;
-  animation: pulse-ring 2.4s ease-in-out infinite;
+.zone-edge {
+  top: 14%;
+  right: 12%;
 }
 
-.subject-core {
-  fill: rgba(121, 212, 231, 0.95);
-  filter: drop-shadow(0 0 10px rgba(121, 212, 231, 0.4));
+.layer-pose {
+  inset: 7% 13% 16% 24%;
+  transform: translateZ(54px);
+  border: 1px solid rgba(126, 242, 189, 0.14);
+  box-shadow: 0 0 28px rgba(126, 242, 189, 0.05);
 }
+
+.joint,
+.event-node {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--color-ok);
+  box-shadow: 0 0 16px rgba(126, 242, 189, 0.52);
+}
+
+.skeleton-line {
+  position: absolute;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(126, 242, 189, 0.18), rgba(126, 242, 189, 0.86));
+  box-shadow: 0 0 10px rgba(126, 242, 189, 0.34);
+  transform-origin: left center;
+}
+
+.head { left: 48%; top: 18%; }
+.chest { left: 50%; top: 36%; }
+.pelvis { left: 52%; top: 55%; }
+.left-knee { left: 38%; top: 72%; }
+.right-knee { left: 66%; top: 70%; }
+.spine { left: 50%; top: 23%; width: 78px; transform: rotate(84deg); }
+.shoulder { left: 39%; top: 38%; width: 112px; transform: rotate(-2deg); }
+.hip { left: 45%; top: 57%; width: 92px; transform: rotate(4deg); }
+.left-leg { left: 42%; top: 58%; width: 90px; transform: rotate(115deg); }
+.right-leg { left: 58%; top: 58%; width: 86px; transform: rotate(66deg); }
+
+.layer-events {
+  transform: translateZ(108px);
+  pointer-events: none;
+}
+
+.event-lane {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(121, 212, 231, 0.95), transparent);
+  background-size: 240% 100%;
+  box-shadow: 0 0 18px rgba(121, 212, 231, 0.42);
+  animation: lane-scan 2.8s linear infinite;
+}
+
+.scene-shell[data-ready='false'] .event-lane {
+  animation: none;
+  opacity: 0.22;
+}
+
+.lane-a { top: 22%; }
+.lane-b { top: 52%; animation-delay: -0.9s; }
+.lane-c { top: 76%; animation-delay: -1.8s; }
+.node-a { left: 28%; top: 48%; background: var(--color-watch); box-shadow: 0 0 16px rgba(242, 202, 123, 0.45); }
+.node-b { right: 21%; top: 21%; background: var(--color-accent); }
 
 .scene-tag {
   position: absolute;
+  z-index: 2;
   display: grid;
   gap: 4px;
   padding: 10px 12px;
@@ -486,7 +637,6 @@ const boundaryGroups = computed(() => [
   right: 18px;
   max-width: 220px;
 }
-
 
 .page-head p,
 .section-head p,
@@ -768,14 +918,10 @@ const boundaryGroups = computed(() => [
   50% { opacity: 1; transform: scale(1.05); }
 }
 
-@keyframes pulse-ring {
-  0%, 100% { opacity: 0.52; transform: scale(0.96); }
-  50% { opacity: 1; transform: scale(1.04); }
-}
-
-@keyframes dash-flow {
-  0% { stroke-dashoffset: 0; }
-  100% { stroke-dashoffset: -44; }
+@keyframes lane-scan {
+  0% { background-position: 220% 0; opacity: 0.28; }
+  42% { opacity: 0.94; }
+  100% { background-position: -220% 0; opacity: 0.28; }
 }
 
 @keyframes flow {
@@ -831,9 +977,47 @@ const boundaryGroups = computed(() => [
     padding-top: var(--space-3);
   }
 
+  .scene-shell {
+    min-height: 320px;
+  }
+
+  .scene-stack {
+    inset: 62px 36px 86px;
+    transform: rotateX(calc(58deg + var(--scene-tilt-x))) rotateZ(calc(-38deg + var(--scene-tilt-y))) translateY(8px) scale(0.86);
+  }
+
+  .tag-input {
+    max-width: 180px;
+  }
+
+  .tag-pose {
+    left: 18px;
+    bottom: 18px;
+    min-width: 0;
+    max-width: 180px;
+    transform: none;
+  }
+
+  .tag-engine {
+    top: auto;
+    right: 18px;
+    bottom: 18px;
+    max-width: 180px;
+  }
+
   .state-grid .line-row:first-child {
     border-top: none;
     padding-top: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scene-stack,
+  .event-lane,
+  .pipeline-track[data-ready='true'] .pipeline-node:not(:last-child)::after,
+  .status-dot {
+    animation: none;
+    transition: none;
   }
 }
 </style>
