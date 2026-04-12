@@ -48,3 +48,4 @@ wandb/
 checkpoints/
 logs/
 artifacts/
+_local_backups/
