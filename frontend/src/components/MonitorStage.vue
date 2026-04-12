@@ -39,6 +39,7 @@ const ingestSourceLabel = ref('')
 const mainVideoError = ref('')
 const mainVideoRef = ref<HTMLVideoElement | null>(null)
 const preferRawPlayback = ref(false)
+const overlayRequested = ref(false)
 const uploadInputRef = ref<HTMLInputElement | null>(null)
 const isVideoPlaying = ref(false)
 const videoCurrent = ref(0)
@@ -78,13 +79,14 @@ const selectedFeedIndex = computed(() =>
   Math.max(0, props.demoVideos.findIndex((item) => item.filename === props.selectedDemoFilename)),
 )
 
+const showAnnotatedPlayback = computed(() => props.viewMode === 'xray' || overlayRequested.value)
 const hasAnnotatedPlayback = computed(() =>
   Boolean(
     !preferRawPlayback.value
       && !hasLiveSource.value
       && selectedVideo.value?.processing_status === 'ready'
       && selectedVideo.value?.annotated_url
-      && (props.viewMode === 'xray' || selectedVideo.value?.source_kind === 'upload'),
+      && showAnnotatedPlayback.value,
   ),
 )
 const selectedPlaybackUrl = computed(() =>
@@ -345,6 +347,9 @@ function updateClock() {
 
 watch(() => [props.selectedDemoFilename, props.viewMode] as const, () => {
   preferRawPlayback.value = false
+  if (props.viewMode !== 'xray') {
+    overlayRequested.value = false
+  }
   mainVideoError.value = ''
   isVideoPlaying.value = false
   videoCurrent.value = 0
@@ -380,6 +385,15 @@ onBeforeUnmount(() => {
       </div>
       <div class="stage-controls">
         <span class="mode-pill">{{ cameraCode }}</span>
+        <label v-if="!hasLiveSource && selectedVideo?.annotated_url" class="overlay-toggle">
+          <span>算法标绘</span>
+          <a-switch
+            size="small"
+            :model-value="showAnnotatedPlayback"
+            :disabled="viewMode === 'xray'"
+            @change="overlayRequested = Boolean($event)"
+          />
+        </label>
         <a-button size="large" @click="ingestPanelOpen = !ingestPanelOpen">实时接入</a-button>
         <a-button size="large" :loading="uploading" @click="openUploadPicker">上传视频分析</a-button>
         <a-button size="large" @click="emit('reload')">刷新状态</a-button>
@@ -611,6 +625,19 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   gap: var(--space-3);
   align-items: center;
+}
+
+.overlay-toggle {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: var(--color-surface-soft);
+  box-shadow: inset 0 0 0 1px var(--color-line-soft);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .ingest-panel {

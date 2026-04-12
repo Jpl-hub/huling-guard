@@ -5,7 +5,15 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: '/live',
+      redirect: '/matrix',
+    },
+    {
+      path: '/matrix',
+      component: () => import('../views/MatrixWallView.vue'),
+      meta: {
+        title: '态势总览',
+        subtitle: '',
+      },
     },
     {
       path: '/live',
@@ -27,7 +35,7 @@ const router = createRouter({
       path: '/system',
       component: () => import('../views/SystemInfoView.vue'),
       meta: {
-        title: '系统说明',
+        title: '运行引擎',
         subtitle: '',
       },
     },

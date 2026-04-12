@@ -78,43 +78,4 @@ def draw_pose_overlay(frame: np.ndarray, keypoints: np.ndarray, score_threshold:
 
 
 def annotate_snapshot_overlay(frame: np.ndarray, snapshot: PipelineSnapshot | Mapping[str, object]) -> None:
-    if isinstance(snapshot, PipelineSnapshot):
-        predicted_state = snapshot.predicted_state or "warming_up"
-        confidence = float(snapshot.confidence)
-        risk_score = float(snapshot.risk_score)
-        ready = bool(snapshot.ready)
-        window_span_seconds = float(snapshot.window_span_seconds)
-        incidents = [incident.kind for incident in snapshot.incidents]
-    else:
-        predicted_state = str(snapshot.get("predicted_state") or "warming_up")
-        confidence = float(snapshot.get("confidence") or 0.0)
-        risk_score = float(snapshot.get("risk_score") or 0.0)
-        ready = bool(snapshot.get("ready"))
-        window_span_seconds = float(snapshot.get("window_span_seconds") or 0.0)
-        incidents_payload = snapshot.get("incidents") or []
-        incidents = [
-            str(item.get("kind"))
-            for item in incidents_payload
-            if isinstance(item, Mapping) and item.get("kind")
-        ]
-
-    lines = [
-        f"ready: {ready}",
-        f"state: {predicted_state}",
-        f"confidence: {confidence:.3f}",
-        f"risk: {risk_score:.3f}",
-        f"window_span: {window_span_seconds:.2f}s",
-    ]
-    if incidents:
-        lines.append("incidents: " + ", ".join(incidents))
-    for index, line in enumerate(lines):
-        cv2.putText(
-            frame,
-            line,
-            (16, 28 + index * 24),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.65,
-            (255, 255, 255),
-            2,
-            cv2.LINE_AA,
-        )
+    return

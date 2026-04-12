@@ -11,10 +11,12 @@ const route = useRoute()
 
 const pageTitle = computed(() => String(route.meta.title ?? '实时值守'))
 const pageHint = computed(() =>
-  route.path === '/records'
+  route.path === '/matrix'
+    ? '总览监看源、输入状态和风险分布。'
+    : route.path === '/records'
     ? '查看留档过程与关键时刻。'
     : route.path === '/system'
-      ? '查看接入方式、判断主链和运行口径。'
+      ? '查看处理管线、阈值和质量控制。'
       : '查看当前状态、最近变化和处理建议。',
 )
 const modeModel = computed({

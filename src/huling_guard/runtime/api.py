@@ -708,6 +708,10 @@ def create_runtime_app(
     def dashboard() -> HTMLResponse:
         return HTMLResponse(dashboard_html)
 
+    @app.get("/", response_class=HTMLResponse)
+    def dashboard_root() -> HTMLResponse:
+        return HTMLResponse(dashboard_html)
+
     @app.get("/demo-videos")
     def demo_videos() -> dict[str, object]:
         if resolved_demo_video_root is not None:

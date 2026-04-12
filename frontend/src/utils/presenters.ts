@@ -30,12 +30,12 @@ const incidentLabels: Record<string, string> = {
 }
 
 const incidentActions: Record<string, string> = {
-  near_fall_warning: '先看画面',
-  confirmed_fall: '立即到场',
-  prolonged_lying: '立即到场',
-  recovery_detected: '继续观察',
-  recovery: '继续观察',
-  peak_risk_moment: '回看确认',
+  near_fall_warning: '尽快远程核查',
+  confirmed_fall: '立即前往现场',
+  prolonged_lying: '立即前往现场',
+  recovery_detected: '继续观察后续动作',
+  recovery: '继续观察后续动作',
+  peak_risk_moment: '回放复核',
 }
 
 export function stateLabel(state: GuardState): string {
@@ -123,19 +123,51 @@ export function formatArchiveTime(value: string | null | undefined): string {
   })
 }
 
+export function formatArchiveMoment(value: string | null | undefined): string {
+  if (!value) {
+    return '-'
+  }
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return '-'
+  }
+  const month = String(parsed.getMonth() + 1).padStart(2, '0')
+  const day = String(parsed.getDate()).padStart(2, '0')
+  const hour = String(parsed.getHours()).padStart(2, '0')
+  const minute = String(parsed.getMinutes()).padStart(2, '0')
+  return `${month}月${day}日 ${hour}:${minute}`
+}
+
+function normalizeReadableName(value: string | null | undefined): string | null {
+  const normalized = String(value ?? '')
+    .replace(/\.[a-z0-9]+$/i, '')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+  return normalized || null
+}
+
 export function archiveDisplayName(
   sessionName: string | null | undefined,
   archivedAt: string | null | undefined,
   fallback: string | null | undefined = null,
 ): string {
   const normalized = String(sessionName ?? '').trim()
-  if (normalized && !/^runtime(_|$)/i.test(normalized) && !/^session[_-]/i.test(normalized)) {
-    return normalized
+  const timeLabel = formatArchiveMoment(archivedAt)
+
+  if (/^upload_/i.test(normalized) || /^runtime(_|$)/i.test(normalized) || /^session[_-]/i.test(normalized)) {
+    return timeLabel === '-' ? '留档分析 · 监控切片' : `留档分析 · ${timeLabel} 监控切片`
   }
-  if (fallback) {
-    return fallback
+
+  const readableFallback = normalizeReadableName(fallback)
+  if (readableFallback) {
+    return readableFallback
   }
-  const timeLabel = formatArchiveTime(archivedAt)
+
+  const readableName = normalizeReadableName(normalized)
+  if (readableName) {
+    return readableName
+  }
+
   return timeLabel === '-' ? '回看记录' : `回看记录 · ${timeLabel}`
 }
 
@@ -437,7 +469,7 @@ export function buildQuickAnswers(
   if (!display.ready) {
     return [
       { label: '当前是否安全', value: '等待连续结论', detail: '系统正在建立第一段连续判断', tone: 'neutral' },
-      { label: '是否需要过去', value: '先持续观察', detail: '暂时不用处理', tone: 'neutral' },
+      { label: '是否需要过去', value: '继续观察', detail: '暂时不用处理', tone: 'neutral' },
       { label: '最近发生了什么', value: '分析已经开始', detail: '等时序窗口稳定后给正式结论', tone: 'neutral' },
     ]
   }
@@ -455,10 +487,10 @@ export function buildQuickAnswers(
     display.predictedState === 'recovery'
       ? '继续观察'
       : tone === 'alert'
-        ? '现在就去看'
+        ? '立即前往现场'
         : tone === 'watch'
-          ? '尽快确认'
-          : '暂时不用过去'
+          ? '尽快远程核查'
+          : '继续值守'
   const recent =
     display.lastIncident != null
       ? `${incidentLabel(display.lastIncident.kind)} · ${formatTimestamp(display.lastIncident.timestamp)}`
@@ -507,8 +539,8 @@ export function buildVerdict(display: DisplayState): {
     return {
       badge: '立即处理',
       title: display.predictedState === 'fall' ? '建议马上到场查看' : '建议马上查看长卧情况',
-      action: '现在过去',
-      detail: '这段画面已经出现需要处理的高风险过程。',
+      action: '立即前往现场核实',
+      detail: '这段画面已经进入高风险处置区间。',
       steps: ['先到现场确认人员状态', '处理完成后保存这段画面'],
     }
   }
@@ -517,7 +549,7 @@ export function buildVerdict(display: DisplayState): {
     return {
       badge: '尽快确认',
       title: '先确认是否已经失衡',
-      action: '先看画面，再决定是否过去',
+      action: '先远程核查，必要时立即到场',
       detail: '当前风险明显抬高，但还不是最终跌倒结论。',
       steps: ['先确认人员是否已经站稳', '如果动作继续恶化就立即到场'],
     }
@@ -527,7 +559,7 @@ export function buildVerdict(display: DisplayState): {
     return {
       badge: '继续观察',
       title: '当前像是在恢复起身',
-      action: '继续看 5 到 10 秒',
+      action: '继续观察后续动作',
       detail: '目前不属于高风险告警，但还要继续看后续动作。',
       steps: ['确认人员是否回到正常活动', '如果再次失衡就重新判断'],
     }
