@@ -39,7 +39,13 @@ const uploadSourceCount = computed(() => uploadSources.value.length)
 const processingUploadCount = computed(() =>
   uploadSources.value.filter((item) => item.processing_status === 'processing').length,
 )
+const removableUploadCount = computed(() =>
+  uploadSources.value.filter((item) => item.processing_status !== 'processing').length,
+)
 const archiveCount = computed(() => Number(store.state.archiveSummary?.archive_total ?? 0))
+const quietArchiveCount = computed(() =>
+  Math.max(archiveCount.value - Number(store.state.archiveSummary?.sessions_with_incidents ?? 0), 0),
+)
 const latestIncident = computed(() => store.displayIncidents.value[0] ?? store.displayState.value.lastIncident)
 
 const globalAlert = computed(() => {
@@ -136,6 +142,26 @@ function openMatrix(): void {
 
 function triggerRefresh(): void {
   void store.refresh()
+}
+
+function clearUploads(): void {
+  if (!removableUploadCount.value) {
+    return
+  }
+  if (!window.confirm(`确定要清理 ${removableUploadCount.value} 路可移除上传源吗？已被留档引用的视频会自动保留。`)) {
+    return
+  }
+  void store.clearRemovableUploadSources()
+}
+
+function clearQuietRecords(): void {
+  if (!quietArchiveCount.value) {
+    return
+  }
+  if (!window.confirm(`确定要清理 ${quietArchiveCount.value} 条无提醒留档吗？`)) {
+    return
+  }
+  void store.clearQuietArchives()
 }
 
 function handleFirstInteraction(): void {
@@ -271,6 +297,43 @@ onBeforeUnmount(() => {
             <a-button size="large" @click="openRecords">查看历史回看</a-button>
             <a-button size="large" @click="openMatrix">返回态势总览</a-button>
             <a-button size="large" @click="triggerRefresh">刷新全部状态</a-button>
+          </div>
+        </section>
+
+        <section class="drawer-section">
+          <header>
+            <strong>存储清理</strong>
+            <span>清理已分析完的上传源与无提醒留档</span>
+          </header>
+          <div class="drawer-stats cleanup-stats">
+            <article>
+              <small>可移除上传源</small>
+              <strong>{{ removableUploadCount }}</strong>
+              <span>{{ removableUploadCount ? '会自动保留已被留档引用的视频' : '当前没有可清理上传源' }}</span>
+            </article>
+            <article>
+              <small>可清理普通留档</small>
+              <strong>{{ quietArchiveCount }}</strong>
+              <span>{{ quietArchiveCount ? '仅移除未触发正式提醒的留档' : '当前没有可清理普通留档' }}</span>
+            </article>
+          </div>
+          <div class="drawer-actions cleanup-actions">
+            <a-button
+              size="large"
+              :loading="store.state.bulkRemovingSources"
+              :disabled="!removableUploadCount"
+              @click="clearUploads"
+            >
+              清理可移除上传源
+            </a-button>
+            <a-button
+              size="large"
+              :loading="store.state.bulkRemovingArchives"
+              :disabled="!quietArchiveCount"
+              @click="clearQuietRecords"
+            >
+              清理无提醒留档
+            </a-button>
           </div>
         </section>
 
@@ -520,6 +583,14 @@ onBeforeUnmount(() => {
 .drawer-actions {
   display: grid;
   gap: var(--space-3);
+}
+
+.cleanup-stats {
+  margin-top: calc(var(--space-2) * -1);
+}
+
+.cleanup-actions :deep(.arco-btn) {
+  justify-content: flex-start;
 }
 
 .drawer-rules {
